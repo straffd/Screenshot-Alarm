@@ -13,11 +13,13 @@ Screenshots are read by Google Gemini (free tier).
    Czech Liga Pro) and turn the copying on or off in ⚙ Settings.
 5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click an alarm to tag it.
    Tags show next to OVER/UNDER. You can also create a new tag straight from an alarm.
+6. Alarms are removed automatically a few hours after their match starts (3 by default). Change the number,
+   or set 0 to keep them, in ⚙ Settings → Remove old alarms.
 
 Keep the tab open for alarms to ring.
 
 ## Where your data is kept
-- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, Ladbrokes links, tags and Gemini settings
+- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, old-alarm removal time, Ladbrokes links, tags and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
   Only you can read them. Whether the alarm list is open stays per device.
   Signing out removes your data from that browser. It stays in your account.
