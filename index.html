@@ -1287,7 +1287,7 @@ function tickTracker(){
   const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
   const dayStart = midnight.getTime() - 864e5;
   if(showTime){
-    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], { ...clockOpts(), second:'2-digit' }); }
+    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], clockOpts()); }
     else {
       let s = Math.max(0, Math.floor((midnight - now) / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60;
       $('#plTime').title = 'Time until P/L resets at 12 AM'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
