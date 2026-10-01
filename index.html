@@ -130,6 +130,11 @@ body.has-bg #bgClear{display:inline-block}
 .drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
 .composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+/* No API key yet: a button at the top middle of the chat (of the part not covered by panels) */
+.keycta{position:absolute;top:14px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
+  background:var(--yellow);color:#1a1a1a;font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
+.keycta[hidden]{display:none}
+@media (max-width:860px){.keycta{top:72px;left:50%} .chat:has(#keyCta:not([hidden])) .log{padding-top:124px !important}}
 .send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
@@ -472,6 +477,7 @@ button.tag{cursor:pointer}
 <div class="main">
   <section class="chat">
     <div class="chatbg" aria-hidden="true"></div>
+    <button class="keycta" id="keyCta" hidden>Gemini settings: add your API key</button>
     <div class="pltab" id="plTab"><div class="pltab-in">
       <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
       <span class="sep" id="plSep" aria-hidden="true">|</span>
@@ -1907,6 +1913,10 @@ function fillSettings(){
 }
 $('#mode').onchange = showMode;
 $('#openSettings').onclick = () => { closeModal($('#hud')); fillSettings(); openModal('#settingsModal'); };
+// Shown only while there's no API key (or server) to read screenshots with
+function keyCta(){ $('#keyCta').hidden = ready(); }
+$('#keyCta').onclick = () => { fillSettings(); openModal('#settingsModal'); setTimeout(() => ($('#mode').value === 'server' ? $('#serverUrl') : $('#apiKey')).focus(), 50); };
+keyCta();
 $('#testConn').onclick = async () => {
   const out = $('#testOut'), key = $('#apiKey').value.trim(), server = $('#mode').value === 'server';
   const url = $('#serverUrl').value.trim().replace(/\/+$/, '');
@@ -1932,7 +1942,7 @@ $('#testConn').onclick = async () => {
 };
 $('#saveSettings').onclick = () => {
   settings = { mode: $('#mode').value, server: $('#serverUrl').value.trim(), pass: $('#serverPass').value, model: GEMINI.model, backup: GEMINI.backup, key: $('#apiKey').value.trim() };
-  store.set('tt.settings', settings); closeModal($('#settingsModal'));
+  store.set('tt.settings', settings); closeModal($('#settingsModal')); keyCta();
   addMsg('bot', `Settings saved. Screenshots are read with ${GEMINI.model}, through ${settings.mode === 'server' ? 'your server' : 'your own key'}.`);
 };
 
@@ -2143,7 +2153,7 @@ const userRef = () => sync.fb.F.doc(sync.fb.db, 'users', sync.user.uid);
 function refreshFromStore(){
   sync.applying = true;
   try{
-    settings = normSettings(store.get('tt.settings', {}));
+    settings = normSettings(store.get('tt.settings', {})); keyCta();
     alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
     lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
     soundName = (SOUNDS[store.get('tt.sound', 'beep')] || isCustom(store.get('tt.sound', 'beep'))) ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName; showSoundDel();
