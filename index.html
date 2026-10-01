@@ -157,6 +157,32 @@ body.has-bg #bgClear{display:inline-block}
 .ring-sheet .big{font:700 26px/1.2 var(--cond);margin:8px 0}
 .ring-sheet .send{margin-top:14px;width:100%}
 
+/* Landing / sign-in page */
+.landing{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;overflow:auto;
+  background:radial-gradient(1200px 600px at 20% 0%,rgba(90,167,239,.16),transparent 60%),radial-gradient(900px 500px at 100% 100%,rgba(242,194,48,.10),transparent 60%),#121417}
+.landing[hidden]{display:none}
+.landing-card{width:min(440px,100%);background:rgba(30,33,37,.86);border:1px solid #30353b;border-radius:18px;padding:34px 30px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);color:#ebe9e4}
+.landing-logo{width:84px;height:84px;border-radius:50%;display:block;margin:0 auto 16px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.landing h1{margin:0 0 6px;font:700 32px/1.1 var(--cond);letter-spacing:.01em}
+.landing .tagline{margin:0 0 22px;color:#8b9099}
+.landing ul{list-style:none;margin:0 0 26px;padding:0;text-align:left;display:grid;gap:10px;font-size:14px}
+.landing li{display:flex;gap:10px;align-items:flex-start}
+.landing li::before{content:"";flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%;background:var(--yellow)}
+.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;height:46px;border-radius:23px;border:1px solid #dadce0;background:#fff;color:#1f1f1f;font:500 15px var(--sans)}
+.gbtn:hover{background:#f7f8f8}
+.gbtn:disabled{opacity:.55;cursor:default}
+.guest{margin-top:14px;background:none;border:none;color:#ebe9e4;text-decoration:underline;text-underline-offset:3px;font-size:14px}
+.landing .small{margin:6px 0 0;font-size:12.5px;color:#8b9099}
+.landing .lerr{margin:14px 0 0;font-size:13px;color:var(--red);min-height:1em}
+/* Account controls in the top bar */
+.account{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.account img,.account .initial{width:28px;height:28px;border-radius:50%;flex:none}
+.account .initial{display:grid;place-items:center;background:var(--panel-2);color:var(--text);font-weight:600}
+.account .who{color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.syncdot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
+.syncdot.busy{background:var(--yellow)}
+.syncdot.err{background:var(--red)}
+
 @media (max-width:860px){
   .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .chat{border-right:none;border-bottom:1px solid var(--line)}
@@ -173,6 +199,28 @@ body.has-bg #bgClear{display:inline-block}
 </style>
 </head>
 <body>
+
+<!-- Landing / sign-in page, shown before the app until someone signs in or chooses to continue without an account -->
+<div class="landing" id="landing" hidden>
+  <div class="landing-card">
+    <img class="landing-logo" src="apple-touch-icon.png" alt="">
+    <h1>TT Alarm Bot</h1>
+    <p class="tagline">Screenshot a table tennis match. Get an alarm before it starts.</p>
+    <ul>
+      <li>Reads the players, start time, over/under and edge straight from your screenshots.</li>
+      <li>Rings in your browser a few minutes before each match.</li>
+      <li>Sign in to keep your alarms, background and settings on every device.</li>
+    </ul>
+    <button class="gbtn" id="googleSignIn">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <p class="small" id="signInNote"></p>
+    <button class="guest" id="continueGuest">Continue without an account</button>
+    <p class="small">Without an account, everything is saved on this device only.</p>
+    <p class="lerr" id="landingErr" role="alert"></p>
+  </div>
+</div>
 
 <div class="top" id="top">
   <div class="brand"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</div>
@@ -210,6 +258,7 @@ body.has-bg #bgClear{display:inline-block}
     <input type="file" id="bgFile" accept="image/*" hidden>
   </div>
   <button class="ghost" id="openSettings">Gemini settings</button>
+  <div class="account" id="account"></div>
   </div>
 </div>
 
@@ -297,7 +346,9 @@ body.has-bg #bgClear{display:inline-block}
 /* ---------- Storage ---------- */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  set(k, v){ let ok = false; try{ localStorage.setItem(k, JSON.stringify(v)); ok = true; }catch(e){} store.onSet && store.onSet(k); return ok; },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); },
+  onSet: null   // set by Google account sync while signed in
 };
 const GEMINI = { model:'gemini-3.5-flash', backup:'gemini-3.8-flash',
   modelHint:'Use a Flash model, e.g. gemini-3.5-flash. Flash models are on the free tier.',
@@ -307,8 +358,7 @@ const GEMINI = { model:'gemini-3.5-flash', backup:'gemini-3.8-flash',
 const SERVER_URL = '';
 
 // settings = { mode:'server'|'key', server, pass, model, backup, key }
-let settings = (() => {
-  const old = store.get('tt.settings', {});
+function normSettings(old){
   let g = old.byProvider ? old.byProvider.gemini || {}          // multi-provider format
         : (!old.provider || old.provider === 'gemini') ? old : {};  // original and current format
   const out = { model: g.model || GEMINI.model, backup: g.backup ?? GEMINI.backup, key: g.key || '',
@@ -319,7 +369,8 @@ let settings = (() => {
   if(out.model === 'gemini-3.8-flash' && /^gemini-3\.(1|5)-flash-lite$/.test(out.backup)){ out.model = GEMINI.model; out.backup = GEMINI.backup; }
   if(out.backup === 'gemini-3.1-flash-lite') out.backup = GEMINI.backup;
   return out;
-})();
+}
+let settings = normSettings(store.get('tt.settings', {}));
 store.set('tt.settings', settings);
 const active = () => settings;
 const ready = () => settings.mode === 'server' ? !!settings.server : !!settings.key;
@@ -455,7 +506,7 @@ applyTheme(uiTheme);
 const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
 $('#uiColor').oninput = saveTheme;
 $('#uiAlpha').oninput = saveTheme;
-$('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); try{ localStorage.removeItem('tt.theme'); }catch(e){} };
+$('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); store.del('tt.theme'); };
 
 /* ---------- Chat background ---------- */
 function applyBg(url){
@@ -477,7 +528,7 @@ $('#bgFile').onchange = e => {
   };
   r.readAsDataURL(f);
 };
-$('#bgClear').onclick = () => { applyBg(null); try{ localStorage.removeItem('tt.bg'); }catch(e){} };
+$('#bgClear').onclick = () => { applyBg(null); store.del('tt.bg'); };
 
 /* ---------- LLM ---------- */
 const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
@@ -955,6 +1006,212 @@ setInterval(() => {
     if(a && !a.fired) el.textContent = countdown(a.ring);
   });
 }, 1000);
+
+/* ---------- Google account: sign-in and sync (Firebase) ----------
+   Paste your Firebase web app config here (Firebase console → Project settings → Your apps).
+   These values are not secret; the rules in firestore.rules keep each account's data private.
+   Leave it as null and the site works as before, with everything saved on the device only. */
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDD5sUmtmA6qf5ofnWpz9tDt7furNhN_58',
+  authDomain: 'ttalert.firebaseapp.com',
+  projectId: 'ttalert',
+  storageBucket: 'ttalert.firebasestorage.app',
+  messagingSenderId: '565229627738',
+  appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
+};
+const FIREBASE_VERSION = '12.19.0';
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings'];   // users/{uid} fields; alarms and background are separate docs
+const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
+const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
+
+async function loadFirebase(){
+  if(sync.fb) return sync.fb;
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [app, auth, fs] = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map(f => import(base + f)));
+  const a = app.initializeApp(FIREBASE_CONFIG);
+  sync.fb = { A: auth, F: fs, auth: auth.getAuth(a), db: fs.getFirestore(a) };
+  auth.getRedirectResult(sync.fb.auth).catch(e => { $('#landingErr').textContent = 'Sign-in didn\'t work: ' + e.message; });
+  auth.onAuthStateChanged(sync.fb.auth, user => {
+    if(user){ store.set('tt.mode', 'google'); showLanding(false); startSync(user); }
+    else if(store.get('tt.mode', null) === 'google'){ store.del('tt.mode'); showLanding(true); }   // signed out elsewhere or session expired
+  });
+  return sync.fb;
+}
+const userRef = () => sync.fb.F.doc(sync.fb.db, 'users', sync.user.uid);
+
+// Re-read everything from local storage after remote data has been written into it
+function refreshFromStore(){
+  sync.applying = true;
+  try{
+    settings = normSettings(store.get('tt.settings', {}));
+    alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
+    lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
+    soundName = SOUNDS[store.get('tt.sound', 'beep')] ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName;
+    uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
+    applyBg(store.get('tt.bg', null));
+    render();
+  } finally { sync.applying = false; }
+}
+const setRaw = (k, v) => { try{ v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); }catch(e){} };
+
+function syncState(state, why){
+  const d = $('#syncDot'); if(!d) return;
+  d.className = 'syncdot' + (state === 'busy' ? ' busy' : state === 'err' ? ' err' : '');
+  d.title = state === 'busy' ? 'Saving to your Google account…' : state === 'err' ? 'Couldn\'t save to your account: ' + (why || 'unknown error') : 'Saved to your Google account';
+}
+
+// Local change → push to Firestore (debounced)
+store.onSet = k => {
+  if(!sync.user || sync.applying || !(PREF_KEYS.includes(k) || k === 'tt.alarms' || k === 'tt.bg')) return;
+  sync.pending.add(k); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500); syncState('busy');
+};
+async function flush(){
+  if(!sync.user) return;
+  const keys = [...sync.pending]; sync.pending.clear();
+  const { F, db } = sync.fb, uref = userRef();
+  sync.busy++;
+  try{
+    const prefs = keys.filter(k => PREF_KEYS.includes(k));
+    if(prefs.length){
+      const data = { updated: Date.now() };
+      prefs.forEach(k => data[k.slice(3)] = localStorage.getItem(k));   // raw JSON text (null = removed)
+      await F.setDoc(uref, data, { merge:true });
+    }
+    if(keys.includes('tt.bg')){
+      const v = localStorage.getItem('tt.bg'), ref = F.doc(uref, 'blobs', 'bg');
+      if(!v) await F.deleteDoc(ref);
+      else if(v.length < MAX_DOC) await F.setDoc(ref, { v });
+      else addMsg('bot', 'This background is too large to save to your account, so it will only show on this device.', { err:true });
+    }
+    if(keys.includes('tt.alarms')){
+      const list = store.get('tt.alarms', []), now = new Map();
+      list.forEach(a => { let j = JSON.stringify(a); if(j.length >= MAX_DOC) j = JSON.stringify({ ...a, img:'' }); now.set(a.id, j); });
+      const ops = [];
+      now.forEach((j, id) => { if(sync.lastAlarms.get(id) !== j) ops.push(b => b.set(F.doc(uref, 'alarms', id), { v:j })); });
+      sync.lastAlarms.forEach((j, id) => { if(!now.has(id)) ops.push(b => b.delete(F.doc(uref, 'alarms', id))); });
+      sync.lastAlarms = now;
+      for(let i = 0; i < ops.length; i += 20){ const b = F.writeBatch(db); ops.slice(i, i+20).forEach(op => op(b)); await b.commit(); }
+    }
+    if(!--sync.busy && !sync.pending.size) syncState('ok');
+  }catch(e){ sync.busy--; syncState('err', e.message); }
+}
+
+// Signed in → pull the account's data, merge, then keep listening for changes from other devices
+async function startSync(user){
+  if(sync.user && sync.user.uid === user.uid) return;
+  sync.user = user; renderAccount(); syncState('busy');
+  const { F } = sync.fb, uref = userRef();
+  try{
+    const [usnap, asnap, bsnap] = await Promise.all([F.getDoc(uref), F.getDocs(F.collection(uref, 'alarms')), F.getDoc(F.doc(uref, 'blobs', 'bg'))]);
+    const sameAccount = store.get('tt.syncUid', null) === user.uid;   // this browser already mirrors this account
+    const remote = new Map(asnap.docs.map(d => [d.id, d.data().v]));
+    const push = new Set();
+    if(usnap.exists()){
+      const u = usnap.data();
+      PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u) setRaw(k, u[f]); else if(localStorage.getItem(k) != null) push.add(k); });
+      if(bsnap.exists()) setRaw('tt.bg', bsnap.data().v);
+      else if(sameAccount) setRaw('tt.bg', null);
+      else if(localStorage.getItem('tt.bg')) push.add('tt.bg');
+    } else {
+      PREF_KEYS.forEach(k => push.add(k)); push.add('tt.bg');            // brand-new account: upload this device's setup
+    }
+    // Alarms: the account is the source of truth; alarms made here before signing in are added to it
+    const merged = new Map(), local = store.get('tt.alarms', []);
+    if(!sameAccount) local.forEach(a => merged.set(a.id, JSON.stringify(a)));
+    remote.forEach((j, id) => merged.set(id, j));
+    setRaw('tt.alarms', '[' + [...merged.values()].join(',') + ']');
+    sync.lastAlarms = remote; push.add('tt.alarms');
+    store.set('tt.syncUid', user.uid);
+    refreshFromStore();
+    push.forEach(k => sync.pending.add(k)); await flush();
+    listen();
+  }catch(e){ syncState('err', e.message); addMsg('bot', 'Couldn\'t load your account data: ' + e.message, { err:true }); }
+}
+
+function listen(){
+  const { F } = sync.fb, uref = userRef();
+  const skip = snap => snap.metadata.hasPendingWrites;
+  sync.unsubs.push(F.onSnapshot(uref, snap => {
+    if(skip(snap) || !snap.exists()) return;
+    const u = snap.data(); let changed = false;
+    PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u && !sync.pending.has(k) && localStorage.getItem(k) !== u[f]){ setRaw(k, u[f]); changed = true; } });
+    if(changed) refreshFromStore();
+  }));
+  sync.unsubs.push(F.onSnapshot(F.collection(uref, 'alarms'), snap => {
+    if(skip(snap) || sync.pending.has('tt.alarms')) return;
+    const remote = new Map(snap.docs.map(d => [d.id, d.data().v]));
+    const same = remote.size === sync.lastAlarms.size && [...remote].every(([id, j]) => sync.lastAlarms.get(id) === j);
+    if(same) return;
+    sync.lastAlarms = remote; setRaw('tt.alarms', '[' + [...remote.values()].join(',') + ']'); refreshFromStore();
+  }));
+  sync.unsubs.push(F.onSnapshot(F.doc(uref, 'blobs', 'bg'), snap => {
+    if(skip(snap) || sync.pending.has('tt.bg')) return;
+    const v = snap.exists() ? snap.data().v : null;
+    if(localStorage.getItem('tt.bg') !== v){ setRaw('tt.bg', v); refreshFromStore(); }
+  }));
+}
+
+function renderAccount(){
+  const box = $('#account'); box.innerHTML = '';
+  if(!FIREBASE_CONFIG) return;
+  if(!sync.user){
+    const b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Sign in with Google';
+    b.onclick = signIn; box.appendChild(b); return;
+  }
+  const u = sync.user, name = u.displayName || u.email || 'Signed in';
+  if(u.photoURL){ const i = document.createElement('img'); i.src = u.photoURL; i.alt = ''; i.referrerPolicy = 'no-referrer'; box.appendChild(i); }
+  else { const i = document.createElement('span'); i.className = 'initial'; i.textContent = name[0].toUpperCase(); box.appendChild(i); }
+  const w = document.createElement('span'); w.className = 'who'; w.textContent = name; w.title = u.email || name; box.appendChild(w);
+  const d = document.createElement('span'); d.className = 'syncdot'; d.id = 'syncDot'; box.appendChild(d);
+  const o = document.createElement('button'); o.className = 'ghost'; o.textContent = 'Sign out'; o.onclick = signOut; box.appendChild(o);
+  syncState(sync.busy || sync.pending.size ? 'busy' : 'ok');
+}
+
+const showLanding = on => { $('#landing').hidden = !on; };
+async function signIn(){
+  $('#landingErr').textContent = '';
+  try{
+    const { A, auth } = await loadFirebase(), provider = new A.GoogleAuthProvider();
+    try{ await A.signInWithPopup(auth, provider); }
+    catch(e){
+      if(e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'){
+        store.set('tt.mode', 'google'); return A.signInWithRedirect(auth, provider);
+      }
+      throw e;
+    }
+    // onAuthStateChanged takes it from here
+  }catch(e){
+    if(e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    $('#landingErr').textContent = 'Sign-in didn\'t work: ' + (e.message || e);
+    if($('#landing').hidden) addMsg('bot', 'Sign-in didn\'t work: ' + (e.message || e), { err:true });
+  }
+}
+async function signOut(){
+  clearTimeout(sync.timer); if(sync.pending.size) await flush().catch(() => {});
+  sync.unsubs.forEach(u => u()); sync.unsubs = [];
+  try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
+  // Remove this account's data from the browser so the next person starts clean
+  ['tt.alarms', 'tt.bg', 'tt.syncUid', 'tt.mode', ...PREF_KEYS].forEach(k => setRaw(k, null));
+  location.reload();
+}
+
+$('#googleSignIn').onclick = signIn;
+$('#continueGuest').onclick = () => { store.set('tt.mode', 'guest'); showLanding(false); };
+(async () => {
+  const mode = store.get('tt.mode', null);
+  if(!FIREBASE_CONFIG){
+    $('#googleSignIn').disabled = true; $('#signInNote').textContent = 'Google sign-in isn\'t set up on this site yet.';
+    if(mode !== 'guest') showLanding(true);
+    return;
+  }
+  if(mode !== 'guest' && mode !== 'google') showLanding(true);
+  renderAccount();
+  if(mode === 'guest') return;   // guests only load Firebase if they press Sign in
+  try{ await loadFirebase(); }
+  catch(e){
+    $('#landingErr').textContent = 'Couldn\'t reach Google sign-in. Check your connection and reload.';
+  }
+})();
 
 render();
 </script>
