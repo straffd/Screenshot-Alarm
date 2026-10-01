@@ -304,6 +304,32 @@ button.tag{cursor:pointer}
 .pnl.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s,right .25s,width .25s}
 .pnl .hsum{color:var(--muted);font-size:13px}
 .histlist{display:flex;flex-direction:column;gap:10px}
+/* Friends + profiles */
+.pfp{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2);display:grid;place-items:center;font-weight:700;color:var(--text);border:1px solid var(--line)}
+.pfp.big{width:64px;height:64px;font-size:26px}
+.pfp.small{width:28px;height:28px;font-size:13px}
+.badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:700 11px var(--sans);margin-left:6px}
+.badge[hidden]{display:none}
+.ftabs{margin:0 18px 10px}
+.frow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--line);margin-bottom:8px}
+.frow.click{cursor:pointer}
+.frow.click:hover{border-color:var(--muted)}
+.frow .who{flex:1;min-width:0}
+.frow .who b{display:block;font:600 15px var(--cond)}
+.frow .who small{color:var(--muted);font-size:12.5px}
+.frow .ghost{padding:5px 10px}
+.fnote{color:var(--muted);font-size:13px;margin:4px 0 12px}
+.fsec{font:600 13px var(--sans);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
+.fform{display:grid;gap:12px}
+.fform .pick{display:flex;align-items:center;gap:14px}
+.fform input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:15px}
+.fmsg{font-size:13px;min-height:1em}
+.fmsg.err{color:var(--red)} .fmsg.ok{color:var(--green)}
+.pf-head{display:flex;align-items:center;gap:14px;padding:0 0 14px}
+.pf-head b{font:700 22px var(--cond)}
+.card .copy{font:700 12.5px var(--cond);letter-spacing:.04em;border:1px solid var(--blue);color:var(--blue);background:none;border-radius:5px;padding:5px 10px;align-self:center}
+.card .copy:disabled{border-color:var(--line);color:var(--muted);cursor:default}
+.card .have{font-size:12px;color:var(--muted)}
 .main.rail-collapsed{--rail-w:48px}
 .pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
 .pnl h3{margin:0;font:600 20px var(--cond);flex:1}
@@ -399,7 +425,7 @@ button.tag{cursor:pointer}
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
   <div class="toolbar" id="toolbar" hidden>
-    <button class="ghost" disabled title="Coming soon">Friends <span class="soon">Soon</span></button>
+    <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
     <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false">History</button>
     <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
   </div>
@@ -436,6 +462,24 @@ button.tag{cursor:pointer}
     </h2>
     <div class="list" id="list"></div>
   </aside>
+  <section class="pnl" id="friends" aria-labelledby="friendsTitle" aria-hidden="true">
+    <header>
+      <h3 id="friendsTitle">Friends</h3>
+      <button class="close" id="friendsClose" aria-label="Close friends">×</button>
+    </header>
+    <div class="seg ftabs" role="group" aria-label="Friends sections" id="fTabs">
+      <button data-t="list" aria-pressed="true">Friends</button><button data-t="requests" aria-pressed="false">Requests</button><button data-t="add" aria-pressed="false">Add</button><button data-t="me" aria-pressed="false">My profile</button>
+    </div>
+    <div class="pnl-body" id="fBody"></div>
+    <input type="file" id="pfpFile" accept="image/*" hidden>
+  </section>
+  <section class="pnl" id="profile" aria-labelledby="pfTitle" aria-hidden="true">
+    <header>
+      <h3 id="pfTitle">Profile</h3>
+      <button class="close" id="profileClose" aria-label="Close profile">×</button>
+    </header>
+    <div class="pnl-body" id="pfBody"></div>
+  </section>
   <section class="pnl" id="hist" aria-labelledby="histTitle" aria-hidden="true">
     <header>
       <h3 id="histTitle">History</h3>
@@ -1092,6 +1136,7 @@ let sideArmed = null, sideTimer = null;   // OVER/UNDER switches only on a secon
 function render(){
   if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
   renderHistory();   // keeps the History panel current when it's open
+  if(social && social.view) renderProfile();
   $('#railLabel').textContent = 'Alarms';
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
@@ -1104,7 +1149,7 @@ function render(){
     c.innerHTML = `
       <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
-      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before</div>
+      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}</div>
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
@@ -1430,8 +1475,8 @@ function setSlide(key, open){
   const sl = SLIDES[key], el = $(sl.el);
   slideOrder = slideOrder.filter(k => k !== key); if(open) slideOrder.push(key);
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
-  $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open);
-  layoutSlides(); if(open) sl.onOpen();
+  if(key !== 'profile'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
+  layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
 }
 function layoutSlides(){
   const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
@@ -1587,7 +1632,7 @@ document.addEventListener('keydown', e => { if(e.key==='Escape'){ if(document.qu
 function openViewer(a){
   viewing = a.id; renderViewerTags();
   $('#viewerTitle').textContent = `${a.name}${a.league ? ' · ' + a.league : ''} · ${fmtTime(a.start)}`;
-  $('#viewerImg').src = a.img;
+  $('#viewerImg').src = a.img || ''; $('#viewerImg').hidden = !a.img;
   openModal('#viewer');
 }
 
@@ -1895,6 +1940,7 @@ async function flush(){
       for(let i = 0; i < ops.length; i += 20){ const b = F.writeBatch(db); ops.slice(i, i+20).forEach(op => op(b)); await b.commit(); }
     }
     if(!--sync.busy && !sync.pending.size) syncState('ok');
+    if(keys.includes('tt.alarms') || keys.includes('tt.history')) publishSoon();
   }catch(e){ sync.busy--; syncState('err', e.message); }
 }
 
@@ -1927,6 +1973,7 @@ async function startSync(user){
     refreshFromStore();
     push.forEach(k => sync.pending.add(k)); await flush();
     listen();
+    startSocial(user.uid);
   }catch(e){ syncState('err', e.message); addMsg('bot', 'Couldn\'t load your account data: ' + e.message, { err:true }); }
 }
 
@@ -1960,8 +2007,9 @@ function renderAccount(){
     const b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Sign in with Google';
     b.onclick = signIn; box.appendChild(b); return;
   }
-  const u = sync.user, name = u.displayName || u.email || 'Signed in';
-  const pic = avatar(u); pic.title = `Signed in as ${name}${u.email && u.email !== name ? ' (' + u.email + ')' : ''}`; box.appendChild(pic);
+  if(social && social.me){ const pic = pfpEl(social.me, 'small'); pic.title = 'Signed in as @' + social.me.username; box.appendChild(pic);
+    const w = document.createElement('span'); w.className = 'who'; w.textContent = '@' + social.me.username; box.appendChild(w); }
+  else { const b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Set up your profile'; b.onclick = () => { closeModal($('#hud')); openFriends('me'); }; box.appendChild(b); }
   const d = document.createElement('span'); d.className = 'syncdot'; d.id = 'syncDot'; box.appendChild(d);
   const o = document.createElement('button'); o.className = 'ghost'; o.textContent = 'Log out'; o.onclick = signOut; box.appendChild(o);
   syncState(sync.busy || sync.pending.size ? 'busy' : 'ok');
@@ -1978,9 +2026,9 @@ function renderLanding(){
   const u = sync.user;
   $('#landing').classList.toggle('signed-in', !!u);
   if(!u) return;
-  $('#landingAvatar').replaceChildren(avatar(u));
-  $('#landingName').textContent = 'Signed in as ' + (u.displayName || u.email);
-  $('#landingEmail').textContent = u.displayName ? (u.email || '') : '';
+  $('#landingAvatar').replaceChildren(pfpEl(social && social.me, 'big'));
+  $('#landingName').textContent = social && social.me ? 'Signed in as @' + social.me.username : 'Signed in';
+  $('#landingEmail').textContent = social && social.me ? '' : 'Set up your username and picture in Friends → My profile.';
 }
 const showLanding = on => { if(on) renderLanding(); $('#landing').hidden = !on; };
 $('#homeBtn').onclick = () => showLanding(true);
@@ -2012,6 +2060,257 @@ async function signOut(){
   ['tt.alarms', 'tt.bg', 'tt.syncUid', 'tt.mode', ...PREF_KEYS].forEach(k => setRaw(k, null));
   location.reload();
 }
+
+
+/* ---------- Friends & profiles ----------
+   profiles/{uid}            public card: username, picture (site-only, never the Google one), sharing choices
+   profiles/{uid}/plays/{id} what friends see: upcoming plays and results (stakes only if shared)
+   profiles/{uid}/meta/stats summary numbers for friends
+   usernames/{name}          username → uid, so names are unique
+   friendships/{a_b}         { members:[a,b], from, to, status:'pending'|'accepted' }  (a_b = the two uids, sorted) */
+var social = { me:null, uid:null, friendships:[], cards:new Map(), unsubs:[], tab:'list', view:null, viewUnsubs:[], viewPlays:[], viewStats:null,
+                 filter: store.get('tt.fFilter', 'missing'), addMsg: null, lastPub:new Map(), pubTimer:null, invite:new URLSearchParams(location.search).get('add') };
+const UNAME = /^[a-z0-9_]{3,20}$/;
+const pairId = (a, b) => a < b ? a + '_' + b : b + '_' + a;
+const playKey = (name, start) => String(name).toLowerCase().replace(/[^a-z]/g, '') + '|' + Math.round(start / 6e4);
+function pfpEl(card, size){
+  const name = card && card.username ? card.username : '?';
+  if(card && card.photo){ const i = document.createElement('img'); i.className = 'pfp ' + (size || ''); i.src = card.photo; i.alt = '@' + name; return i; }
+  const i = document.createElement('span'); i.className = 'pfp ' + (size || ''); i.textContent = name[0].toUpperCase(); i.setAttribute('aria-label', '@' + name); return i;
+}
+const fdb = () => sync.fb.F, fdoc = (...p) => sync.fb.F.doc(sync.fb.db, ...p);
+async function getCard(uid){
+  if(social.cards.has(uid)) return social.cards.get(uid);
+  const snap = await fdb().getDoc(fdoc('profiles', uid)); const c = snap.exists() ? { uid, ...snap.data() } : { uid, username:'unknown' };
+  social.cards.set(uid, c); return c;
+}
+
+async function startSocial(uid){
+  social.uid = uid; const F = fdb();
+  try{
+    const mine = await F.getDoc(fdoc('profiles', uid)); social.me = mine.exists() ? mine.data() : null;
+    social.unsubs.push(F.onSnapshot(fdoc('profiles', uid), snap => { social.me = snap.exists() ? snap.data() : null; renderAccount(); renderFriends(); publishSoon(); }));
+    social.unsubs.push(F.onSnapshot(F.query(F.collection(sync.fb.db, 'friendships'), F.where('members', 'array-contains', uid)), async snap => {
+      social.friendships = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      await Promise.all(social.friendships.map(f => getCard(f.members.find(m => m !== uid))));
+      const incoming = social.friendships.filter(f => f.status === 'pending' && f.to === uid).length;
+      $('#reqBadge').hidden = !incoming; $('#reqBadge').textContent = incoming;
+      renderFriends();
+      if(social.view && !friendOf(social.view)) setSlide('profile', false);   // unfriended while viewing
+    }));
+    const old = await F.getDocs(F.collection(sync.fb.db, 'profiles', uid, 'plays'));
+    old.docs.forEach(d => social.lastPub.set(d.id, JSON.stringify(d.data())));
+    renderAccount(); publishSoon();
+    if(social.invite) openFriends(social.me ? 'add' : 'me');
+  }catch(e){ console.warn('Friends unavailable', e); }
+}
+const friendOf = uid => social.friendships.find(f => f.status === 'accepted' && f.members.includes(uid));
+
+// ----- Publishing my plays and stats for friends -----
+function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTimeout(publishPlays, 1200); }
+async function publishPlays(){
+  if(!sync.user || !social.me) return;
+  const F = fdb(), uid = social.uid, stakes = !!social.me.shareStakes, now = Date.now(), want = new Map();
+  if(social.me.shareUpcoming !== false) alarms.forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming' }));
+  plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
+    name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
+    ...(stakes ? { odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4) } : {}) }));
+  const ops = [];
+  want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
+  social.lastPub.forEach((j, id) => { if(!want.has(id)) ops.push(b => b.delete(fdoc('profiles', uid, 'plays', id))); });
+  try{
+    for(let i = 0; i < ops.length; i += 20){ const b = F.writeBatch(sync.fb.db); ops.slice(i, i + 20).forEach(op => op(b)); await b.commit(); }
+    social.lastPub = new Map([...want].map(([k, v]) => [k, JSON.stringify(v)]));
+    const d0 = new Date(); d0.setHours(0,0,0,0);
+    const sum = f => plays.filter(f).reduce((t, p) => t + playPL(p), 0), today = plays.filter(p => p.start >= +d0);
+    await F.setDoc(fdoc('profiles', uid, 'meta', 'stats'), { n: plays.length, wins: plays.filter(p => p.result === 'cash').length,
+      todayW: today.filter(p => p.result === 'cash').length, todayL: today.filter(p => p.result !== 'cash').length,
+      ...(stakes ? { all: +sum(() => true).toFixed(4), d30: +sum(p => p.start > now - 30 * 864e5).toFixed(4), today: +sum(p => p.start >= +d0).toFixed(4) } : {}), updated: now });
+  }catch(e){ console.warn('Publishing plays failed', e); }
+}
+
+// ----- Friends panel -----
+function openFriends(tab){ if(tab) social.tab = tab; setSlide('friends', true); }
+$('#friendsBtn').onclick = () => setSlide('friends', !$('#friends').classList.contains('open'));
+$('#friendsClose').onclick = () => setSlide('friends', false);
+$('#profileClose').onclick = () => setSlide('profile', false);
+$('#fTabs').onclick = e => { const b = e.target.closest('button'); if(!b) return; social.tab = b.dataset.t; social.addMsg = null; renderFriends(); };
+function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+function btn(text, cls, fn){ const b = el('button', cls || 'ghost', text); b.onclick = fn; return b; }
+function renderFriends(){
+  if(!$('#friends').classList.contains('open')) return;
+  const body = $('#fBody'); body.innerHTML = '';
+  if(!sync.user){ $('#fTabs').hidden = true; body.appendChild(el('p', 'fnote', 'Sign in with Google to add friends and share your plays. Open ⚙ Settings → Account.')); return; }
+  $('#fTabs').hidden = false;
+  if(!social.me && social.tab !== 'me') social.tab = 'me';
+  [...$('#fTabs').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.t === social.tab));
+  ({ list: fList, requests: fRequests, add: fAdd, me: fMe })[social.tab](body);
+}
+function fList(body){
+  const fr = social.friendships.filter(f => f.status === 'accepted');
+  if(!fr.length){ body.appendChild(el('p', 'fnote', 'No friends yet. Add someone by their @username, or send them your invite link from the Add tab.')); return; }
+  fr.forEach(f => {
+    const c = social.cards.get(f.members.find(m => m !== social.uid)) || { username:'…' }, row = el('div', 'frow click');
+    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'View plays and results')); return w; })(), el('span', 'fnote', '›'));
+    row.onclick = () => openProfile(c.uid); row.tabIndex = 0; row.onkeydown = e => { if(e.key === 'Enter') openProfile(c.uid); };
+    body.appendChild(row);
+  });
+}
+function fRequests(body){
+  const inc = social.friendships.filter(f => f.status === 'pending' && f.to === social.uid), out = social.friendships.filter(f => f.status === 'pending' && f.from === social.uid);
+  body.appendChild(el('div', 'fsec', 'Requests for you'));
+  if(!inc.length) body.appendChild(el('p', 'fnote', 'None right now.'));
+  inc.forEach(f => { const c = social.cards.get(f.from) || { username:'…' }, row = el('div', 'frow');
+    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'wants to be friends')); return w; })(),
+      btn('Accept', 'ghost', () => fdb().setDoc(fdoc('friendships', f.id), { ...strip(f), status:'accepted' })),
+      btn('Decline', 'ghost danger', () => fdb().deleteDoc(fdoc('friendships', f.id))));
+    body.appendChild(row); });
+  body.appendChild(el('div', 'fsec', 'Sent by you'));
+  if(!out.length) body.appendChild(el('p', 'fnote', 'None waiting.'));
+  out.forEach(f => { const c = social.cards.get(f.to) || { username:'…' }, row = el('div', 'frow');
+    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'waiting for them to accept')); return w; })(),
+      btn('Cancel', 'ghost', () => fdb().deleteDoc(fdoc('friendships', f.id))));
+    body.appendChild(row); });
+}
+const strip = f => ({ members:f.members, from:f.from, to:f.to, status:f.status, created:f.created || Date.now() });
+function fAdd(body){
+  const form = el('div', 'fform'), inp = el('input'); inp.type = 'text'; inp.placeholder = '@username'; inp.maxLength = 21; inp.value = social.invite ? '@' + social.invite : '';
+  const msg = el('div', 'fmsg'), say = (cls, text) => { social.addMsg = { cls, text }; msg.className = 'fmsg ' + cls; msg.textContent = text; };   // kept across re-renders
+  if(social.addMsg) say(social.addMsg.cls, social.addMsg.text);
+  const send = btn('Send friend request', 'send', async () => {
+    const name = inp.value.trim().replace(/^@/, '').toLowerCase(); say('', '');
+    if(!UNAME.test(name)){ say('err', 'Usernames are 3–20 letters, numbers or _.'); return; }
+    if(social.me && name === social.me.usernameLower){ say('err', 'That\'s you.'); return; }
+    try{
+      const u = await fdb().getDoc(fdoc('usernames', name));
+      if(!u.exists()){ say('err', `No one is called @${name}.`); return; }
+      const other = u.data().uid, id = pairId(social.uid, other), have = social.friendships.find(f => f.id === id);
+      if(have){ say('err', have.status === 'accepted' ? `You're already friends with @${name}.` : 'There\'s already a request between you two (see Requests).'); return; }
+      await fdb().setDoc(fdoc('friendships', id), { members:[social.uid, other].sort(), from:social.uid, to:other, status:'pending', created:Date.now() });
+      social.invite = null; say('ok', `Request sent to @${name}.`);
+    }catch(e){ say('err', 'Couldn\'t send: ' + e.message); }
+  });
+  inp.onkeydown = e => { if(e.key === 'Enter') send.click(); };
+  form.append(el('p', 'fnote', 'Add a friend by their exact username.'), inp, send, msg);
+  body.appendChild(form);
+  if(social.me){
+    body.appendChild(el('div', 'fsec', 'Your invite link'));
+    const link = location.origin + location.pathname + '?add=' + social.me.usernameLower;
+    const row = el('div', 'frow'), w = el('div', 'who'); w.append(el('small', '', link)); w.style.wordBreak = 'break-all';
+    row.append(w, btn('Copy', 'ghost', () => { navigator.clipboard.writeText(link).then(() => toast('Invite link copied.'), () => toast('Couldn\'t copy. Select the link instead.')); }));
+    body.appendChild(row);
+  }
+}
+let pfpDraft = null;
+function fMe(body){
+  const me = social.me, form = el('div', 'fform');
+  form.appendChild(el('p', 'fnote', me ? 'This is what friends see. Your Google name and picture are never shown.' : 'Create your profile: pick a username and a picture. Friends will see these, never your Google name or picture.'));
+  const pick = el('div', 'pick'), preview = pfpEl({ username: me ? me.username : '?', photo: pfpDraft ?? (me && me.photo) }, 'big');
+  pick.append(preview, btn(pfpDraft || (me && me.photo) ? 'Change picture' : 'Upload picture', 'ghost', () => $('#pfpFile').click()));
+  if(pfpDraft || (me && me.photo)) pick.appendChild(btn('Remove', 'ghost', () => { pfpDraft = ''; renderFriends(); }));
+  const inp = el('input'); inp.type = 'text'; inp.placeholder = 'username'; inp.maxLength = 20; inp.value = me ? me.username : ''; inp.setAttribute('aria-label', 'Username');
+  const up = el('label', 'switch'), upc = el('input'); upc.type = 'checkbox'; upc.setAttribute('role', 'switch'); upc.checked = !me || me.shareUpcoming !== false; up.append(upc, ' Show friends my upcoming plays');
+  const st = el('label', 'switch'), stc = el('input'); stc.type = 'checkbox'; stc.setAttribute('role', 'switch'); stc.checked = !!(me && me.shareStakes); st.append(stc, ' Show friends my stakes (odds, units, PNL)');
+  const msg = el('div', 'fmsg');
+  const save = btn(me ? 'Save profile' : 'Create profile', 'send', async () => {
+    const name = inp.value.trim().replace(/^@/, ''), lower = name.toLowerCase(); msg.className = 'fmsg';
+    if(!UNAME.test(lower)){ msg.className = 'fmsg err'; msg.textContent = 'Use 3–20 letters, numbers or _.'; return; }
+    save.disabled = true;
+    try{
+      const F = fdb(), photo = pfpDraft ?? (me ? me.photo || '' : '');
+      await F.runTransaction(sync.fb.db, async tx => {
+        const ref = fdoc('usernames', lower), taken = await tx.get(ref);
+        if(taken.exists() && taken.data().uid !== social.uid) throw new Error(`@${lower} is taken. Try another.`);
+        if(!taken.exists()) tx.set(ref, { uid: social.uid });
+        if(me && me.usernameLower && me.usernameLower !== lower) tx.delete(fdoc('usernames', me.usernameLower));
+        tx.set(fdoc('profiles', social.uid), { username:name, usernameLower:lower, photo, shareUpcoming:upc.checked, shareStakes:stc.checked, updated:Date.now() });
+      });
+      pfpDraft = null; social.cards.delete(social.uid); msg.className = 'fmsg ok'; msg.textContent = 'Saved.';
+      if(!me){ social.tab = social.invite ? 'add' : 'list'; renderFriends(); }
+    }catch(e){ msg.className = 'fmsg err'; msg.textContent = e.message; }
+    save.disabled = false;
+  });
+  form.append(pick, inp, up, st, save, msg);
+  body.appendChild(form);
+}
+// Profile picture: square crop, 256 px, stored only on this site
+$('#pfpFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f || !f.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = () => { const im = new Image(); im.onload = () => {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const k = Math.min(im.width, im.height);
+    c.getContext('2d').drawImage(im, (im.width - k) / 2, (im.height - k) / 2, k, k, 0, 0, S, S);
+    pfpDraft = c.toDataURL('image/jpeg', .85); renderFriends();
+  }; im.src = r.result; };
+  r.readAsDataURL(f);
+};
+
+// ----- A friend's profile: their plays, what's different from mine, one-click copy -----
+function openProfile(uid){
+  social.viewUnsubs.forEach(u => u()); social.viewUnsubs = []; social.view = uid; social.viewPlays = []; social.viewStats = null;
+  const F = fdb();
+  social.viewUnsubs.push(F.onSnapshot(F.collection(sync.fb.db, 'profiles', uid, 'plays'), snap => { social.viewPlays = snap.docs.map(d => ({ id:d.id, ...d.data() })); renderProfile(); }));
+  social.viewUnsubs.push(F.onSnapshot(fdoc('profiles', uid, 'meta', 'stats'), snap => { social.viewStats = snap.exists() ? snap.data() : null; renderProfile(); }));
+  setSlide('profile', true);
+}
+function renderProfile(){
+  if(!$('#profile').classList.contains('open') || !social.view) return;
+  const c = social.cards.get(social.view) || { username:'…' }, s = social.viewStats, body = $('#pfBody'); body.innerHTML = '';
+  $('#pfTitle').textContent = '@' + c.username;
+  const head = el('div', 'pf-head'), who = el('div', 'who'); who.style.flex = '1';
+  who.append(el('b', '', '@' + c.username), el('div', 'fnote', c.shareStakes ? 'Shares stakes' : 'Stakes hidden'));
+  let confirm = false; const rm = btn('Remove friend', 'ghost danger', () => {
+    if(!confirm){ confirm = true; rm.textContent = 'Click again to remove'; setTimeout(() => { confirm = false; rm.textContent = 'Remove friend'; }, 3000); return; }
+    fdb().deleteDoc(fdoc('friendships', pairId(social.uid, social.view))); setSlide('profile', false);
+  });
+  head.append(pfpEl(c, 'big'), who, rm); body.appendChild(head);
+  const tiles = el('div', 'pnl-stats');
+  const tile = (k, v, cls) => { const d = el('div'); d.append(el('small', '', k), el('b', cls || '', v)); tiles.appendChild(d); };
+  if(s){ tile('Record', `${s.wins}–${s.n - s.wins}`); tile('Win rate', s.n ? Math.round(s.wins / s.n * 100) + '%' : '—');
+    if('all' in s){ tile('All time', plText(s.all), plClass(s.all)); tile('Last 30 days', plText(s.d30), plClass(s.d30)); } else tile('Today', `${s.todayW}–${s.todayL}`); }
+  body.appendChild(tiles);
+  // Upcoming plays, compared with my own alarms
+  const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming').sort((a, b) => a.start - b.start);
+  const filt = el('div', 'seg ranges');
+  [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', l); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderProfile(); }; filt.appendChild(b); });
+  body.append(el('div', 'fsec', 'Upcoming plays'), filt);
+  const shown = up.filter(p => social.filter === 'all' || (social.filter === 'both') === mine.has(playKey(p.name, p.start)));
+  if(!up.length) body.appendChild(el('p', 'fnote', c.shareUpcoming === false ? `@${c.username} doesn't share upcoming plays.` : 'No upcoming plays.'));
+  else if(!shown.length) body.appendChild(el('p', 'fnote', social.filter === 'missing' ? 'You already have all of their plays.' : 'None of their plays are in your alarms.'));
+  const list = el('div', 'histlist'); body.appendChild(list);
+  shown.forEach(p => {
+    const have = mine.has(playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
+    card.innerHTML = `<div class="names"></div>${p.league ? '<div class="comp"></div>' : ''}<div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div></div>
+      <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
+    card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
+    card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+    const cp = btn(have ? 'In your alarms' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have; card.children[3].replaceWith(cp);
+    list.appendChild(card);
+  });
+  // Recent results
+  const res = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').sort((a, b) => b.start - a.start).slice(0, 30);
+  body.appendChild(el('div', 'fsec', 'Recent results'));
+  if(!res.length) body.appendChild(el('p', 'fnote', 'No settled matches yet.'));
+  const rl = el('div', 'histlist'); body.appendChild(rl);
+  res.forEach(p => {
+    const card = el('div', `card ${p.status === 'cash' ? 'hit' : 'miss'}`);
+    card.innerHTML = `<div class="names"></div><div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div class="result">${p.status === 'cash' ? 'CASH' : 'CHALK'}</div>
+      <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="line"></span></div>${'pl' in p ? `<div class="money"><span>Odds <b>${p.odds || '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(p.pl)}</span></div>` : ''}`;
+    card.querySelector('.names').textContent = p.name + (p.league ? ' · ' + p.league : '');
+    card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+    rl.appendChild(card);
+  });
+}
+function copyPlay(p, from){
+  if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))) return toast('You already have this play.');
+  const now = Date.now();
+  alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
+                side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, league:p.league || '', img:'', fired:p.start <= now, added:now, from, tags:[] });
+  alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderProfile();
+  toast(`Copied ${p.name} to your alarms.`);
+}
+SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => renderFriends() };
+SLIDES.profile = { el:'#profile', btn:'#friendsBtn', onOpen: () => renderProfile(), onClose: () => { social.viewUnsubs.forEach(u => u()); social.viewUnsubs = []; social.view = null; } };
 
 $('#googleSignIn').onclick = signIn;
 $('#continueGuest').onclick = () => { store.set('tt.mode', 'guest'); showLanding(false); };
