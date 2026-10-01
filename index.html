@@ -131,11 +131,12 @@ body.has-bg #bgClear{display:inline-block}
 .composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 /* No API key yet: a button at the top middle of the chat (of the part not covered by panels) */
-.keycta{position:absolute;top:14px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
-  background:var(--yellow);color:#1a1a1a;font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
+.keycta{position:absolute;top:72px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
+  background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
 .keycta[hidden]{display:none}
+.chat:has(#keyCta:not([hidden])) .log{padding-top:128px !important}   /* room for it above the first message */
 @media (max-width:860px){.keycta{top:72px;left:50%} .chat:has(#keyCta:not([hidden])) .log{padding-top:124px !important}}
-.send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
+.send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
 .preview.show{display:flex}
@@ -229,7 +230,7 @@ body.has-bg #bgClear{display:inline-block}
   20%{transform:translate(-3px,0) rotate(-.6deg)} 24%{transform:translate(3px,0) rotate(.6deg)}
   28%{transform:translate(-3px,0) rotate(-.6deg)} 32%{transform:translate(3px,0) rotate(.6deg)}
   36%{transform:translate(-2px,0)} 40%{transform:translate(2px,0)}}
-.stop{font:700 13px/1 var(--cond);letter-spacing:.03em;background:var(--yellow);color:var(--onyellow);border:none;border-radius:5px;padding:6px 10px}
+.stop{font:700 13px/1 var(--cond);letter-spacing:.03em;background:var(--accent,var(--yellow));color:var(--on-accent,var(--onyellow));border:none;border-radius:5px;padding:6px 10px}
 .card .names{grid-column:1/-1;font:600 16px/1.25 var(--cond);padding-right:22px}
 .card .comp{grid-column:1/-1;justify-self:start;font:600 12px/1 var(--cond);letter-spacing:.03em;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:4px 7px;margin:2px 0 4px}
 .card .when{font-size:13px;color:var(--muted)}
@@ -311,7 +312,7 @@ button.tag{cursor:pointer}
 .landing-user .initial{display:grid;place-items:center;background:#25292e;font:600 24px var(--sans)}
 .landing-user .name{font-weight:600}
 .landing-user .email{font-size:13px;color:#8b9099;margin-bottom:14px}
-.openapp{width:100%;height:46px;border-radius:23px;border:none;background:var(--yellow);color:#1a1a1a;font:600 15px var(--sans)}
+.openapp{width:100%;height:46px;border-radius:23px;border:none;background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font:600 15px var(--sans)}
 .syncdot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
 .syncdot.busy{background:var(--yellow)}
 .syncdot.err{background:var(--red)}
@@ -995,6 +996,52 @@ function applyBg(url){
   $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
   $('.chat').classList.toggle('has-bg', !!url);
   document.body.classList.toggle('has-bg', !!url);
+  // the main buttons (normally yellow) take the background picture's colour
+  const root = document.documentElement.style, token = applyBg.token = (applyBg.token || 0) + 1;
+  if(!url){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
+  mainColor(url).then(c => {
+    if(token !== applyBg.token) return;   // a newer picture was set meanwhile
+    if(!c){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
+    root.setProperty('--accent', `rgb(${c.rgb})`); root.setProperty('--on-accent', c.light ? '#1a1a1a' : '#fff');
+  });
+}
+/* Most common colourful shade in the picture, kept mid-bright so a button in it stands out on the dark UI */
+function mainColor(url){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+      const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(im, 0, 0, N, N);
+      const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
+      for(let i = 0; i < d.length; i += 4){
+        if(d[i+3] < 128) continue;
+        const r = d[i], g = d[i+1], b = d[i+2], w = (Math.max(r,g,b) - Math.min(r,g,b)) / 255 + .05;   // favour colourful pixels over greys
+        const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5), e = bins.get(k) || { w:0, r:0, g:0, b:0 };
+        e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
+      }
+      let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
+      if(!best) return res(null);
+      let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
+      l = Math.min(.66, Math.max(.46, l)); sat = Math.max(sat, .35);
+      const rgb = fromHsl(h, sat, l), lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
+      res({ rgb: rgb.join(','), light: lum > .5 });
+    };
+    im.onerror = () => res(null);
+    im.src = url;
+  });
+}
+function toHsl(r, g, b){
+  r/=255; g/=255; b/=255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2;
+  if(mx === mn) return [0, 0, l];
+  const dd = mx - mn, s = l > .5 ? dd/(2-mx-mn) : dd/(mx+mn);
+  const h = mx === r ? (g-b)/dd + (g<b ? 6 : 0) : mx === g ? (b-r)/dd + 2 : (r-g)/dd + 4;
+  return [h/6, s, l];
+}
+function fromHsl(h, s, l){
+  const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
+  const f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < 1/2 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; };
+  return [f(h+1/3), f(h), f(h-1/3)].map(v => Math.round(v*255));
 }
 
 applyBg(store.get('tt.bg', null));

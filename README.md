@@ -40,7 +40,8 @@ Screenshots are read by Google Gemini (free tier).
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
-    and set the background picture's **blur** and **saturation**.
+    and set the background picture's **blur** and **saturation**. With a background picture, the main buttons (normally
+    yellow) take on its colour.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 13. **Friends** (toolbar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
