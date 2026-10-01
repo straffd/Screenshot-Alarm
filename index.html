@@ -354,6 +354,11 @@ button.tag{cursor:pointer}
 .fmenu .ghost[aria-pressed="true"]{background:color-mix(in srgb,var(--blue) 22%,transparent);border-color:var(--blue);color:var(--text)}
 .fmenu .confirm{background:var(--red);color:#fff;border-color:var(--red)}
 .fnote{color:var(--muted);font-size:13px;margin:4px 0 12px}
+.lbrow .lbrank{width:22px;text-align:center;font:700 16px var(--cond);color:var(--muted)}
+.lbrow.top1 .lbrank{color:#e8c547} .lbrow.top2 .lbrank{color:#c9ced6} .lbrow.top3 .lbrank{color:#d08a4e}
+.lbrow .lbpl{font:700 17px var(--cond);font-variant-numeric:tabular-nums}
+.lbrow .lbpl.up{color:var(--green)} .lbrow .lbpl.down{color:var(--red)}
+.lbrow.mine{border-color:color-mix(in srgb,var(--yellow) 55%,var(--line))}
 .fsec{font:600 13px var(--sans);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
 .fform{display:grid;gap:12px}
 .fform .pick{display:flex;align-items:center;gap:14px}
@@ -471,6 +476,7 @@ button.tag{cursor:pointer}
     <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
     <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false">History</button>
     <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
+    <button class="ghost" id="lbBtn" aria-controls="lb" aria-expanded="false">Leaderboard</button>
   </div>
 </div>
 
@@ -514,6 +520,14 @@ button.tag{cursor:pointer}
     </div>
     <div class="pnl-body" id="fBody"></div>
     <input type="file" id="pfpFile" accept="image/*" hidden>
+  </section>
+  <section class="pnl" id="lb" aria-labelledby="lbTitle" aria-hidden="true">
+    <header>
+      <h3 id="lbTitle">Leaderboard</h3>
+      <button class="close" id="lbClose" aria-label="Close leaderboard">×</button>
+    </header>
+    <div class="seg ftabs" role="group" aria-label="Period" id="lbTabs"><button data-p="day">Day</button><button data-p="month">Month</button><button data-p="year">Year</button></div>
+    <div class="pnl-body" id="lbBody"></div>
   </section>
   <section class="pnl" id="falarms" aria-labelledby="faTitle" aria-hidden="true">
     <header>
@@ -1473,7 +1487,7 @@ const playPL = p => Array.isArray(p.bets) && p.bets.length ? p.bets.reduce((t, b
 const betsResult = bets => { const pl = bets.reduce((t, b) => t + betPL(b), 0); return pl > 0 || (pl === 0 && bets.some(b => b.result === 'cash')) ? 'cash' : 'chalk'; };
 const betsUnits = bets => +bets.reduce((t, b) => t + (b.units || 0), 0).toFixed(4);
 const lastUnits = () => store.get('tt.lastUnits', 1);
-function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); renderPnl(); }
+function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); renderPnl(); if(typeof renderLeaderboard === 'function') renderLeaderboard(); }
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
 function settle(a, result, odds, units, bets){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
@@ -2395,8 +2409,63 @@ async function publishPlays(){
     const sum = f => plays.filter(f).reduce((t, p) => t + playPL(p), 0), today = plays.filter(p => p.start >= +d0);
     await F.setDoc(fdoc('profiles', uid, 'meta', 'stats'), { n: plays.length, wins: plays.filter(p => p.result === 'cash').length,
       todayW: today.filter(p => p.result === 'cash').length, todayL: today.filter(p => p.result !== 'cash').length,
-      all: +sum(() => true).toFixed(4), d30: +sum(p => p.start > now - 30 * 864e5).toFixed(4), today: +sum(p => p.start >= +d0).toFixed(4), updated: now });
+      all: +sum(() => true).toFixed(4), d30: +sum(p => p.start > now - 30 * 864e5).toFixed(4), today: +sum(p => p.start >= +d0).toFixed(4),
+      periods: lbPeriods(plays, playPL), updated: now });
   }catch(e){ console.warn('Publishing plays failed', e); }
+}
+
+// ----- Leaderboard: you and your friends ranked by P/L for the day, month or year -----
+// Each period carries its key ("2026-10-01", "2026-10", "2026"), so totals from an earlier day/month/year count as 0.
+const LB_KEYS = { day: ms => dayKey(ms), month: ms => dayKey(ms).slice(0, 7), year: ms => dayKey(ms).slice(0, 4) };
+function lbPeriods(list, val){
+  const now = Date.now(), out = {};
+  Object.entries(LB_KEYS).forEach(([k, key]) => {
+    const cur = key(now), ps = list.filter(p => key(p.start) === cur), sum = f => +ps.filter(f).reduce((t, p) => t + val(p), 0).toFixed(4);
+    out[k] = { key: cur, pl: sum(() => true), me: sum(p => !isBot(p)), bot: sum(isBot), n: ps.length, w: ps.filter(p => p.result === 'cash').length };
+  });
+  return out;
+}
+let lbPeriod = store.get('tt.lbPeriod', 'day');
+SLIDES.lb = { el:'#lb', btn:'#lbBtn', onOpen: () => renderLeaderboard(true) };
+$('#lbBtn').onclick = () => setSlide('lb', !$('#lb').classList.contains('open'));
+$('#lbClose').onclick = () => setSlide('lb', false);
+$('#lbTabs').onclick = e => { const b = e.target.closest('button'); if(!b) return; lbPeriod = b.dataset.p; store.set('tt.lbPeriod', lbPeriod); renderLeaderboard(); };
+let lbCache = new Map();   // uid → their published periods (fetched when the panel opens)
+async function renderLeaderboard(refetch){
+  if(!$('#lb').classList.contains('open')) return;
+  [...$('#lbTabs').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.p === lbPeriod));
+  const body = $('#lbBody'), friends = social && social.uid ? social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid)) : [];
+  if(refetch && friends.length){
+    body.innerHTML = '<p class="fnote">Loading…</p>';
+    await Promise.all(friends.map(async uid => {
+      try{ const snap = await fdb().getDoc(fdoc('profiles', uid, 'meta', 'stats')); lbCache.set(uid, snap.exists() ? snap.data().periods || null : null); }catch(e){ lbCache.set(uid, null); }
+    }));
+    if(!$('#lb').classList.contains('open')) return;
+  }
+  body.innerHTML = '';
+  const now = Date.now(), cur = LB_KEYS[lbPeriod](now), empty = { pl:0, me:0, bot:0, n:0, w:0 };
+  const pick = per => per && per[lbPeriod] && per[lbPeriod].key === cur ? per[lbPeriod] : empty;   // stale (earlier day/month/year) = 0
+  const rows = [{ uid: social && social.uid, me: true, card: social && social.me ? social.me : { username: 'you' }, s: pick(lbPeriods(plays, playPL)) },
+    ...friends.map(uid => ({ uid, card: social.cards.get(uid) || { username:'…' }, s: pick(lbCache.get(uid)), missing: !lbCache.get(uid) }))];
+  rows.sort((a, b) => b.s.pl - a.s.pl || b.s.n - a.s.n || String(a.card.username).localeCompare(b.card.username));
+  const label = { day:'Today', month: new Date().toLocaleDateString([], { month:'long', year:'numeric' }), year: String(new Date().getFullYear()) }[lbPeriod];
+  body.appendChild(el('div', 'fsec', label));
+  if(!sync.user) body.appendChild(el('p', 'fnote', 'Sign in and add friends to see how you compare. Open ⚙ Settings → Account.'));
+  else if(!friends.length) body.appendChild(el('p', 'fnote', 'Add friends (toolbar → Friends) to see them here.'));
+  let rank = 0, prev = null;
+  rows.forEach((r, i) => {
+    if(prev === null || r.s.pl !== prev) rank = i + 1; prev = r.s.pl;   // equal P/L share a place
+    const row = el('div', 'frow lbrow' + (r.me ? ' mine' : '') + (rank <= 3 && r.s.n ? ' top' + rank : ''));
+    const who = el('div', 'who'); who.append(el('b', '', '@' + r.card.username + (r.me ? ' (you)' : '')),
+      el('small', '', r.s.n ? `${r.s.w}W ${r.s.n - r.s.w}L · ${r.s.n} bet${r.s.n === 1 ? '' : 's'}` : r.missing ? 'No results shared yet' : 'No bets'));
+    const val = el('span', 'lbpl ' + plClass(r.s.pl), plText(r.s.pl));
+    row.append(el('span', 'lbrank', String(rank)), pfpEl(r.card), who, val);
+    row.title = `Personal ${plText(r.s.me)} · Bot ${plText(r.s.bot)}`;
+    if(!r.me && r.uid){ row.classList.add('click'); row.tabIndex = 0; row.onclick = () => friendAction(r.uid, 'pnl');
+      row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } }; }
+    body.appendChild(row);
+  });
+  body.appendChild(el('p', 'fnote', 'Units won or lost on settled bets. Friends\' numbers update when they next open TT Alarm Bot. Click a friend to open their PNL.'));
 }
 
 // ----- Friends panel -----

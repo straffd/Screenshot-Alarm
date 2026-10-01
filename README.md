@@ -49,6 +49,9 @@ Screenshots are read by Google Gemini (free tier).
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
     upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets. Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
+    **Leaderboard** (toolbar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
+    this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
+    they next open the site.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
 
 Keep the tab open for alarms to ring.
