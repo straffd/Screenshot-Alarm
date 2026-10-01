@@ -130,6 +130,11 @@ body.has-bg #bgClear{display:inline-block}
 .drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
 .composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+/* No API key yet: a button at the top middle of the chat (of the part not covered by panels) */
+.keycta{position:absolute;top:14px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
+  background:var(--yellow);color:#1a1a1a;font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
+.keycta[hidden]{display:none}
+@media (max-width:860px){.keycta{top:72px;left:50%} .chat:has(#keyCta:not([hidden])) .log{padding-top:124px !important}}
 .send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
@@ -472,6 +477,7 @@ button.tag{cursor:pointer}
 <div class="main">
   <section class="chat">
     <div class="chatbg" aria-hidden="true"></div>
+    <button class="keycta" id="keyCta" hidden>Gemini settings: add your API key</button>
     <div class="pltab" id="plTab"><div class="pltab-in">
       <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
       <span class="sep" id="plSep" aria-hidden="true">|</span>
@@ -685,16 +691,6 @@ button.tag{cursor:pointer}
         <p>The APP_PASSWORD you set in Cloudflare. Leave empty if you didn't set one.</p>
       </div>
     </div>
-    <div class="field">
-      <label for="model">Model</label>
-      <input id="model">
-      <p id="modelHint"></p>
-    </div>
-    <div class="field" id="backupField">
-      <label for="backup">Backup model</label>
-      <input id="backup">
-      <p>Used automatically when the main model is busy or out of requests. Leave empty to turn off. Test connection lists the model names your key can use.</p>
-    </div>
     <div class="field" id="keyField">
       <label for="apiKey">API key</label>
       <input id="apiKey" type="password" autocomplete="off">
@@ -715,8 +711,8 @@ const store = {
   del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); },
   onSet: null   // set by Google account sync while signed in
 };
+// Everyone uses Gemini 3.5 Flash-Lite (free tier); 3.8 Flash is only tried when 3.5 Flash-Lite is busy or out of requests.
 const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
-  modelHint:'Use a Flash model, e.g. gemini-3.5-flash-lite or gemini-3.5-flash. Flash models are on the free tier.',
   keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' };
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
@@ -726,15 +722,9 @@ const SERVER_URL = '';
 function normSettings(old){
   let g = old.byProvider ? old.byProvider.gemini || {}          // multi-provider format
         : (!old.provider || old.provider === 'gemini') ? old : {};  // original and current format
-  const out = { model: g.model || GEMINI.model, backup: g.backup ?? GEMINI.backup, key: g.key || '',
+  const out = { model: GEMINI.model, backup: GEMINI.backup, key: g.key || '',   // the model is fixed: no choice in Settings
                 server: g.server || SERVER_URL, pass: g.pass || '',
                 mode: g.mode || ((g.server || SERVER_URL) ? 'server' : 'key') };
-  if(/^gemini-(1\.|2\.)/.test(out.model)) out.model = GEMINI.model;
-  // Move anyone still on the previous defaults (3.8 Flash + 3.5 Flash-Lite) to the new pair
-  if(out.model === 'gemini-3.8-flash' && /^gemini-3\.(1|5)-flash-lite$/.test(out.backup)){ out.model = GEMINI.model; out.backup = GEMINI.backup; }
-  if(out.backup === 'gemini-3.1-flash-lite') out.backup = GEMINI.backup;
-  // ...and anyone still on the 3.5 Flash + 3.8 Flash defaults moves to 3.5 Flash-Lite
-  if(out.model === 'gemini-3.5-flash' && out.backup === 'gemini-3.8-flash') out.model = GEMINI.model;
   return out;
 }
 let settings = normSettings(store.get('tt.settings', {}));
@@ -1067,7 +1057,7 @@ async function send(){
     }
   }catch(e){
     thinking.remove();
-    addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again, or switch to another model in Gemini settings.' : e.message, { err:true });
+    addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again.' : e.message, { err:true });
   }finally{ sending = false; }
 }
 
@@ -1918,12 +1908,15 @@ function showMode(){
 }
 function fillSettings(){
   $('#mode').value = settings.mode; $('#serverUrl').value = settings.server || ''; $('#serverPass').value = settings.pass || '';
-  $('#model').value = settings.model; $('#backup').value = settings.backup || ''; $('#apiKey').value = settings.key;
-  $('#modelHint').textContent = GEMINI.modelHint; $('#keyHint').innerHTML = GEMINI.keyHint;
+  $('#apiKey').value = settings.key; $('#keyHint').innerHTML = GEMINI.keyHint;
   showMode();
 }
 $('#mode').onchange = showMode;
 $('#openSettings').onclick = () => { closeModal($('#hud')); fillSettings(); openModal('#settingsModal'); };
+// Shown only while there's no API key (or server) to read screenshots with
+function keyCta(){ $('#keyCta').hidden = ready(); }
+$('#keyCta').onclick = () => { fillSettings(); openModal('#settingsModal'); setTimeout(() => ($('#mode').value === 'server' ? $('#serverUrl') : $('#apiKey')).focus(), 50); };
+keyCta();
 $('#testConn').onclick = async () => {
   const out = $('#testOut'), key = $('#apiKey').value.trim(), server = $('#mode').value === 'server';
   const url = $('#serverUrl').value.trim().replace(/\/+$/, '');
@@ -1938,20 +1931,19 @@ $('#testConn').onclick = async () => {
     const j = await r.json().catch(() => ({}));
     if(!r.ok){ out.style.color='var(--red)'; out.textContent = (server ? 'Reached your server, but it refused: ' : 'Connected, but Google rejected the key: ') + ((j.error && j.error.message) || r.status); return; }
     const names = (j.models||[]).filter(m => (m.supportedGenerationMethods||[]).includes('generateContent')).map(m => m.name.replace('models/',''));
-    const want = [$('#model').value.trim(), $('#backup').value.trim()].filter(Boolean);
+    const want = [GEMINI.model];
     const missing = want.filter(w => !names.includes(w));
     out.style.color = missing.length ? 'var(--red)' : 'var(--green)';
-    out.textContent = (server ? 'Your server works and its key is valid.' : 'Connected and your key works.') + (missing.length ? '\nNot available to your key: ' + missing.join(', ') : '\nBoth models are available.')
-      + '\nFlash models you can use: ' + (names.filter(n => /flash/.test(n)).join(', ') || 'none listed');
+    out.textContent = (server ? 'Your server works and its key is valid.' : 'Connected and your key works.') + (missing.length ? `\n${GEMINI.model} isn't available to your key.` : `\n${GEMINI.model} is ready.`);
   }catch(e){
     out.style.color='var(--red)';
     out.textContent = server ? `Couldn't reach your server (${e && e.message}). Check the address, and that ALLOWED_ORIGIN in Cloudflare matches this site's address exactly.` : `Couldn't connect to Google at all (${e && e.message}). Turn off ad blockers or privacy extensions for this site, or try another network or browser.`;
   }
 };
 $('#saveSettings').onclick = () => {
-  settings = { mode: $('#mode').value, server: $('#serverUrl').value.trim(), pass: $('#serverPass').value, model: $('#model').value.trim() || GEMINI.model, backup: $('#backup').value.trim(), key: $('#apiKey').value.trim() };
-  store.set('tt.settings', settings); closeModal($('#settingsModal'));
-  addMsg('bot', `Settings saved. Using ${settings.model}${settings.backup ? ', with ' + settings.backup + ' as backup' : ''}, through ${settings.mode === 'server' ? 'your server' : 'your own key'}.`);
+  settings = { mode: $('#mode').value, server: $('#serverUrl').value.trim(), pass: $('#serverPass').value, model: GEMINI.model, backup: GEMINI.backup, key: $('#apiKey').value.trim() };
+  store.set('tt.settings', settings); closeModal($('#settingsModal')); keyCta();
+  addMsg('bot', `Settings saved. Screenshots are read with ${GEMINI.model}, through ${settings.mode === 'server' ? 'your server' : 'your own key'}.`);
 };
 
 /* ---------- Alarm engine ---------- */
@@ -2161,7 +2153,7 @@ const userRef = () => sync.fb.F.doc(sync.fb.db, 'users', sync.user.uid);
 function refreshFromStore(){
   sync.applying = true;
   try{
-    settings = normSettings(store.get('tt.settings', {}));
+    settings = normSettings(store.get('tt.settings', {})); keyCta();
     alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
     lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
     soundName = (SOUNDS[store.get('tt.sound', 'beep')] || isCustom(store.get('tt.sound', 'beep'))) ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName; showSoundDel();

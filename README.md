@@ -6,7 +6,8 @@ Screenshots are read by Google Gemini (free tier).
 ## Use it
 1. Open the site. On the welcome page, **Sign in with Google** to keep everything on every device,
    or choose **Continue without an account** to keep everything on this device only.
-2. Click the ⚙ button (top left) → **Gemini settings** and paste your free Gemini API key from https://aistudio.google.com/apikey.
+2. Click the ⚙ button (top left) → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
+   shown until a key is saved) and paste your free Gemini API key from https://aistudio.google.com/apikey.
 3. Paste (Ctrl+V), drop, or attach a match screenshot and press Enter. No screenshot? Type the match instead, e.g.
    `Will vs Zed 3:20pm` (add `over` or `under`, and any tag names such as `bot` or `strong`, if you like; one per line for several). It's added as a minimal bet with an
    alarm, marked *typed*; friends can see typed bets but can't copy them. The match is added to your **Bets** and its alarm rings
