@@ -26,15 +26,15 @@ Screenshots are read by Google Gemini (free tier).
    in its own slot (odds, units, and Cash / Chalk / Void, where Void counts as 0); the match's P/L is the total. The match then moves to your history: open the toolbar (› next
    to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
-8. The tab at the top right of the chat shows today's P/L, split into **Me** (your own plays) and **Bot** (bot picks),
-   for matches starting today (reset to 0 at 12 AM), and either
+8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
+   (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
 9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this month / all time / win rate, with a **Calendar** (each day's P/L; click a day for its
-   matches) or a **Graph** (running total over 7, 30, 90 days or all time). Switch between **All**, **Personal** and **Bot**
-   to see each P/L on its own; under All, each total also shows its Me / Bot split.
+   matches) or a **Graph** (running total over 7, 30, 90 days or all time). Totals and calendar days are combined;
+   hover over one to split it into Me and Bot.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)

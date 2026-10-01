@@ -156,10 +156,15 @@ body.has-bg #bgClear{display:inline-block}
 .pltab[hidden],.pltab-in > [hidden],#unitValueBox[hidden]{display:none}
 .pltab .sep{color:var(--line);font-weight:400;font-size:24px}
 .pltab .k{font:600 12px/1 var(--sans);letter-spacing:.06em;color:var(--muted);margin-right:7px}
+/* PNL shows the combined total; hovering it (or tapping on phones) splits it into Me and Bot */
+#plValBox{pointer-events:auto;cursor:default}
+.pl-split{display:none}
+#plValBox:hover #plVal,#plValBox.split #plVal{display:none}
+#plValBox:hover .pl-split,#plValBox.split .pl-split{display:inline}
 .pltab .who{font:600 11px/1 var(--sans);letter-spacing:.04em;color:var(--muted);margin:0 5px 0 0;text-transform:uppercase}
-#plVal + .who{margin-left:12px}   /* gap between Me and Bot */
-#plVal.up,#plBot.up{color:var(--green)}
-#plVal.down,#plBot.down{color:var(--red)}
+#plMe + .who{margin-left:12px}   /* gap between Me and Bot */
+#plVal.up,#plMe.up,#plBot.up{color:var(--green)}
+#plVal.down,#plMe.down,#plBot.down{color:var(--red)}
 /* Cash / Chalk on finished alarms */
 .settle{display:flex;gap:6px;align-self:center}
 .settle button{font:700 13px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:6px 10px;border:1px solid currentColor;background:none}
@@ -365,10 +370,17 @@ button.tag{cursor:pointer}
 .pnl-stats div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
 .pnl-stats small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
 .pnl-stats b{font:700 18px/1 var(--cond);font-variant-numeric:tabular-nums}
-.pnl-stats .split{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11.5px;color:var(--muted);margin-top:5px}
-.pnl-stats .split .pair{white-space:nowrap}
-.pnl-stats .split i{font-style:normal}
-.pnl-stats .split .up{color:var(--green)} .pnl-stats .split .down{color:var(--red)}
+/* combined totals; hover (or focus) swaps the number for its Me / Bot split */
+.pnl-stats div{min-height:62px}
+.split{display:none;flex-direction:column;gap:2px;font:600 12px/1.15 var(--sans);color:var(--muted)}
+.split .pair{white-space:nowrap}
+.split i{font-style:normal;font-family:var(--cond);font-weight:700}
+.split .up{color:var(--green)} .split .down{color:var(--red)}
+.pnl-stats .hassplit:hover b,.pnl-stats .hassplit:focus b{display:none}
+.pnl-stats .hassplit:hover .split,.pnl-stats .hassplit:focus .split{display:flex}
+.cal .day .split{font-size:10px;gap:1px}
+.cal .day:not([disabled]):hover .v,.cal .day:not([disabled]):focus-visible .v{display:none}
+.cal .day:not([disabled]):hover .split,.cal .day:not([disabled]):focus-visible .split{display:flex}
 .daylist .bot{font:600 10.5px/1 var(--sans);color:#d9b13b;border:1px solid currentColor;border-radius:4px;padding:2px 4px;margin-left:6px}
 .up{color:var(--green)} .down{color:var(--red)}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -458,7 +470,7 @@ button.tag{cursor:pointer}
     <div class="pltab" id="plTab"><div class="pltab-in">
       <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
       <span class="sep" id="plSep" aria-hidden="true">|</span>
-      <span class="pl-val" id="plValBox"><span class="k">PNL</span><span class="who">Me</span><span id="plVal"></span><span class="who">Bot</span><span id="plBot"></span></span>
+      <span class="pl-val" id="plValBox"><span class="k">PNL</span><span id="plVal"></span><span class="pl-split"><span class="who">Me</span><span id="plMe"></span><span class="who">Bot</span><span id="plBot"></span></span></span>
     </div></div>
     <div class="log" id="log"></div>
     <div class="composer">
@@ -514,7 +526,6 @@ button.tag{cursor:pointer}
       <button class="close" id="pnlClose" aria-label="Close profit and loss">×</button>
     </header>
     <div class="pnl-body">
-      <div class="seg ranges" role="group" aria-label="Whose plays" id="pnlKind"><button data-k="all">All</button><button data-k="me">Personal</button><button data-k="bot">Bot</button></div>
       <div class="pnl-stats" id="pnlStats"></div>
       <div id="pnlView"></div>
     </div>
@@ -1578,18 +1589,18 @@ function tickTracker(){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
     const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
     const me = sum(p => !isBot(p)), bot = sum(isBot);
-    [['#plVal', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
-    $('#plValBox').title = `Today: ${plText(me + bot)} in total`;
+    [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
 }
 plSettings();
+$('#plValBox').onclick = () => $('#plValBox').classList.toggle('split');   // phones have no hover
 
 
 /* ---------- Profit & loss page (calendar / graph) ---------- */
 let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
 const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
-function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
+function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e[isBot(p) ? 'bot' : 'me'] = (e[isBot(p) ? 'bot' : 'me'] || 0) + S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 // Whose numbers the PNL / History panels show: mine, or the friend picked from the Friends list.
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
@@ -1601,13 +1612,12 @@ function subject(forUid = pnlFor){
   const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
   return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
 }
-// The PNL page can show all plays, only my own (Personal) or only bot picks (Bot)
-let pnlKind = store.get('tt.pnlKind', 'all');
-function pnlSubject(kind = pnlKind){
-  const S = subject(pnlFor);
-  return kind === 'all' ? S : { ...S, plays: S.plays.filter(p => kind === 'bot' ? isBot(p) : !isBot(p)) };
+const pnlSubject = () => subject(pnlFor);
+// "Me +1u" and "Bot −2u" lines shown when you hover a combined total
+function splitEl(S, me, bot){
+  const sp = el('span', 'split'), pair = (k, v) => { const w = el('span', 'pair'); w.append(k + ' ', el('i', plClass(v), S.txt(v))); return w; };
+  sp.append(pair('Me', me), pair('Bot', bot)); return sp;
 }
-$('#pnlKind').onclick = e => { const b = e.target.closest('button'); if(!b) return; pnlKind = b.dataset.k; store.set('tt.pnlKind', pnlKind); pnlSel = null; renderPnl(); };
 function subjectHead(sel, forUid, title){
   const h = $(sel); h.innerHTML = '';
   if(!forUid || !social || forUid !== social.view){ h.classList.remove('subj'); h.textContent = title; return; }
@@ -1670,7 +1680,6 @@ function renderPnl(){
   if(!$('#pnl').classList.contains('open')) return;
   const S = pnlSubject();
   subjectHead('#pnlTitle', pnlFor, 'Profit & loss');
-  [...$('#pnlKind').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.k === pnlKind));
   $('#pnlCal').setAttribute('aria-pressed', pnlView === 'calendar'); $('#pnlGraph').setAttribute('aria-pressed', pnlView === 'graph');
   const days = dailyPL(S), now = new Date(), tk = dayKey(now);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -1678,16 +1687,15 @@ function renderPnl(){
   const today = (days.get(tk) || { pl:0 }).pl, month = sum(p => p.start >= monthStart), all = sum(() => true);
   const wins = S.plays.filter(p => p.result === 'cash').length;
   $('#pnlStats').innerHTML = '';
-  // under All, each total also shows its Personal / Bot split
-  const A = pnlKind === 'all' ? subject(pnlFor) : null, part = (bot, f) => A.plays.filter(p => isBot(p) === bot && f(p)).reduce((t, p) => t + A.val(p), 0);
+  // each total is combined; hovering it shows the Me (personal) / Bot split
+  const part = (bot, f) => S.plays.filter(p => isBot(p) === bot && f(p)).reduce((t, p) => t + S.val(p), 0);
   const d0 = new Date(now); d0.setHours(0,0,0,0);
-  const splits = A ? [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= monthStart, () => true] : [];
+  const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= monthStart, () => true];
   [['Today', S.txt(today), plClass(today)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
    ['Win rate', S.plays.length ? Math.round(wins / S.plays.length * 100) + '%' : '—', '']].forEach(([k, v, c], i) => {
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
-    if(splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]), sp = el('span', 'split');
-      const pair = (k, v) => { const w = el('span', 'pair'); w.append(k + ' ', el('i', plClass(v), S.txt(v))); return w; };
-      sp.append(pair('Me', me), pair('Bot', bot)); d.appendChild(sp); }
+    if(splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
+      d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
     $('#pnlStats').appendChild(d);
   });
   const view = $('#pnlView'); view.innerHTML = '';
@@ -1713,7 +1721,8 @@ function renderCalendar(view, days, tk){
     b.className = 'day' + (e ? (e.pl > 1e-9 ? ' win' : e.pl < -1e-9 ? ' loss' : '') : '') + (k === tk ? ' today' : '') + (k === pnlSel ? ' sel' : '');
     if(e) b.style.setProperty('--k', Math.round(12 + 30 * Math.abs(e.pl) / maxAbs) + '%');   // stronger tint for bigger days
     b.innerHTML = `<span class="n">${d}</span><span class="v"></span>`;
-    if(e){ b.querySelector('.v').textContent = S.txt(e.pl); b.title = `${e.n} match${e.n > 1 ? 'es' : ''}: ${S.txt(e.pl)}`; b.onclick = () => { pnlSel = pnlSel === k ? null : k; renderPnl(); }; }
+    if(e){ b.querySelector('.v').textContent = S.txt(e.pl); b.appendChild(splitEl(S, e.me || 0, e.bot || 0));
+      b.title = `${e.n} match${e.n > 1 ? 'es' : ''}: ${S.txt(e.pl)} (Personal ${S.txt(e.me || 0)} · Bot ${S.txt(e.bot || 0)})`; b.onclick = () => { pnlSel = pnlSel === k ? null : k; renderPnl(); }; }
     else b.disabled = true;
     grid.appendChild(b);
   }
