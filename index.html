@@ -44,7 +44,7 @@ button{cursor:pointer}
 /* Custom chat background: blurred image under a dark glass tint */
 .chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
 .chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(3px)}
-.chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,10,10,.68),rgba(10,10,10,.8))}
+.chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,10,10,.3),rgba(10,10,10,.4))}
 .chat.has-bg .chatbg{display:block}
 .chat .log,.chat .composer{position:relative;z-index:1}
 .chat.has-bg .msg.bot{background:rgba(30,33,37,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
