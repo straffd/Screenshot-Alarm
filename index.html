@@ -470,7 +470,8 @@ html.phone .card{padding:11px 12px}
 html.phone .toast{max-width:calc(100vw - 24px);white-space:normal;text-align:center;bottom:calc(84px + env(safe-area-inset-bottom))}
 /* Phones: ☰ + drawer instead of the logo, ⚙ and toolbar */
 #drawerBtn,.drawer,.scrim{display:none}
-html.phone #drawerBtn{display:grid}
+html.phone #drawerBtn{display:grid;border:none;background:none;border-radius:50%}   /* plain ☰, no outlined box */
+html.phone #drawerBtn:active{background:var(--panel-2)}
 html.phone #homeBtn,html.phone #menuBtn,html.phone #barBtn,html.phone #toolbar{display:none !important}
 html.phone .top{padding:9px 10px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
 html.phone .pltab{display:none}                                 /* no clock / PNL tab on phones (PNL is in the ☰ menu) */
