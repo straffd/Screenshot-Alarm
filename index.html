@@ -183,6 +183,7 @@ button.tag{cursor:pointer}
 .side{font:700 14px/1 var(--cond);letter-spacing:.04em;padding:4px 8px;border-radius:4px;border:1px solid currentColor;background:none}
 .side.over{color:var(--green)}
 .side.under{color:var(--red)}
+.side.armed{color:var(--yellow);background:color-mix(in srgb,var(--yellow) 14%,transparent)}
 .line{color:var(--muted);font-size:13px}
 .edge{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--yellow);font:700 16px/1 var(--cond)}
 .bar{width:54px;height:6px;border-radius:3px;background:#3a3e44;overflow:hidden}
@@ -886,6 +887,7 @@ function setLead(v){
 $('#leadMin').onchange = e => { const msg = setLead(e.target.value); if(msg) addMsg('bot', msg); };
 
 /* ---------- Render alarm list ---------- */
+let sideArmed = null, sideTimer = null;   // OVER/UNDER switches only on a second press within 3 s
 function render(){
   if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
   const list = $('#list'); list.innerHTML = '';
@@ -918,7 +920,13 @@ function render(){
     c.onclick = act;
     c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } };
     c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
-    c.querySelector('.side').onclick = e => { e.stopPropagation(); a.side = a.side==='OVER'?'UNDER':'OVER'; store.set('tt.alarms', alarms); render(); };
+    const sideBtn = c.querySelector('.side'), other = a.side==='OVER' ? 'UNDER' : 'OVER';
+    if(sideArmed === a.id){ sideBtn.classList.add('armed'); sideBtn.textContent = `→ ${other}?`; sideBtn.title = `Press again to switch to ${other}`; }
+    sideBtn.onclick = e => {
+      e.stopPropagation(); clearTimeout(sideTimer);
+      if(sideArmed !== a.id){ sideArmed = a.id; sideTimer = setTimeout(() => { sideArmed = null; render(); }, 3000); render(); return; }   // first press: ask
+      sideArmed = null; a.side = other; store.set('tt.alarms', alarms); render();                                                     // second press: switch
+    };
     list.appendChild(c);
   }
 }
@@ -1180,13 +1188,19 @@ function askNotify(){
   if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
 }
 
+const notes = new Map();   // alarm id → its desktop notification while it rings
 function fire(a){
   a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
   $('#landing').hidden = true;   // never ring behind the home page
   startLoop();
   try{ navigator.vibrate && navigator.vibrate([400,200,400,200,400]); }catch(e){}   // phones: real vibration too
   if('Notification' in window && Notification.permission==='granted'){
-    try{ new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true }); }catch(e){}
+    try{
+      const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
+      notes.set(a.id, n);
+      n.onclose = () => { if(notes.get(a.id) === n){ notes.delete(a.id); if(ringing.has(a.id)) stopAlarm(a.id); } };   // closing the popup stops the alarm
+      n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
+    }catch(e){}
   }
   document.title = '🔔 ' + a.name;
   render();
@@ -1195,6 +1209,7 @@ function fire(a){
 }
 function stopAlarm(id){
   ringing.delete(id);
+  const n = notes.get(id); notes.delete(id); if(n) try{ n.close(); }catch(e){}   // stopping here also closes the popup
   if(!ringing.size){ stopLoop(); document.title = 'TT Alarm Bot'; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
   render();
 }
