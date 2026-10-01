@@ -510,6 +510,8 @@ html.phone .drawer.open{transform:none;visibility:visible;transition:transform .
 .dr-item[aria-current="true"]{background:color-mix(in srgb,var(--blue) 30%,var(--panel-2))}
 html.phone #uiAlpha,html.phone #uiAlphaOut{display:none}   /* GUI colour is always fully opaque on phones */
 html.phone .alpha-note{display:inline}
+.notifrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.notifrow #notifState b{color:var(--text)} .notifrow .ok{color:var(--green)} .notifrow .bad{color:var(--red)}
 .alpha-note{display:none;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
@@ -669,8 +671,14 @@ html.phone .alpha-note{display:inline}
     <header><h3 id="hudTitle">Settings</h3><button class="close" data-close aria-label="Close">×</button></header>
     <div class="hud-row"><span class="lbl">Account</span><div class="ctl account" id="account"></div></div>
     <div class="hud-row"><span class="lbl">Alarms</span>
-      <div class="ctl"><label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label></div>
-      <p class="note">Turn this off to use the app without alarms: matches are still listed and still get Cash / Chalk once they start.</p></div>
+      <div class="ctl" style="display:grid;gap:10px">
+        <label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
+        <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
+        <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
+      </div>
+      <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
+        <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
+        so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.</p></div>
     <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
       <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
     <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old bets</label>
@@ -827,9 +835,10 @@ html.phone .alpha-note{display:inline}
 /* ---------- Storage ---------- */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ let ok = false; try{ localStorage.setItem(k, JSON.stringify(v)); ok = true; }catch(e){} store.onSet && store.onSet(k); return ok; },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); },
-  onSet: null   // set by Google account sync while signed in
+  set(k, v){ let ok = false; try{ localStorage.setItem(k, JSON.stringify(v)); ok = true; }catch(e){} store.onSet && store.onSet(k); store.watch.forEach(f => f(k)); return ok; },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); store.watch.forEach(f => f(k)); },
+  onSet: null,   // set by Google account sync while signed in
+  watch: []      // other listeners (e.g. locked-phone alarms)
 };
 // Everyone uses Gemini 3.5 Flash-Lite (free tier); 3.8 Flash is only tried when 3.5 Flash-Lite is busy or out of requests.
 const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
@@ -837,6 +846,9 @@ const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
 const SERVER_URL = '';
+// Locked-phone alarms: the address of your push service (push-worker/ in this repo, see its README), e.g.
+// 'https://tt-alarm-push.yourname.workers.dev'. Leave empty and alarms only ring while the app is open on screen.
+const PUSH_SERVER = '';
 
 // settings = { mode:'server'|'key', server, pass, model, backup, key }
 function normSettings(old){
@@ -868,7 +880,8 @@ const $ = s => document.querySelector(s);
 // notifications on Android, where pages can't show them directly.
 let swReg = null;
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-  navigator.serviceWorker.register('sw.js').then(r => { swReg = r; }).catch(() => {});
+  navigator.serviceWorker.register(PUSH_SERVER ? 'sw.js?push=' + encodeURIComponent(PUSH_SERVER.replace(/\/+$/, '')) : 'sw.js')
+    .then(r => { swReg = r; pushSoon(); }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', e => {   // a notification shown by the service worker was clicked or swiped away
     const d = e.data || {}; if(!d.id) return;
     if(ringing.has(d.id)) stopAlarm(d.id);
@@ -1202,6 +1215,7 @@ function countdown(ms){
 let sending = false;
 async function send(){
   if(sending) return;
+  askNotify();   // while we still have the tap: Android ignores permission requests made later
   const text = $('#text').value.trim();
   const imgs = pendingImgs.slice();
   if(!text && !imgs.length) return;
@@ -1459,7 +1473,7 @@ function render(){
     c.innerHTML = `
       <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
-      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}${a.manual ? ' · <span class="typed" title="Typed in the chat: friends can\'t copy it">typed</span>' : ''}</div>
+      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}${a.manual && !a.test ? ' · <span class="typed" title="Typed in the chat: friends can\'t copy it">typed</span>' : ''}</div>
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button><button class="more" title="More than one bet on this match: record each one">+</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
@@ -2238,6 +2252,14 @@ function startLoop(){
   };
   tick(); beepTimer = setInterval(tick, 250);
 }
+// Vibration while an alarm rings: a pattern every 2.5 s until it's stopped (Android needs one tap on the app first)
+let buzzTimer = null;
+function startBuzz(){
+  if(buzzTimer || !navigator.vibrate) return;
+  const go = () => { try{ navigator.vibrate([700, 250, 700]); }catch(e){} };
+  go(); buzzTimer = setInterval(() => ringing.size ? go() : stopBuzz(), 2500);
+}
+function stopBuzz(){ clearInterval(buzzTimer); buzzTimer = null; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
 function stopLoop(){
   clearInterval(beepTimer); beepTimer = null;
   // cut off notes that were already scheduled ahead
@@ -2266,9 +2288,65 @@ $('#clearAll').onclick = () => {
 };
 document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }, { once:true });
 
+// Android only shows the permission prompt when it's asked straight from a tap, so this is called from
+// Send, the Allow button and Test alarm (asking later, after reading a screenshot, is ignored there).
 function askNotify(){
-  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+  if('Notification' in window && Notification.permission === 'default')
+    try{ const done = () => { renderNotifState(); pushSoon(); }; const r = Notification.requestPermission(done); if(r && r.then) r.then(done, done); }catch(e){}
 }
+/* ---------- Locked-phone alarms (Web Push through PUSH_SERVER) ----------
+   Once notifications are allowed, this phone subscribes to push and sends the push service its upcoming bets
+   (name, start, alarm time, Ladbrokes link) whenever they change. At alarm time the service wakes the phone. */
+let pushState = 'off', pushTimer = null;   // 'off' | 'on' | 'unsupported' | 'error'
+const pushBase = () => PUSH_SERVER.replace(/\/+$/, '');
+function pushSoon(){ clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 1500); }
+store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.lead') pushSoon(); });
+async function pushSubscription(){
+  if(!PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
+  let sub = await swReg.pushManager.getSubscription();
+  if(!sub){
+    const { key } = await (await fetch(pushBase() + '/vapid')).json();
+    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/')), bytes = Uint8Array.from(raw, c => c.charCodeAt(0));
+    sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+  }
+  return sub;
+}
+async function syncPush(){
+  if(!PUSH_SERVER){ pushState = 'off'; return renderNotifState(); }
+  if(!('PushManager' in window) || !('serviceWorker' in navigator)){ pushState = 'unsupported'; return renderNotifState(); }
+  try{
+    const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
+    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3).map(a => ({ id: a.id, ring: a.ring,
+      title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
+      url: a.test ? '' : ladbrokesUrl(a) })) : [];
+    const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list }) });
+    pushState = r.ok ? 'on' : 'error';
+  }catch(e){ console.warn('Locked-phone alarms unavailable', e); pushState = 'error'; }
+  renderNotifState();
+}
+function renderNotifState(){
+  const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
+  const p = 'Notification' in window ? Notification.permission : 'unsupported';
+  b.hidden = p !== 'default';
+  st.innerHTML = p === 'granted' ? 'Notifications: <span class="ok">on</span>'
+    : p === 'denied' ? 'Notifications: <span class="bad">blocked</span>. Turn them on in your phone\'s settings for this app (or the site settings in your browser), then reload.'
+    : p === 'default' ? 'Notifications: <b>off</b>' : 'Notifications aren\'t supported in this browser.';
+  if(PUSH_SERVER && p === 'granted') st.innerHTML += pushState === 'on' ? ' · Locked-phone alarms: <span class="ok">on</span>'
+    : pushState === 'unsupported' ? ' · Locked-phone alarms need the installed app (iPhone: Share → Add to Home Screen)'
+    : pushState === 'error' ? ' · Locked-phone alarms: <span class="bad">couldn\'t connect</span>' : '';
+}
+$('#notifAllow').onclick = askNotify;
+$('#testAlarm').onclick = () => {
+  askNotify(); try{ navigator.vibrate && navigator.vibrate(1); }catch(e){}   // the tap also unlocks sound and vibration
+  try{ ctx().resume && ctx().resume(); }catch(e){}
+  const t = Date.now();
+  alarms = alarms.filter(a => !a.test);
+  alarms.push({ id:'test-' + t.toString(36), name:'Test alarm', start:t + 5 * 6e4, ring:t + 5000, lead:5, side:'', line:'', ouPct:'', edge:null, league:'', img:'', fired:false, added:t, tags:[], manual:true, test:true });
+  alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
+  toast(pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
+    : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.');
+};
+renderNotifState();
 
 const notes = new Map();   // alarm id → its desktop notification while it rings
 function fire(a){
@@ -2277,7 +2355,7 @@ function fire(a){
   if(!$('#bets').classList.contains('open')) setSlide('bets', true);   // show the bet that's ringing
   $('#landing').hidden = true;   // never ring behind the home page
   startLoop();
-  try{ navigator.vibrate && navigator.vibrate([400,200,400,200,400]); }catch(e){}   // phones: real vibration too
+  startBuzz();   // phones: vibrate for as long as it rings
   if('Notification' in window && Notification.permission==='granted'){
     try{
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
@@ -2287,7 +2365,8 @@ function fire(a){
     }catch(e){
       // Android (and installed apps) only allow notifications through the service worker
       if(swReg) swReg.showNotification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`,
-        tag: a.id, requireInteraction: true, icon: 'icon-192.png', data: { id: a.id, url: ladbrokesUrl(a) } }).catch(() => {});
+        tag: a.id, requireInteraction: true, renotify: true, silent: false, vibrate: [700, 250, 700, 250, 700], icon: 'icon-192.png', badge: 'icon-192.png',
+        data: { id: a.id, url: ladbrokesUrl(a) } }).catch(() => {});
     }
   }
   document.title = '🔔 ' + a.name;
@@ -2297,14 +2376,27 @@ function fire(a){
 }
 function stopAlarm(id){
   ringing.delete(id);
+  if(alarms.some(a => a.id === id && a.test)){ alarms = alarms.filter(a => a.id !== id); store.set('tt.alarms', alarms); }   // the test alarm goes away once stopped
   const n = notes.get(id); notes.delete(id); if(n) try{ n.close(); }catch(e){}   // stopping here also closes the popup
   if(swReg && swReg.getNotifications) swReg.getNotifications({ tag: id }).then(l => l.forEach(x => x.close())).catch(() => {});
-  if(!ringing.size){ stopLoop(); document.title = 'TT Alarm Bot'; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
+  if(!ringing.size){ stopLoop(); stopBuzz(); document.title = 'TT Alarm Bot'; }
   render();
 }
 
+// Keep the screen on while a bet is coming up, so the phone doesn't pause the app before it rings
+let wakeLock = null;
+const wakeWanted = () => store.get('tt.wakeOn', isPhone()) !== false && alarmsOn() && document.visibilityState === 'visible' && alarms.some(a => !a.fired);
+async function updateWake(){
+  if(!('wakeLock' in navigator)) return;
+  if(wakeWanted()){ if(!wakeLock){ try{ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }catch(e){ wakeLock = null; } } }
+  else if(wakeLock){ const l = wakeLock; wakeLock = null; l.release().catch(() => {}); }
+}
+document.addEventListener('visibilitychange', updateWake);
+$('#wakeOn').checked = store.get('tt.wakeOn', isPhone()) !== false;
+$('#wakeOn').onchange = e => { store.set('tt.wakeOn', e.target.checked); updateWake(); };
 setInterval(() => {
   const now = Date.now();
+  updateWake();
   cleanupOld();
   tickTracker();
   alarms.filter(a => !a.fired && a.ring <= now).forEach(fire);
@@ -2625,7 +2717,7 @@ function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTime
 async function publishPlays(){
   if(!sync.user || !social.me) return;
   const F = fdb(), uid = social.uid, now = Date.now(), want = new Map();
-  if(social.me.shareUpcoming !== false) alarms.forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}) }));   // typed bets: friends see them but can't copy
+  if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}) }));   // typed bets: friends see them but can't copy
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
     odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p) }));   // unit gains are always public to friends
