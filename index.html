@@ -40,7 +40,18 @@ button{cursor:pointer}
 
 /* Main layout */
 .main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
-.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);position:relative;overflow:hidden}
+/* Custom chat background: blurred image under a dark glass tint */
+.chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
+.chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(6px) saturate(.9)}
+.chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,11,13,.68),rgba(10,11,13,.8))}
+.chat.has-bg .chatbg{display:block}
+.chat .log,.chat .composer{position:relative;z-index:1}
+.chat.has-bg .msg.bot{background:rgba(30,33,37,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chat.has-bg .send{background:var(--send-bg,var(--yellow));color:var(--send-fg,#1a1a1a)}
+.bgpick{display:flex;align-items:center;gap:4px}
+.bgpick #bgClear{display:none;padding:7px 10px}
+body.has-bg #bgClear{display:inline-block}
 .log{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
@@ -154,11 +165,17 @@ button{cursor:pointer}
     </select>
   </div>
   <button class="ghost" id="testSound">Test sound</button>
+  <div class="bgpick">
+    <button class="ghost" id="bgPick">Background</button>
+    <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
+    <input type="file" id="bgFile" accept="image/*" hidden>
+  </div>
   <button class="ghost" id="openSettings">Gemini settings</button>
 </div>
 
 <div class="main">
   <section class="chat">
+    <div class="chatbg" aria-hidden="true"></div>
     <div class="log" id="log"></div>
     <div class="composer">
       <div class="preview" id="preview"><div id="thumbs" style="display:flex;gap:10px;flex-wrap:wrap"></div><span id="shotCount"></span><button class="clear" id="clearImg">Remove all</button></div>
@@ -350,6 +367,74 @@ function shrink(dataUrl, maxW=1400){
     im.src = dataUrl;
   });
 }
+
+/* ---------- Chat background ---------- */
+function applyBg(url){
+  $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
+  $('.chat').classList.toggle('has-bg', !!url);
+  document.body.classList.toggle('has-bg', !!url);
+  if(url) mainColor(url).then(c => {
+    if(!c || !$('.chat').classList.contains('has-bg')) return;
+    $('.chat').style.setProperty('--send-bg', `rgb(${c.rgb})`);
+    $('.chat').style.setProperty('--send-fg', c.light ? '#1a1a1a' : '#fff');
+  });
+}
+
+/* Most common colourful shade in the image, adjusted so the Send button stays visible on the dark UI */
+function mainColor(url){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+      const ctx = c.getContext('2d'); ctx.drawImage(im, 0, 0, N, N);
+      const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
+      for(let i = 0; i < d.length; i += 4){
+        if(d[i+3] < 128) continue;
+        const [r,g,b] = [d[i],d[i+1],d[i+2]], mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+        const w = (mx - mn) / 255 + .05;           // favour colourful pixels over greys
+        const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5);
+        const e = bins.get(k) || { w:0, r:0, g:0, b:0 };
+        e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
+      }
+      let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
+      if(!best) return res(null);
+      let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
+      l = Math.min(.66, Math.max(.46, l));
+      const rgb = fromHsl(h, sat, l);
+      const lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
+      res({ rgb: rgb.join(','), light: lum > .55 });
+    };
+    im.onerror = () => res(null);
+    im.src = url;
+  });
+}
+function toHsl(r, g, b){
+  r/=255; g/=255; b/=255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2;
+  if(mx === mn) return [0, 0, l];
+  const dd = mx - mn, s = l > .5 ? dd/(2-mx-mn) : dd/(mx+mn);
+  const h = mx === r ? (g-b)/dd + (g<b ? 6 : 0) : mx === g ? (b-r)/dd + 2 : (r-g)/dd + 4;
+  return [h/6, s, l];
+}
+function fromHsl(h, s, l){
+  const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
+  const f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < 1/2 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; };
+  return [f(h+1/3), f(h), f(h-1/3)].map(v => Math.round(v*255));
+}
+applyBg(store.get('tt.bg', null));
+$('#bgPick').onclick = () => $('#bgFile').click();
+$('#bgFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f || !f.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    const url = await shrink(r.result, 1600);   // blurred anyway, so a smaller copy keeps storage free for alarms
+    applyBg(url);
+    if(!store.set('tt.bg', url)) addMsg('bot', 'Browser storage is full, so the background won\'t survive a reload.', { err:true });
+  };
+  r.readAsDataURL(f);
+};
+$('#bgClear').onclick = () => { applyBg(null); try{ localStorage.removeItem('tt.bg'); }catch(e){} };
 
 /* ---------- LLM ---------- */
 const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
