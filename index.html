@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Installable app: opens full screen from the home screen, without the browser's address bar -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#16181b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TT Alarm">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TT Alarm Bot</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="favicon.png">
@@ -435,8 +442,8 @@ button.tag{cursor:pointer}
    vertical menu. Panels fill the screen below that row, so the toolbar stays reachable; pop-ups open below it too.
    Nothing may stick out sideways. */
 html.phone,html.phone body{overflow-x:clip}
-html.phone{--top-h:58px}
-html.phone .top{z-index:48;gap:8px;padding:9px 10px;height:var(--top-h);box-sizing:border-box}
+html.phone{--top-h:calc(58px + env(safe-area-inset-top))}
+html.phone .top{z-index:48;gap:8px;padding:calc(9px + env(safe-area-inset-top)) 10px 9px;height:var(--top-h);box-sizing:border-box}
 html.phone .brand{font-size:0;gap:0;padding:0 6px;margin:0}      /* just the ball: still the home button */
 html.phone .iconbtn{width:38px;height:38px}
 html.phone .toolbar{position:absolute;top:calc(100% + 6px);left:0;flex-direction:column;align-items:stretch;gap:6px;min-width:190px;
@@ -474,7 +481,7 @@ html.phone .toast{max-width:calc(100vw - 24px);white-space:normal;text-align:cen
 html.phone #drawerBtn{display:grid;border:none;background:none;border-radius:50%}   /* plain ☰, no outlined box */
 html.phone #drawerBtn:active{background:var(--panel-2)}
 html.phone #homeBtn,html.phone #menuBtn,html.phone #barBtn,html.phone #toolbar{display:none !important}
-html.phone .top{padding:9px 10px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
+html.phone .top{padding:calc(9px + env(safe-area-inset-top)) 10px 9px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
 html.phone .pltab{display:none}                                 /* no clock / PNL tab on phones (PNL is in the ☰ menu) */
 .me-chip{display:none}
 html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
@@ -489,7 +496,7 @@ html.phone .drawer{display:flex;flex-direction:column;position:fixed;top:0;left:
   background:var(--bg);border-right:1px solid var(--line);box-shadow:12px 0 32px rgba(0,0,0,.45);padding:0 10px calc(16px + env(safe-area-inset-bottom));
   transform:translateX(-105%);visibility:hidden;transition:transform .25s ease,visibility 0s .25s}
 html.phone .drawer.open{transform:none;visibility:visible;transition:transform .25s ease,visibility 0s}
-.dr-brand{display:flex;align-items:center;gap:12px;background:none;border:none;color:var(--text);font:700 24px/1 var(--cond);padding:26px 14px 22px;text-align:left}
+.dr-brand{display:flex;align-items:center;gap:12px;background:none;border:none;color:var(--text);font:700 24px/1 var(--cond);padding:calc(26px + env(safe-area-inset-top)) 14px 22px;text-align:left}
 .dr-brand .ball{width:18px;height:18px}
 .dr-sep{height:1px;background:var(--line);margin:4px -10px}
 .dr-label{font-size:13px;color:var(--muted);padding:16px 14px 6px}
@@ -857,6 +864,16 @@ const ringing = new Set();   // ids of alarms currently going off
 let audioCtx = null, beepTimer = null;
 
 const $ = s => document.querySelector(s);
+// Service worker: makes the site installable as an app (full screen, no address bar) and shows alarm
+// notifications on Android, where pages can't show them directly.
+let swReg = null;
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js').then(r => { swReg = r; }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => {   // a notification shown by the service worker was clicked or swiped away
+    const d = e.data || {}; if(!d.id) return;
+    if(ringing.has(d.id)) stopAlarm(d.id);
+  });
+}
 // Phones: a phone's browser, or any screen 860px wide or less. Sets html.phone for the phone layout.
 const isPhone = () => /Android|iPhone|iPod|Mobile|IEMobile|Opera Mini/i.test(navigator.userAgent) || innerWidth <= 860;
 function markPhone(){ const was = document.documentElement.classList.contains('phone'), now = isPhone();
@@ -1547,9 +1564,9 @@ $('#copyName').onchange = e => store.set('tt.copyName', e.target.checked);
 const compKey = league => /\btt\s*cup\b/i.test(league) ? 'cup' : /\belite\b/i.test(league) ? 'elite' : /czech|liga\s*pro/i.test(league) ? 'czech' : null;
 let toastTimer = null;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200); }
+function ladbrokesUrl(a){ const key = compKey(a.league || ''), links = store.get('tt.links', {}) || {}; return (key && (links[key] || LB_DEFAULTS[key])) || LB_TABLE_TENNIS; }
 function openLadbrokes(a){
-  const key = compKey(a.league || ''), links = store.get('tt.links', {}) || {};
-  const url = (key && (links[key] || LB_DEFAULTS[key])) || LB_TABLE_TENNIS;
+  const url = ladbrokesUrl(a);
   const first = String(a.name || '').split(/\s+vs\.?\s+/i)[0].trim().split(/\s+/)[0].replace(/[.,]+$/, '');
   if(first && store.get('tt.copyName', true) !== false){
     (navigator.clipboard ? navigator.clipboard.writeText(first) : Promise.reject())
@@ -2267,7 +2284,11 @@ function fire(a){
       notes.set(a.id, n);
       n.onclose = () => { if(notes.get(a.id) === n){ notes.delete(a.id); if(ringing.has(a.id)) stopAlarm(a.id); } };   // closing the popup stops the alarm
       n.onclick = () => { openLadbrokes(a); n.close(); };   // clicking the popup opens the match's competition on Ladbrokes (and stops the alarm)
-    }catch(e){}
+    }catch(e){
+      // Android (and installed apps) only allow notifications through the service worker
+      if(swReg) swReg.showNotification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`,
+        tag: a.id, requireInteraction: true, icon: 'icon-192.png', data: { id: a.id, url: ladbrokesUrl(a) } }).catch(() => {});
+    }
   }
   document.title = '🔔 ' + a.name;
   render();
@@ -2277,6 +2298,7 @@ function fire(a){
 function stopAlarm(id){
   ringing.delete(id);
   const n = notes.get(id); notes.delete(id); if(n) try{ n.close(); }catch(e){}   // stopping here also closes the popup
+  if(swReg && swReg.getNotifications) swReg.getNotifications({ tag: id }).then(l => l.forEach(x => x.close())).catch(() => {});
   if(!ringing.size){ stopLoop(); document.title = 'TT Alarm Bot'; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
   render();
 }

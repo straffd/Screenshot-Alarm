@@ -59,7 +59,14 @@ Screenshots are read by Google Gemini (free tier).
 Gemini settings and the home page, with counts and today's P/L next to each) and your picture and @name on the right
 (tap it for your profile, or to sign in). The clock / PNL tab isn't shown on phones.
 
-Keep the tab open for alarms to ring.
+**Install it as an app** (opens full screen from your home screen, no address bar):
+- **Android (Chrome):** open the site, tap ⋮ → **Install app** (or **Add to Home screen → Install**).
+- **iPhone (Safari):** open the site, tap Share → **Add to Home Screen**.
+If you added a shortcut before this, delete it and add it again: an old shortcut keeps opening in the browser.
+On Android, alarm notifications now show up (they go through the app's service worker); tapping one stops the
+alarm and opens the match's competition on Ladbrokes.
+
+Keep the tab (or the app) open for alarms to ring.
 
 ## Where your data is kept
 - **Signed in with Google:** bets (with their screenshots), background, UI colour, sound, lead time, old-bet removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
