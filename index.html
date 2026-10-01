@@ -159,7 +159,7 @@ body.has-bg #bgClear{display:inline-block}
 /* PNL shows the combined total; hovering it (or tapping on phones) splits it into Me and Bot */
 #plValBox{pointer-events:auto;cursor:default}
 .pl-split{display:none}
-#plValBox:hover #plVal,#plValBox.split #plVal{display:none}
+#plValBox:hover #plVal,#plValBox.split #plVal,#plValBox:hover .k,#plValBox.split .k{display:none}
 #plValBox:hover .pl-split,#plValBox.split .pl-split{display:inline}
 .pltab .who{font:600 11px/1 var(--sans);letter-spacing:.04em;color:var(--muted);margin:0 5px 0 0;text-transform:uppercase}
 #plMe + .who{margin-left:12px}   /* gap between Me and Bot */
@@ -372,6 +372,9 @@ button.tag{cursor:pointer}
 .pnl-stats b{font:700 18px/1 var(--cond);font-variant-numeric:tabular-nums}
 /* combined totals; hover (or focus) swaps the number for its Me / Bot split */
 .pnl-stats div{min-height:62px}
+.pnl-stats .click{cursor:pointer}
+.pnl-stats .click:hover{border-color:var(--muted)}
+.pnl-stats .click[aria-pressed="true"]{outline:2px solid var(--text);outline-offset:-1px}
 .split{display:none;flex-direction:column;gap:2px;font:600 12px/1.15 var(--sans);color:var(--muted)}
 .split .pair{white-space:nowrap}
 .split i{font-style:normal;font-family:var(--cond);font-weight:700}
@@ -1696,6 +1699,13 @@ function renderPnl(){
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
     if(splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
+    if(i === 1){   // This month: click to list every bet this month under the calendar
+      d.classList.add('click'); d.setAttribute('role', 'button'); d.setAttribute('aria-pressed', pnlSel === 'month');
+      d.title += ' · click to list this month\'s bets';
+      d.onclick = () => { pnlSel = pnlSel === 'month' ? null : 'month'; pnlView = 'calendar'; pnlMonth = new Date(now.getFullYear(), now.getMonth(), 1); renderPnl();
+        if(pnlSel) setTimeout(() => { const l = $('#pnlView .daylist'); if(l) l.scrollIntoView({ behavior:'smooth', block:'nearest' }); }, 50); };
+      d.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); d.click(); } };
+    }
     $('#pnlStats').appendChild(d);
   });
   const view = $('#pnlView'); view.innerHTML = '';
@@ -1727,14 +1737,20 @@ function renderCalendar(view, days, tk){
     grid.appendChild(b);
   }
   view.appendChild(grid);
-  const sel = pnlSel && days.get(pnlSel);
+  // a clicked day, or the whole month (from the This month box)
+  const whole = pnlSel === 'month', m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime(), m1 = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+  const mp = whole ? S.plays.filter(p => p.start >= m0 && p.start < m1) : null;
+  const sel = whole ? { plays: mp, pl: mp.reduce((t, p) => t + S.val(p), 0) } : pnlSel && days.get(pnlSel);
   if(sel){
     const list = document.createElement('div'); list.className = 'daylist';
-    const h = document.createElement('h4'); h.textContent = keyDate(pnlSel).toLocaleDateString([], { weekday:'long', day:'numeric', month:'long' }) + ` · ${S.txt(sel.pl)}`; list.appendChild(h);
+    const h = document.createElement('h4');
+    h.textContent = (whole ? new Date(m0).toLocaleDateString([], { month:'long', year:'numeric' }) + ` · ${mp.length} bet${mp.length === 1 ? '' : 's'}`
+      : keyDate(pnlSel).toLocaleDateString([], { weekday:'long', day:'numeric', month:'long' })) + ` · ${S.txt(sel.pl)}`; list.appendChild(h);
+    if(whole && !mp.length) list.appendChild(el('div', 'empty', 'No settled bets this month yet.'));
     sel.plays.slice().sort((a, b) => a.start - b.start).forEach(p => {
       const it = document.createElement('div'), pl = S.val(p); it.className = 'it';
       it.innerHTML = `<span class="r ${p.result === 'cash' ? 'up' : 'down'}">${p.result === 'cash' ? 'CASH' : 'CHALK'}</span><span class="nm"></span><span class="pl ${plClass(pl)}"></span>`;
-      it.querySelector('.nm').textContent = `${fmtTime(p.start)} · ${p.name}`; it.querySelector('.pl').textContent = S.txt(pl);
+      it.querySelector('.nm').textContent = `${whole ? new Date(p.start).toLocaleDateString([], { day:'numeric', month:'short' }) + ', ' : ''}${fmtTime(p.start)} · ${p.name}`; it.querySelector('.pl').textContent = S.txt(pl);
       if(isBot(p)) it.querySelector('.nm').appendChild(el('span', 'bot', 'BOT'));
       list.appendChild(it);
     });
