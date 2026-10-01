@@ -16,7 +16,8 @@ Screenshots are read by Google Gemini (free tier).
    Tags show next to OVER/UNDER. You can also create a new tag straight from an alarm.
 6. Alarms are removed automatically a few hours after their match starts (3 by default). Change the number,
    or set 0 to keep them, in ⚙ Settings → Remove old alarms.
-7. When a match has started, its alarm shows **Cash** and **Chalk**. Cash asks for the decimal odds and units placed;
+7. When a match has started, its alarm shows **Cash** and **Chalk**. Screenshots of matches that already started
+   earlier today are added straight away as done, with Cash and Chalk ready. Cash asks for the decimal odds and units placed;
    Chalk records a loss with your last-used units. The match then moves to your history: press the ⟲ button next
    to the "Alarms" title on the right to switch to your history (green = cash, red = chalk) with your total won
    or lost, and press it again to go back. Click a history entry to edit or delete it.

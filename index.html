@@ -906,8 +906,9 @@ function parseDate(d){
 function matchStart(info){
   const hm = to24(info.time); if(!hm) return null;
   const when = new Date(); when.setHours(hm[0], hm[1], 0, 0);
-  // Started under 30 min ago: treat as live (caller skips it). Longer ago: it's tomorrow's match.
-  if(when.getTime() < Date.now() - 30*60000) when.setDate(when.getDate()+1);
+  // Earlier today (up to 12 h ago): the match has already happened, so it's added as done.
+  // Longer ago than that: the time must mean tomorrow's match.
+  if(when.getTime() < Date.now() - 12*3600e3) when.setDate(when.getDate()+1);
   return when.getTime();
 }
 const clean = n => String(n||'').trim().replace(/\.+$/,'');
@@ -1011,7 +1012,6 @@ async function createAlarm(info, img, cropIt){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
-  if(start <= Date.now()) return { ok:false, name, why:`started at ${fmtTime(start)}` };
   if(alarms.some(x => x.name === name && x.start === start)) return { ok:false, name, why:'alarm already set' };
   const side = ouSide(info);
   const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
@@ -1022,7 +1022,8 @@ async function createAlarm(info, img, cropIt){
     side, line: info.ou_line || '', ouPct: info.ou_pct || '',
     edge: isNaN(edgeNum) ? null : edgeNum,
     league: compName(info.league),
-    img: await shrink(shot), fired: false
+    img: await shrink(shot), fired: start <= Date.now(),   // already started: added as done, ready for Cash / Chalk
+    added: Date.now()
   };
   alarms.push(a);
   return { ok:true, a };
@@ -1047,17 +1048,20 @@ async function createAlarms(entries, problems = []){
   const fmtSide = a => `${a.side}${a.line ? ' ' + a.line : ''}`;
   if(made.length === 1 && !skipped.length && !problems.length){
     const a = made[0], past = a.ring <= Date.now();
-    addMsg('bot', past ? 'Alarm set. The alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
+    addMsg('bot', a.fired ? `This match already started at ${fmtTime(a.start)}, so I added it as done. Mark it Cash or Chalk in the list.`
+      : past ? 'Alarm set. The alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
       facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%']]
     });
   } else {
-    const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}`]);
+    const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}${a.fired ? ' · done, mark Cash or Chalk' : ''}`]);
     skipped.forEach(r => facts.push(['Skipped', `${r.name}: ${r.why}`]));
     problems.forEach(pr => facts.push(['Not read', pr]));
     const n = entries.length;
-    addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. Set ${made.length} alarm${made.length>1?'s':''}, each ${lead} min before the start.` : `Found ${n} match${n>1?'es':''}, but no new alarms were needed.`, { facts });
+    const done = made.filter(a => a.fired).length, set = made.length - done;
+    addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
+                              : `Found ${n} match${n>1?'es':''}, but no new alarms were needed.`, { facts });
   }
-  if(made.length) askNotify();
+  if(made.some(a => !a.fired)) askNotify();
 }
 
 // Changing the lead time moves every alarm that hasn't gone off yet. Returns a short summary.
@@ -1155,10 +1159,11 @@ $('#cleanupHours').onchange = e => {
 };
 function cleanupOld(){
   if(!cleanupHours) return;
-  const cutoff = Date.now() - cleanupHours * 3600e3, old = alarms.filter(a => a.start <= cutoff);
+  const cutoff = Date.now() - cleanupHours * 3600e3, age = a => Math.max(a.start, a.added || 0);   // a just-added finished match gets the full window
+  const old = alarms.filter(a => age(a) <= cutoff);
   if(!old.length) return;
   old.forEach(a => { if(ringing.has(a.id)) stopAlarm(a.id); });
-  alarms = alarms.filter(a => a.start > cutoff);
+  alarms = alarms.filter(a => age(a) > cutoff);
   store.set('tt.alarms', alarms); render();
 }
 cleanupPrefs();
