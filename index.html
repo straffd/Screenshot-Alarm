@@ -40,7 +40,17 @@ button{cursor:pointer}
 
 /* Main layout */
 .main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
-.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);position:relative;overflow:hidden}
+/* Custom chat background: blurred image under a dark glass tint */
+.chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
+.chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(6px) saturate(.9)}
+.chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,11,13,.68),rgba(10,11,13,.8))}
+.chat.has-bg .chatbg{display:block}
+.chat .log,.chat .composer{position:relative;z-index:1}
+.chat.has-bg .msg.bot{background:rgba(30,33,37,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.bgpick{display:flex;align-items:center;gap:4px}
+.bgpick #bgClear{display:none;padding:7px 10px}
+body.has-bg #bgClear{display:inline-block}
 .log{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
@@ -154,11 +164,17 @@ button{cursor:pointer}
     </select>
   </div>
   <button class="ghost" id="testSound">Test sound</button>
+  <div class="bgpick">
+    <button class="ghost" id="bgPick">Background</button>
+    <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
+    <input type="file" id="bgFile" accept="image/*" hidden>
+  </div>
   <button class="ghost" id="openSettings">Gemini settings</button>
 </div>
 
 <div class="main">
   <section class="chat">
+    <div class="chatbg" aria-hidden="true"></div>
     <div class="log" id="log"></div>
     <div class="composer">
       <div class="preview" id="preview"><div id="thumbs" style="display:flex;gap:10px;flex-wrap:wrap"></div><span id="shotCount"></span><button class="clear" id="clearImg">Remove all</button></div>
@@ -348,6 +364,27 @@ function shrink(dataUrl, maxW=1400){
     im.src = dataUrl;
   });
 }
+
+/* ---------- Chat background ---------- */
+function applyBg(url){
+  $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
+  $('.chat').classList.toggle('has-bg', !!url);
+  document.body.classList.toggle('has-bg', !!url);
+}
+applyBg(store.get('tt.bg', null));
+$('#bgPick').onclick = () => $('#bgFile').click();
+$('#bgFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f || !f.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    const url = await shrink(r.result, 1600);   // blurred anyway, so a smaller copy keeps storage free for alarms
+    applyBg(url);
+    if(!store.set('tt.bg', url)) addMsg('bot', 'Browser storage is full, so the background won\'t survive a reload.', { err:true });
+  };
+  r.readAsDataURL(f);
+};
+$('#bgClear').onclick = () => { applyBg(null); try{ localStorage.removeItem('tt.bg'); }catch(e){} };
 
 /* ---------- LLM ---------- */
 const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
