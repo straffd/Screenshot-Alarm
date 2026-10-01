@@ -99,7 +99,7 @@ button{cursor:pointer}
 
 /* Main layout */
 .main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
-.chat{display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden}
+.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);position:relative;overflow:hidden}
 /* Custom chat background: blurred image under a dark glass tint */
 .chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
 .chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(3px)}
@@ -137,10 +137,7 @@ body.has-bg #bgClear{display:inline-block}
 .msg .shots img{margin:0;width:100%;height:auto}
 
 /* Alarm rail */
-.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg);position:relative}
-/* Divider between chat and list; it starts below the P/L tab so the tab runs straight into the list */
-.rail::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--line);z-index:1}
-body.has-pltab .rail::before{top:48px}
+.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
 .rail h2{font:600 17px/1 var(--cond);margin:0;padding:12px 14px 12px 8px;display:flex;align-items:center;gap:6px}
 .rail h2 small{font:500 13px var(--sans);color:var(--muted);margin-left:auto}
 .railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
@@ -301,7 +298,6 @@ button.tag{cursor:pointer}
 @media (max-width:860px){
   .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .chat{border-right:none;border-bottom:1px solid var(--line)}
-  .rail::before{display:none}
   .rail{max-height:42vh}
   .main.rail-collapsed{grid-template-columns:1fr}
   .main.rail-collapsed .rail h2{flex-direction:row;padding:10px 14px 10px 8px}
@@ -1280,7 +1276,7 @@ function savePlPrefs(){
 ['#plShow', '#timeShow', '#timeMode', '#plMoney', '#unitValue'].forEach(id => $(id).onchange = savePlPrefs);
 function tickTracker(){
   const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
-  $('#plTab').hidden = !showPL && !showTime; document.body.classList.toggle('has-pltab', !$('#plTab').hidden);
+  $('#plTab').hidden = !showPL && !showTime;
   $('#plTimeBox').hidden = !showTime; $('#plValBox').hidden = !showPL;
   $('#plSep').hidden = !(showPL && showTime);
   const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
