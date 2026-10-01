@@ -34,16 +34,41 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
 
 /* Top bar */
-.top{display:flex;align-items:flex-start;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-.tools{display:flex;align-items:center;gap:10px 14px;flex:1;flex-wrap:wrap}
-/* Collapsed: the bar shrinks to a tab holding just the logo and the settings button */
-.top.collapsed{position:absolute;top:0;left:0;z-index:5;border-right:1px solid var(--line);border-radius:0 0 14px 0;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.top.collapsed .tools{display:none}
-body.top-collapsed .log{padding-top:78px}
+/* Top-left tab: logo (home page) and the settings button that opens the HUD */
+.top{position:absolute;top:0;left:0;z-index:5;display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--panel);border:1px solid var(--line);border-width:0 1px 1px 0;border-radius:0 0 14px 0;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.log{padding-top:78px !important}
+/* Settings HUD */
+.hud{width:min(580px,100%);padding:20px 22px}
+.hud-row{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:8px 14px;padding:12px 0;border-top:1px solid var(--line)}
+.hud-row:first-of-type{border-top:none}
+.hud-row > .lbl{color:var(--muted);font-size:14px}
+.hud-row .ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.hud .account{margin-left:0}
+.hud .links{display:grid;gap:8px}
+.hud .links label{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.hud .links input{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px}
+.hud .note{grid-column:1/-1;margin:0;font-size:12.5px;color:var(--muted)}
+.hud-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line)}
+@media (max-width:560px){
+  .modal{padding:12px}
+  .hud{padding:16px}
+  .hud-row{grid-template-columns:1fr;gap:6px}
+  .hud .links label{grid-template-columns:1fr;gap:4px}
+}
+.switch{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:14px}
+.switch input{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:11px;background:var(--line);margin:0;cursor:pointer;transition:background .2s;flex:none}
+.switch input::after{content:"";display:block;width:16px;height:16px;margin:3px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch input:checked{background:var(--green)}
+.switch input:checked::after{transform:translateX(18px)}
+/* Player names on a card open Ladbrokes */
+.card button.names{background:none;border:none;padding:0 22px 0 0;margin:0;text-align:left;color:inherit;cursor:pointer;justify-self:start}
+.card button.names:hover{text-decoration:underline;text-underline-offset:3px}
+.card button.names::after{content:"\00a0↗";font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(10px);background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:9px 14px;border-radius:8px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ghost.iconbtn{width:38px;height:38px;padding:0;display:grid;place-items:center}
 .iconbtn svg{display:block}
 .iconbtn svg{transition:transform .25s}
-.top:not(.collapsed) #menuBtn svg{transform:rotate(90deg)}
 .brand{font:700 20px/1 var(--cond);letter-spacing:.01em;display:flex;align-items:center;gap:10px;min-height:38px;background:none;border:none;padding:0 4px;margin:0 -4px;color:inherit;border-radius:6px}
 .brand:hover{opacity:.85}
 .ball{width:14px;height:14px;border-radius:50%;background:#f4f1e8;box-shadow:inset -3px -3px 0 rgba(0,0,0,.18)}
@@ -184,7 +209,7 @@ body.has-bg #bgClear{display:inline-block}
 .landing .small{margin:6px 0 0;font-size:12.5px;color:#8b9099}
 .landing .lerr{margin:14px 0 0;font-size:13px;color:var(--red);min-height:1em}
 /* Account controls in the top bar */
-.account{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;margin-left:auto}
+.account{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
 .account img,.account .initial{width:28px;height:28px;border-radius:50%;flex:none}
 .account .initial{display:grid;place-items:center;background:var(--panel-2);color:var(--text);font-weight:600}
 .account .who{color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -250,42 +275,9 @@ body.has-bg #bgClear{display:inline-block}
 
 <div class="top" id="top">
   <button class="brand" id="homeBtn" title="Back to the home page"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
-  <button class="ghost iconbtn" id="menuBtn" aria-controls="tools" aria-expanded="true" aria-label="Settings" title="Settings">
+  <button class="ghost iconbtn" id="menuBtn" aria-haspopup="dialog" aria-label="Settings" title="Settings">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </button>
-  <div class="tools" id="tools">
-  <button class="ghost danger" id="clearAll">Clear all alarms</button>
-  <div class="account" id="account"></div>
-  <div class="lead">
-    <label for="leadMin">Alert me</label>
-    <input id="leadMin" type="number" min="0" max="600" value="5">
-    <span>min before the match</span>
-  </div>
-  <div class="sound">
-    <label for="soundPick">Sound</label>
-    <select id="soundPick">
-      <option value="beep">Beep</option>
-      <option value="pingpong">Ping pong</option>
-      <option value="chime">Chime</option>
-      <option value="bell">Bell</option>
-      <option value="digital">Digital</option>
-      <option value="siren">Siren</option>
-    </select>
-  </div>
-  <div class="theme">
-    <label for="uiColor">Colour</label>
-    <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
-    <input type="range" id="uiAlpha" min="20" max="100" step="5" value="100" aria-label="UI opacity" title="UI opacity">
-    <output id="uiAlphaOut" for="uiAlpha">100%</output>
-    <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
-  </div>
-  <div class="bgpick">
-    <button class="ghost" id="bgPick">Background</button>
-    <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
-    <input type="file" id="bgFile" accept="image/*" hidden>
-  </div>
-  <button class="ghost" id="openSettings">Gemini settings</button>
-  </div>
 </div>
 
 <div class="main">
@@ -314,6 +306,54 @@ body.has-bg #bgClear{display:inline-block}
     <div class="list" id="list"></div>
   </aside>
 </div>
+
+
+<!-- Settings HUD (opened by the gear) -->
+<div class="modal" id="hud" role="dialog" aria-modal="true" aria-labelledby="hudTitle">
+  <div class="sheet hud">
+    <header><h3 id="hudTitle">Settings</h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="hud-row"><span class="lbl">Account</span><div class="ctl account" id="account"></div></div>
+    <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
+      <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
+    <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
+      <div class="ctl sound"><select id="soundPick">
+        <option value="beep">Beep</option>
+        <option value="pingpong">Ping pong</option>
+        <option value="chime">Chime</option>
+        <option value="bell">Bell</option>
+        <option value="digital">Digital</option>
+        <option value="siren">Siren</option>
+      </select></div></div>
+    <div class="hud-row"><label class="lbl" for="uiColor">Colour</label>
+      <div class="ctl theme">
+        <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
+        <input type="range" id="uiAlpha" min="20" max="100" step="5" value="100" aria-label="UI opacity" title="UI opacity">
+        <output id="uiAlphaOut" for="uiAlpha">100%</output>
+        <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
+      </div></div>
+    <div class="hud-row"><span class="lbl">Background</span>
+      <div class="ctl bgpick">
+        <button class="ghost" id="bgPick">Choose image</button>
+        <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
+        <input type="file" id="bgFile" accept="image/*" hidden>
+      </div></div>
+    <div class="hud-row"><span class="lbl">Ladbrokes</span>
+      <div class="ctl" style="display:grid;gap:12px">
+        <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening Ladbrokes</label>
+        <div class="links">
+          <label>TT Cup<input id="lbCup" type="url" placeholder="Paste the Ladbrokes TT Cup page link"></label>
+          <label>TT Elite Series<input id="lbElite" type="url" placeholder="Paste the Ladbrokes TT Elite page link"></label>
+          <label>Czech Liga Pro<input id="lbCzech" type="url" placeholder="Paste the Ladbrokes Czech Liga Pro page link"></label>
+        </div>
+      </div>
+      <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Empty links open the main Ladbrokes table tennis page.</p></div>
+    <div class="hud-foot">
+      <button class="ghost" id="openSettings">Gemini settings</button>
+      <button class="ghost danger" id="clearAll">Clear all alarms</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Screenshot viewer -->
 <div class="modal" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
@@ -473,13 +513,7 @@ document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
 $('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
 
 /* ---------- Collapsible top bar and alarm rail ---------- */
-function setTop(open){
-  $('#top').classList.toggle('collapsed', !open); document.body.classList.toggle('top-collapsed', !open);
-  $('#menuBtn').setAttribute('aria-expanded', open);
-  store.set('tt.topOpen', open);
-}
-setTop(store.get('tt.topOpen', false));
-$('#menuBtn').onclick = () => setTop($('#top').classList.contains('collapsed'));
+$('#menuBtn').onclick = () => openModal('#hud');
 function setRail(open){
   $('.main').classList.toggle('rail-collapsed', !open);
   const t = $('#railToggle'); t.setAttribute('aria-expanded', open);
@@ -834,7 +868,7 @@ function render(){
     c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing.has(a.id)?' ringing':''}`;
     c.tabIndex = 0; c.setAttribute('role','button'); c.setAttribute('aria-label', `${a.name}, open screenshot`);
     c.innerHTML = `
-      <div class="names"></div>
+      <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
       <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before</div>
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : `<div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>`}
@@ -845,6 +879,7 @@ function render(){
       </div>
       <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
     c.querySelector('.names').textContent = a.name;
+    c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
     if(a.league) c.querySelector('.comp').textContent = a.league;
     c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
     if(ringing.has(a.id)) c.setAttribute('aria-label', `${a.name} alarm going off, click to stop`);
@@ -857,13 +892,44 @@ function render(){
   }
 }
 
+/* ---------- Ladbrokes links ---------- */
+const LB_TABLE_TENNIS = 'https://www.ladbrokes.com.au/sports/table-tennis';
+const LB_FIELDS = { cup:'#lbCup', elite:'#lbElite', czech:'#lbCzech' };
+function linkPrefs(){
+  const l = store.get('tt.links', {}) || {};
+  Object.entries(LB_FIELDS).forEach(([k, sel]) => { $(sel).value = l[k] || ''; });
+  $('#copyName').checked = store.get('tt.copyName', true) !== false;
+}
+Object.entries(LB_FIELDS).forEach(([k, sel]) => $(sel).onchange = () => {
+  let v = $(sel).value.trim();
+  if(v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+  $(sel).value = v;
+  store.set('tt.links', { ...(store.get('tt.links', {}) || {}), [k]: v });
+});
+$('#copyName').onchange = e => store.set('tt.copyName', e.target.checked);
+const compKey = league => /cup/i.test(league) ? 'cup' : /elite/i.test(league) ? 'elite' : /czech|liga/i.test(league) ? 'czech' : null;
+let toastTimer = null;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200); }
+function openLadbrokes(a){
+  const key = compKey(a.league || ''), links = store.get('tt.links', {}) || {};
+  const url = (key && links[key]) || LB_TABLE_TENNIS;
+  const first = String(a.name || '').split(/\s+vs\.?\s+/i)[0].trim().split(/\s+/)[0].replace(/[.,]+$/, '');
+  if(first && store.get('tt.copyName', true) !== false){
+    (navigator.clipboard ? navigator.clipboard.writeText(first) : Promise.reject())
+      .then(() => toast(`Copied “${first}”. Paste it into the Ladbrokes search.`))
+      .catch(() => toast(`Couldn't copy “${first}”. Search for it on Ladbrokes.`));
+  }
+  window.open(url, '_blank', 'noopener');
+}
+linkPrefs();
+
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(el){ el.classList.remove('show'); }
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
-document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal'].forEach(id=>closeModal($(id))); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal','#hud'].forEach(id=>closeModal($(id))); });
 
 function openViewer(a){
   $('#viewerTitle').textContent = `${a.name}${a.league ? ' · ' + a.league : ''} · ${fmtTime(a.start)}`;
@@ -885,7 +951,7 @@ function fillSettings(){
   showMode();
 }
 $('#mode').onchange = showMode;
-$('#openSettings').onclick = () => { fillSettings(); openModal('#settingsModal'); };
+$('#openSettings').onclick = () => { closeModal($('#hud')); fillSettings(); openModal('#settingsModal'); };
 $('#testConn').onclick = async () => {
   const out = $('#testOut'), key = $('#apiKey').value.trim(), server = $('#mode').value === 'server';
   const url = $('#serverUrl').value.trim().replace(/\/+$/, '');
@@ -1049,7 +1115,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1078,6 +1144,7 @@ function refreshFromStore(){
     soundName = SOUNDS[store.get('tt.sound', 'beep')] ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName;
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
+    linkPrefs();
     render();
   } finally { sync.applying = false; }
 }
