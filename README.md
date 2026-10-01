@@ -66,7 +66,11 @@ If you added a shortcut before this, delete it and add it again: an old shortcut
 On Android, alarm notifications now show up (they go through the app's service worker); tapping one stops the
 alarm and opens the match's competition on Ladbrokes.
 
-Keep the tab (or the app) open for alarms to ring.
+Keep the tab (or the app) open **on screen** for alarms to ring: phones pause web apps when the screen locks or you switch
+apps. In ⚙ Settings → Alarms:
+- **Allow notifications** turns notifications on (Android only asks when you tap something, so tap this once).
+- **Test alarm** rings in 5 seconds so you can check sound, notification and vibration.
+- **Keep the screen on while a bet is coming up** (on by default on phones) stops the phone pausing the app before an alarm.
 
 ## Where your data is kept
 - **Signed in with Google:** bets (with their screenshots), background, UI colour, sound, lead time, old-bet removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
