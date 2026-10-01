@@ -54,8 +54,9 @@ Screenshots are read by Google Gemini (free tier).
     they next open the site.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
 
-**On a phone** the top-left logo, ⚙ and toolbar are replaced by a **☰** menu: tap it for Chat, Bets, History, PNL,
-Leaderboard, Friends, Settings, Gemini settings and the home page, with counts next to each.
+**On a phone** the top is one bar: a **☰** menu on the left (Chat, Bets, History, PNL, Leaderboard, Friends, Settings,
+Gemini settings and the home page, with counts and today's P/L next to each) and your picture and @name on the right
+(tap it for your profile, or to sign in). The clock / PNL tab isn't shown on phones.
 
 Keep the tab open for alarms to ring.
 

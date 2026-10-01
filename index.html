@@ -472,7 +472,14 @@ html.phone .toast{max-width:calc(100vw - 24px);white-space:normal;text-align:cen
 #drawerBtn,.drawer,.scrim{display:none}
 html.phone #drawerBtn{display:grid}
 html.phone #homeBtn,html.phone #menuBtn,html.phone #barBtn,html.phone #toolbar{display:none !important}
-html.phone .top{padding:9px;border-radius:0 0 14px 0}
+html.phone .top{padding:9px 10px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
+html.phone .pltab{display:none}                                 /* no clock / PNL tab on phones (PNL is in the ☰ menu) */
+.me-chip{display:none}
+html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
+html.phone .me-chip:active{background:var(--panel-2)}
+.me-chip #meName{font:600 15px var(--cond);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-chip #meName.muted{color:var(--muted);font-weight:500}
+.me-chip .pfp{width:34px;height:34px;font-size:15px}
 html.phone .scrim{display:block;position:fixed;inset:0;z-index:54;background:rgba(0,0,0,.5);opacity:0;transition:opacity .22s}
 html.phone .scrim.show{opacity:1}
 html.phone .scrim[hidden]{display:none}
@@ -541,6 +548,7 @@ html.phone .alpha-note{display:inline}
   <button class="ghost iconbtn" id="barBtn" aria-expanded="false" aria-controls="toolbar" aria-label="Show toolbar" title="Show toolbar">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
+  <button class="me-chip" id="meChip" title="Your profile"><span id="meName"></span><span id="mePfp"></span></button>
   <div class="toolbar" id="toolbar" hidden>
     <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false">Bets</button>
     <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
@@ -2379,7 +2387,17 @@ function listen(){
   }));
 }
 
+// Phones: the top bar shows your picture and @name on the right
+function renderMeChip(){
+  const me = sync.user && social && social.me ? social.me : null, n = $('#meName');
+  n.textContent = me ? '@' + me.username : sync.user ? 'Set up profile' : 'Sign in'; n.className = me ? '' : 'muted';
+  $('#mePfp').replaceChildren(pfpEl(me || { username: sync.user ? '?' : '?' }));
+  $('#meChip').title = me ? 'Your profile' : sync.user ? 'Create your profile' : 'Sign in';
+}
+$('#meChip').onclick = () => { if(sync.user){ [...slideOrder].filter(k => k !== 'friends').forEach(k => setSlide(k, false)); openFriends('me'); } else showLanding(true); };
+renderMeChip();
 function renderAccount(){
+  renderMeChip();
   const box = $('#account'); box.innerHTML = '';
   if(!FIREBASE_CONFIG) return;
   if(!sync.user){
