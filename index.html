@@ -83,7 +83,9 @@ button{cursor:pointer}
 .brand:hover{opacity:.85}
 .ball{width:14px;height:14px;border-radius:50%;background:#f4f1e8;box-shadow:inset -3px -3px 0 rgba(0,0,0,.18)}
 .lead{display:flex;align-items:center;gap:8px;color:var(--muted)}
+#avgOdds{width:84px}
 .lead input{width:64px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:center;font-family:var(--cond);font-weight:600;font-size:16px}
+#avgOdds{width:84px}
 .ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--text)}
 .ghost:hover{border-color:var(--muted)}
 .danger{color:var(--red);border-color:var(--red)}
@@ -537,6 +539,9 @@ button.tag{cursor:pointer}
       <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
     <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old alarms</label>
       <div class="ctl lead"><input id="cleanupHours" type="number" min="0" max="168" value="3"><span>hours after the match starts (0 = never)</span></div></div>
+    <div class="hud-row"><label class="lbl" for="avgOdds">Average odds</label>
+      <div class="ctl lead"><input id="avgOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>used when you press Cash</span></div>
+      <p class="note">With average odds set, Cash records the win straight away at these odds with your last-used units, just like Chalk. Leave it empty to type the odds each time. Use + for several bets, or click the entry in History to change it.</p></div>
     <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
       <div class="ctl sound"><select id="soundPick">
         <option value="beep">Beep</option>
@@ -1189,7 +1194,7 @@ function render(){
       <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
     c.querySelector('.names').textContent = a.name;
     if(c.querySelector('.settle')){
-      c.querySelector('.cash').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash' }); };
+      c.querySelector('.cash').onclick = e => { e.stopPropagation(); if(avgOdds()) settle(a, 'cash', avgOdds(), lastUnits()); else openSettle({ alarm:a, result:'cash' }); };
       c.querySelector('.chalk').onclick = e => { e.stopPropagation(); settle(a, 'chalk', null, lastUnits()); };
       c.querySelector('.more').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash', multi:true }); };
     }
@@ -1234,7 +1239,10 @@ setBar(store.get('tt.toolbarOpen', false));
 $('#barBtn').onclick = () => { setBar($('#toolbar').hidden); pnlShift(); };
 
 /* ---------- Remove old alarms ---------- */
-function cleanupPrefs(){ cleanupHours = store.get('tt.cleanupHours', 3); $('#cleanupHours').value = cleanupHours; }
+function cleanupPrefs(){ cleanupHours = store.get('tt.cleanupHours', 3); $('#cleanupHours').value = cleanupHours; $('#avgOdds').value = avgOdds() || ''; }
+// Average odds: when set, the single Cash button records at these odds without asking
+const avgOdds = () => { const o = +store.get('tt.avgOdds', 0); return o > 1 ? o : 0; };
+$('#avgOdds').onchange = e => { const o = +e.target.value; store.set('tt.avgOdds', o > 1 ? +o.toFixed(2) : 0); e.target.value = avgOdds() || ''; };
 $('#cleanupHours').onchange = e => {
   cleanupHours = Math.max(0, Math.min(168, Math.round(+e.target.value || 0)));
   e.target.value = cleanupHours; store.set('tt.cleanupHours', cleanupHours); cleanupOld();
@@ -1992,7 +2000,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx', 'tt.alarmsOn'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx', 'tt.alarmsOn', 'tt.avgOdds'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
