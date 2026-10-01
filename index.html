@@ -197,7 +197,6 @@ body.has-bg #bgClear{display:inline-block}
       <option value="siren">Siren</option>
     </select>
   </div>
-  <button class="ghost" id="testSound">Test sound</button>
   <div class="theme">
     <label for="uiColor">Colour</label>
     <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
@@ -877,7 +876,7 @@ function tone({ at, freq, to, type, len, vol, out }){
   g.gain.exponentialRampToValueAtTime(.0001, at + len);
   o.connect(g).connect(out || a.destination); o.start(at); o.stop(at + len + .02);
 }
-// Play one cycle (Test sound and the preview). Returns when it would end.
+// Play one cycle (the preview when the sound is changed). Returns when it would end.
 function beep(name = soundName){
   try{ const t = ctx().currentTime + .02; (SOUNDS[name] || SOUNDS.beep).play(tone, t); return t + (SOUNDS[name] || SOUNDS.beep).len; }catch(e){ return 0; }
 }
@@ -903,8 +902,7 @@ function stopLoop(){
   // cut off notes that were already scheduled ahead
   try{ if(loopOut){ loopOut.disconnect(); loopOut = null; } }catch(e){}
 }
-$('#testSound').onclick = () => beep();
-$('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.sound', soundName); beep(); };   // preview on change
+$('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.sound', soundName); beep(); };   // play the new sound once
 
 /* ---------- Clear all (click twice to confirm) ---------- */
 let clearTimer = null;
