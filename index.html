@@ -162,7 +162,24 @@ body.has-bg #bgClear{display:inline-block}
 .card .when{font-size:13px;color:var(--muted)}
 .card .when b{color:var(--text);font-weight:600}
 .card .count{font:600 15px/1 var(--cond);font-variant-numeric:tabular-nums;color:var(--text);text-align:right;align-self:center}
-.card .row{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:6px}
+.card .row{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:6px}
+/* Custom tags */
+.tag{--c:#8b9099;display:inline-flex;align-items:center;font:700 13px/1 var(--cond);letter-spacing:.03em;padding:4px 8px;border-radius:4px;border:1px solid var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);white-space:nowrap}
+button.tag{cursor:pointer}
+.tag.off{background:none;opacity:.5}
+.tag.off:hover{opacity:.85}
+.card .tags{display:contents}
+.tagbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
+.tagbar .hint{color:var(--muted);font-size:13px;margin-right:2px}
+.tagnew{display:inline-flex;gap:4px}
+.tagnew input[type=text]{width:130px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px}
+.tagnew input[type=color],.taglist input[type=color]{width:30px;height:28px;padding:1px;border:1px solid var(--line);border-radius:6px;background:var(--bg);cursor:pointer}
+.tagnew .ghost{padding:4px 10px}
+.taglist{display:grid;gap:6px}
+.taglist .trow{display:flex;align-items:center;gap:6px}
+.taglist .trow input[type=text]{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px}
+.taglist .trow .ghost{padding:4px 9px}
+.taglist .empty{padding:0;font-size:13px}
 .side{font:700 14px/1 var(--cond);letter-spacing:.04em;padding:4px 8px;border-radius:4px;border:1px solid currentColor;background:none}
 .side.over{color:var(--green)}
 .side.under{color:var(--red)}
@@ -347,6 +364,16 @@ body.has-bg #bgClear{display:inline-block}
         </div>
       </div>
       <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Empty links open the main Ladbrokes table tennis page.</p></div>
+    <div class="hud-row"><span class="lbl">Tags</span>
+      <div class="ctl" style="display:grid;gap:10px">
+        <div class="taglist" id="tagList"></div>
+        <div class="tagnew">
+          <input type="text" id="tagNew" maxlength="24" placeholder="New tag name" aria-label="New tag name">
+          <input type="color" id="tagNewColor" value="#5aa7ef" aria-label="New tag colour" title="Tag colour">
+          <button class="ghost" id="tagAdd">Add</button>
+        </div>
+      </div>
+      <p class="note">Tags show next to OVER/UNDER on your alarms. Click an alarm to add or remove its tags.</p></div>
     <div class="hud-foot">
       <button class="ghost" id="openSettings">Gemini settings</button>
       <button class="ghost danger" id="clearAll">Clear all alarms</button>
@@ -359,6 +386,7 @@ body.has-bg #bgClear{display:inline-block}
 <div class="modal" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
   <div class="sheet">
     <header><h3 id="viewerTitle"></h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="tagbar" id="viewerTags"></div>
     <img id="viewerImg" alt="Match screenshot">
   </div>
 </div>
@@ -442,6 +470,7 @@ const active = () => settings;
 const ready = () => settings.mode === 'server' ? !!settings.server : !!settings.key;
 const serverBase = () => settings.server.trim().replace(/\/+$/, '');
 let alarms = store.get('tt.alarms', []);
+let tags = store.get('tt.tags', []) || [];   // custom tags: [{ id, name, color }]; alarms keep a list of tag ids
 let lead = store.get('tt.lead', 5);
 const MAX_SHOTS = 10;
 let pendingImgs = [];    // data URLs waiting to be sent
@@ -874,6 +903,7 @@ function render(){
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : `<div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
+        <span class="tags"></span>
         <span class="line"></span>
         <span class="edge">${a.edge==null?'—':`<span class="bar"><i style="width:${Math.min(100,a.edge)}%"></i></span>${a.edge}%`}</span>
       </div>
@@ -882,6 +912,7 @@ function render(){
     c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
     if(a.league) c.querySelector('.comp').textContent = a.league;
     c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
+    tags.filter(t => (a.tags || []).includes(t.id)).forEach(t => c.querySelector('.tags').appendChild(tagChip(t)));   // in Settings order
     if(ringing.has(a.id)) c.setAttribute('aria-label', `${a.name} alarm going off, click to stop`);
     const act = () => ringing.has(a.id) ? stopAlarm(a.id) : openViewer(a);   // while it's going off, a click stops it
     c.onclick = act;
@@ -923,6 +954,80 @@ function openLadbrokes(a){
 }
 linkPrefs();
 
+/* ---------- Custom tags ---------- */
+const TAG_COLOURS = ['#5aa7ef', '#f2c230', '#b07cf0', '#3ecf6e', '#ef8a5a', '#e86fb0', '#4fd1c5'];
+let viewing = null;   // id of the alarm open in the screenshot viewer
+const tagById = id => tags.find(t => t.id === id);
+function tagChip(t, opts = {}){
+  const el = document.createElement(opts.button ? 'button' : 'span');
+  el.className = 'tag' + (opts.off ? ' off' : ''); el.style.setProperty('--c', t.color); el.textContent = t.name;
+  return el;
+}
+function newTag(name, color){
+  name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+  if(!name) return null;
+  const same = tags.find(t => t.name.toLowerCase() === name.toLowerCase());
+  if(same) return same;
+  const t = { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, color: color || TAG_COLOURS[tags.length % TAG_COLOURS.length] };
+  tags.push(t); return t;
+}
+function saveTags(){ store.set('tt.tags', tags); renderTagSettings(); renderViewerTags(); render(); }
+function renderTagSettings(){
+  const box = $('#tagList'); box.innerHTML = '';
+  if(!tags.length){ box.innerHTML = '<div class="empty">No tags yet. Add one below, e.g. "Strong", "Live bet" or "Watch".</div>'; }
+  tags.forEach(t => {
+    const row = document.createElement('div'); row.className = 'trow';
+    const col = document.createElement('input'); col.type = 'color'; col.value = t.color; col.title = 'Tag colour'; col.setAttribute('aria-label', `Colour of ${t.name}`);
+    col.oninput = () => { t.color = col.value; render(); }; col.onchange = saveTags;
+    const nm = document.createElement('input'); nm.type = 'text'; nm.value = t.name; nm.maxLength = 24; nm.setAttribute('aria-label', 'Tag name');
+    nm.onchange = () => { const v = nm.value.trim().replace(/\s+/g, ' '); if(v) t.name = v; else nm.value = t.name; saveTags(); };
+    const del = document.createElement('button'); del.className = 'ghost'; del.textContent = '×'; del.title = `Delete "${t.name}"`; del.setAttribute('aria-label', `Delete tag ${t.name}`);
+    del.onclick = () => {
+      tags = tags.filter(x => x.id !== t.id);
+      let touched = false;
+      alarms.forEach(a => { if(a.tags && a.tags.includes(t.id)){ a.tags = a.tags.filter(id => id !== t.id); touched = true; } });
+      if(touched) store.set('tt.alarms', alarms);
+      saveTags();
+    };
+    row.append(col, nm, del); box.appendChild(row);
+  });
+  $('#tagNewColor').value = TAG_COLOURS[tags.length % TAG_COLOURS.length];
+}
+function addTagFromSettings(){
+  const t = newTag($('#tagNew').value, $('#tagNewColor').value);
+  if(!t) return $('#tagNew').focus();
+  $('#tagNew').value = ''; saveTags(); $('#tagNew').focus();
+}
+$('#tagAdd').onclick = addTagFromSettings;
+$('#tagNew').onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); addTagFromSettings(); } };
+// Tag bar in the screenshot viewer: click a tag to add it to / remove it from this alarm, or make a new one
+function renderViewerTags(){
+  const box = $('#viewerTags'), a = alarms.find(x => x.id === viewing);
+  box.innerHTML = '';
+  if(!a) return;
+  const on = new Set(a.tags || []);
+  const hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = 'Tags:'; box.appendChild(hint);
+  tags.forEach(t => {
+    const b = tagChip(t, { button:true, off: !on.has(t.id) });
+    b.setAttribute('aria-pressed', on.has(t.id)); b.title = on.has(t.id) ? `Remove "${t.name}"` : `Add "${t.name}"`;
+    b.onclick = () => { toggleTag(a.id, t.id); };
+    box.appendChild(b);
+  });
+  const wrap = document.createElement('span'); wrap.className = 'tagnew';
+  const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 24; inp.placeholder = 'New tag…'; inp.setAttribute('aria-label', 'New tag for this alarm');
+  const add = document.createElement('button'); add.className = 'ghost'; add.textContent = '+'; add.title = 'Create the tag and add it to this alarm';
+  const make = () => { const t = newTag(inp.value); if(!t) return inp.focus(); toggleTag(a.id, t.id, true); store.set('tt.tags', tags); renderTagSettings(); setTimeout(() => { const n = $('#viewerTags input'); n && n.focus(); }); };
+  add.onclick = make; inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); make(); } };
+  wrap.append(inp, add); box.appendChild(wrap);
+}
+function toggleTag(alarmId, tagId, forceOn){
+  const a = alarms.find(x => x.id === alarmId); if(!a) return;
+  const list = new Set(a.tags || []);
+  if(forceOn || !list.has(tagId)) list.add(tagId); else list.delete(tagId);
+  a.tags = [...list]; store.set('tt.alarms', alarms); render(); renderViewerTags();
+}
+renderTagSettings();
+
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(el){ el.classList.remove('show'); }
@@ -932,6 +1037,7 @@ document.querySelectorAll('.modal').forEach(m => {
 document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal','#hud'].forEach(id=>closeModal($(id))); });
 
 function openViewer(a){
+  viewing = a.id; renderViewerTags();
   $('#viewerTitle').textContent = `${a.name}${a.league ? ' · ' + a.league : ''} · ${fmtTime(a.start)}`;
   $('#viewerImg').src = a.img;
   openModal('#viewer');
@@ -1115,7 +1221,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1145,6 +1251,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
     linkPrefs();
+    tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }
 }

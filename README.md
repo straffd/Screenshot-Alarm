@@ -11,11 +11,13 @@ Screenshots are read by Google Gemini (free tier).
 4. Click the player names on an alarm to open its competition on Ladbrokes. The first player's name is copied
    so you can paste it into the Ladbrokes search. Set each competition's page link (TT Cup, TT Elite Series,
    Czech Liga Pro) and turn the copying on or off in ⚙ Settings.
+5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click an alarm to tag it.
+   Tags show next to OVER/UNDER. You can also create a new tag straight from an alarm.
 
 Keep the tab open for alarms to ring.
 
 ## Where your data is kept
-- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, Ladbrokes links and Gemini settings
+- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, Ladbrokes links, tags and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
   Only you can read them. Whether the alarm list is open stays per device.
   Signing out removes your data from that browser. It stays in your account.
