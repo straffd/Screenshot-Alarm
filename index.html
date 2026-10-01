@@ -239,8 +239,8 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
-const GEMINI = { model:'gemini-3.8-flash', backup:'gemini-3.5-flash-lite',
-  modelHint:'Use a Flash model, e.g. gemini-3.8-flash. Flash models are on the free tier.',
+const GEMINI = { model:'gemini-3.5-flash', backup:'gemini-3.8-flash',
+  modelHint:'Use a Flash model, e.g. gemini-3.5-flash. Flash models are on the free tier.',
   keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' };
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
@@ -255,6 +255,8 @@ let settings = (() => {
                 server: g.server || SERVER_URL, pass: g.pass || '',
                 mode: g.mode || ((g.server || SERVER_URL) ? 'server' : 'key') };
   if(/^gemini-(1\.|2\.)/.test(out.model)) out.model = GEMINI.model;
+  // Move anyone still on the previous defaults (3.8 Flash + 3.5 Flash-Lite) to the new pair
+  if(out.model === 'gemini-3.8-flash' && /^gemini-3\.(1|5)-flash-lite$/.test(out.backup)){ out.model = GEMINI.model; out.backup = GEMINI.backup; }
   if(out.backup === 'gemini-3.1-flash-lite') out.backup = GEMINI.backup;
   return out;
 })();
