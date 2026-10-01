@@ -326,6 +326,7 @@ button.tag{cursor:pointer}
 .pnl h3.subj .subj-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnl h3.subj .subj-s{color:var(--muted);font-weight:500}
 .ftabs button{white-space:nowrap}
+.fmenu .ghost[aria-pressed="true"]{background:color-mix(in srgb,var(--blue) 22%,transparent);border-color:var(--blue);color:var(--text)}
 .fmenu .confirm{background:var(--red);color:#fff;border-color:var(--red)}
 .fnote{color:var(--muted);font-size:13px;margin:4px 0 12px}
 .fsec{font:600 13px var(--sans);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
@@ -780,7 +781,8 @@ document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
 $('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
 
 /* ---------- Collapsible top bar and alarm rail ---------- */
-$('#menuBtn').onclick = () => openModal('#hud');
+// ⚙ opens Settings; clicking it again (even from the full Settings page) closes it
+$('#menuBtn').onclick = () => { const shown = ['#hud', '#settingsModal'].filter(id => $(id).classList.contains('show')); if(shown.length) shown.forEach(id => closeModal($(id))); else openModal('#hud'); };
 function setRail(open){
   $('.main').classList.toggle('rail-collapsed', !open);
   const t = $('#railToggle'); t.setAttribute('aria-expanded', open);
@@ -1506,6 +1508,7 @@ function setSlide(key, open){
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
   if(key !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
   layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
+  if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
   const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
@@ -2197,7 +2200,7 @@ function fList(body){
     row.onclick = () => { social.open = open ? null : uid; renderFriends(); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
     body.appendChild(row);
-    if(open) body.appendChild(friendMenu([['PNL', () => friendAction(uid, 'pnl')], ['History', () => friendAction(uid, 'hist')], ['Alarms', () => friendAction(uid, 'alarms')],
+    if(open) body.appendChild(friendMenu([['PNL', () => friendAction(uid, 'pnl'), '', false, friendOn(uid, 'pnl')], ['History', () => friendAction(uid, 'hist'), '', false, friendOn(uid, 'hist')], ['Alarms', () => friendAction(uid, 'alarms'), '', false, friendOn(uid, 'alarms')],
       ['Block', () => blockUser(uid), 'danger', true], ['Unfriend', () => { fdb().deleteDoc(fdoc('friendships', pairId(social.uid, uid))); social.open = null; }, 'danger', true]]));
   });
   if(social.blocked.length){
@@ -2215,8 +2218,9 @@ function fList(body){
 // The dropdown under a friend. Destructive items ask for a second click.
 function friendMenu(items){
   const m = el('div', 'fmenu');
-  items.forEach(([label, fn, cls, confirm]) => {
+  items.forEach(([label, fn, cls, confirm, on]) => {
     const b = el('button', 'ghost' + (cls ? ' ' + cls : ''), label); let armed = false;
+    if(on != null) b.setAttribute('aria-pressed', on);
     b.onclick = e => { e.stopPropagation();
       if(confirm && !armed){ armed = true; b.textContent = label + '?'; b.classList.add('confirm'); setTimeout(() => { armed = false; b.textContent = label; b.classList.remove('confirm'); }, 3000); return; }
       fn(); };
@@ -2336,9 +2340,17 @@ function stopViewing(){
 }
 function friendAction(uid, what){
   viewFriend(uid);
+  // clicking the same item again closes that friend's panel
+  if(friendOn(uid, what)){ setSlide(what === 'alarms' ? 'falarms' : what, false); if(what === 'pnl') pnlFor = null; if(what === 'hist') histFor = null; return renderFriends(); }
   if(what === 'pnl'){ pnlFor = uid; pnlSel = null; setSlide('pnl', true); renderPnl(); }
   if(what === 'hist'){ histFor = uid; setSlide('hist', true); renderHistory(); }
   if(what === 'alarms'){ setSlide('falarms', true); renderFAlarms(); }
+  renderFriends();
+}
+function friendOn(uid, what){
+  if(what === 'pnl') return $('#pnl').classList.contains('open') && pnlFor === uid;
+  if(what === 'hist') return $('#hist').classList.contains('open') && histFor === uid;
+  return $('#falarms').classList.contains('open') && social.view === uid;
 }
 function renderFAlarms(){
   if(!$('#falarms').classList.contains('open') || !social.view) return;
