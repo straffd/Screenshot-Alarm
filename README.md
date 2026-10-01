@@ -18,7 +18,8 @@ Screenshots are read by Google Gemini (free tier).
    or set 0 to keep them, in ⚙ Settings → Remove old alarms.
 7. When a match has started, its alarm shows **Cash** and **Chalk**. Screenshots of matches that already started
    earlier today are added straight away as done, with Cash and Chalk ready. Cash asks for the decimal odds and units placed;
-   Chalk records a loss with your last-used units. The match then moves to your history: open the toolbar (› next
+   Chalk records a loss with your last-used units. Placed more than one bet on the match? Press **+** to record each one
+   in its own slot (odds, units, and Cash / Chalk / Void, where Void counts as 0); the match's P/L is the total. The match then moves to your history: open the toolbar (› next
    to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's P/L (matches starting today, reset to 0 at 12 AM) and either
@@ -36,7 +37,7 @@ Screenshots are read by Google Gemini (free tier).
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Alarms · Block · Unfriend**: PNL and
     History open those panels with their numbers (units, odds and PNL), and Alarms slides out their
-    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Blocked
+    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
 
