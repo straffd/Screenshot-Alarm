@@ -35,10 +35,10 @@ Screenshots are read by Google Gemini (free tier).
 12. **Friends** (toolbar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Alarms · Block · Unfriend**: PNL and
-    History open those panels with their numbers (as net wins if they hide stakes), and Alarms slides out their
+    History open those panels with their numbers (units, odds and PNL), and Alarms slides out their
     upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
-    Under My profile you choose whether friends see your upcoming plays and your stakes (odds, units, PNL; off by default).
+    Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
 
 Keep the tab open for alarms to ring.
 
@@ -48,7 +48,7 @@ Keep the tab open for alarms to ring.
   Only you can read them. Whether the alarm list is open, and any custom alarm sounds you add, stay on that device.
   Signing out removes your data from that browser. It stays in your account.
 - **Friends:** your @username and picture can be seen by anyone signed in who looks you up by exact username.
-  Your plays, results and stats are visible only to accepted friends (stakes only if you turn that on).
+  Your plays, results and stats (including odds, units and PNL) are visible only to accepted friends.
   Your private data (screenshots, settings, Gemini key) is never shared.
 - **Without an account:** everything stays in that browser's local storage, separate for every device and browser.
 

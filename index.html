@@ -1408,7 +1408,7 @@ function renderHistory(){
   $('#histSum').textContent = S.plays.length ? `${wins}/${S.plays.length} cashed · ${S.own ? fmtPL(total) : S.txt(total)}` : '';
   if(!S.plays.length){ list.innerHTML = S.own ? '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>' : '<div class="empty">No settled matches shared yet.</div>'; return; }
   for(const p of S.plays){
-    const c = document.createElement('div'), pl = S.val(p), showMoney = S.own || S.stakes;
+    const c = document.createElement('div'), pl = S.val(p), showMoney = true;
     c.className = `card ${p.result === 'cash' ? 'hit' : 'miss'}`;
     c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', `${p.name}, ${p.result}, edit`);
     c.innerHTML = `
@@ -1474,14 +1474,15 @@ const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${Stri
 const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 function dailyPL(S = subject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 // Whose numbers the PNL / History panels show: mine, or the friend picked from the Friends list.
-// A friend who hides stakes is shown as net wins (cash +1, chalk −1) instead of units.
+// Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
 function subject(forUid = pnlFor){
   if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
-  const card = social.cards.get(forUid) || {}, stakes = !!card.shareStakes;
+  const card = social.cards.get(forUid) || {};
   const fp = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
-  const net = n => Math.abs(n) < 1e-9 ? '0 net' : (n > 0 ? '+' : '−') + Math.abs(Math.round(n)) + ' net';
-  return { own:false, int: !stakes, card, stakes, plays: fp, val: p => stakes && 'pl' in p ? p.pl : (p.result === 'cash' ? 1 : -1), txt: stakes ? plText : net, k: stakes && inDollars() ? unitValue() : 1 };
+  // pl comes from the friend's app; older entries without it are worked out from their odds and units
+  const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
+  return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
 }
 function subjectHead(sel, forUid, title){
   const h = $(sel); h.innerHTML = '';
@@ -1612,7 +1613,6 @@ function renderGraph(view, days){
   const k = S.k, vals = pts.map(p => p.cum * k), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
   const raw = (hi - lo || 1) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
   let step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(v => v >= raw) / k;
-  if(S.int) step = Math.max(1, Math.ceil(step));   // net wins are whole numbers
   const y0 = Math.floor(lo / k / step) * step, y1 = Math.max(Math.ceil(hi / k / step) * step, y0 + step);
   const X = i => L + (pts.length < 2 ? (W - L - R) / 2 : i * (W - L - R) / (pts.length - 1)), Y = v => T + (y1 - v) * (H - T - B) / (y1 - y0);
   const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
@@ -2101,7 +2101,7 @@ async function signOut(){
 
 /* ---------- Friends & profiles ----------
    profiles/{uid}            public card: username, picture (site-only, never the Google one), sharing choices
-   profiles/{uid}/plays/{id} what friends see: upcoming plays and results (stakes only if shared)
+   profiles/{uid}/plays/{id} what friends see: upcoming plays and results, with odds, units and PNL
    profiles/{uid}/meta/stats summary numbers for friends
    usernames/{name}          username → uid, so names are unique
    friendships/{a_b}         { members:[a,b], from, to, status:'pending'|'accepted' }  (a_b = the two uids, sorted) */
@@ -2151,11 +2151,11 @@ const friendOf = uid => social.friendships.find(f => f.status === 'accepted' && 
 function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTimeout(publishPlays, 1200); }
 async function publishPlays(){
   if(!sync.user || !social.me) return;
-  const F = fdb(), uid = social.uid, stakes = !!social.me.shareStakes, now = Date.now(), want = new Map();
+  const F = fdb(), uid = social.uid, now = Date.now(), want = new Map();
   if(social.me.shareUpcoming !== false) alarms.forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming' }));
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
-    ...(stakes ? { odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4) } : {}) }));
+    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4) }));   // unit gains are always public to friends
   const ops = [];
   want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
   social.lastPub.forEach((j, id) => { if(!want.has(id)) ops.push(b => b.delete(fdoc('profiles', uid, 'plays', id))); });
@@ -2166,7 +2166,7 @@ async function publishPlays(){
     const sum = f => plays.filter(f).reduce((t, p) => t + playPL(p), 0), today = plays.filter(p => p.start >= +d0);
     await F.setDoc(fdoc('profiles', uid, 'meta', 'stats'), { n: plays.length, wins: plays.filter(p => p.result === 'cash').length,
       todayW: today.filter(p => p.result === 'cash').length, todayL: today.filter(p => p.result !== 'cash').length,
-      ...(stakes ? { all: +sum(() => true).toFixed(4), d30: +sum(p => p.start > now - 30 * 864e5).toFixed(4), today: +sum(p => p.start >= +d0).toFixed(4) } : {}), updated: now });
+      all: +sum(() => true).toFixed(4), d30: +sum(p => p.start > now - 30 * 864e5).toFixed(4), today: +sum(p => p.start >= +d0).toFixed(4), updated: now });
   }catch(e){ console.warn('Publishing plays failed', e); }
 }
 
@@ -2286,7 +2286,7 @@ function fMe(body){
   if(pfpDraft || (me && me.photo)) pick.appendChild(btn('Remove', 'ghost', () => { pfpDraft = ''; renderFriends(); }));
   const inp = el('input'); inp.type = 'text'; inp.placeholder = 'username'; inp.maxLength = 20; inp.value = me ? me.username : ''; inp.setAttribute('aria-label', 'Username');
   const up = el('label', 'switch'), upc = el('input'); upc.type = 'checkbox'; upc.setAttribute('role', 'switch'); upc.checked = !me || me.shareUpcoming !== false; up.append(upc, ' Show friends my upcoming plays');
-  const st = el('label', 'switch'), stc = el('input'); stc.type = 'checkbox'; stc.setAttribute('role', 'switch'); stc.checked = !!(me && me.shareStakes); st.append(stc, ' Show friends my stakes (odds, units, PNL)');
+  const st = el('p', 'fnote', 'Friends always see your results with odds, units and PNL.');
   const msg = el('div', 'fmsg');
   const save = btn(me ? 'Save profile' : 'Create profile', 'send', async () => {
     const name = inp.value.trim().replace(/^@/, ''), lower = name.toLowerCase(); msg.className = 'fmsg';
@@ -2299,7 +2299,7 @@ function fMe(body){
         if(taken.exists() && taken.data().uid !== social.uid) throw new Error(`@${lower} is taken. Try another.`);
         if(!taken.exists()) tx.set(ref, { uid: social.uid });
         if(me && me.usernameLower && me.usernameLower !== lower) tx.delete(fdoc('usernames', me.usernameLower));
-        tx.set(fdoc('profiles', social.uid), { username:name, usernameLower:lower, photo, shareUpcoming:upc.checked, shareStakes:stc.checked, updated:Date.now() });
+        tx.set(fdoc('profiles', social.uid), { username:name, usernameLower:lower, photo, shareUpcoming:upc.checked, shareStakes:true, updated:Date.now() });
       });
       pfpDraft = null; social.cards.delete(social.uid); msg.className = 'fmsg ok'; msg.textContent = 'Saved.';
       if(!me){ social.tab = social.invite ? 'add' : 'list'; renderFriends(); }
@@ -2326,7 +2326,7 @@ function viewFriend(uid){
   if(social.view === uid) return;
   social.viewUnsubs.forEach(u => u()); social.viewUnsubs = []; social.view = uid; social.viewPlays = []; social.viewStats = null;
   const F = fdb(), redraw = () => { renderPnl(); renderHistory(); renderFAlarms(); };
-  social.viewUnsubs.push(F.onSnapshot(fdoc('profiles', uid), snap => { if(snap.exists()) social.cards.set(uid, { uid, ...snap.data() }); redraw(); renderFriends(); }));   // live: stakes sharing, name, picture
+  social.viewUnsubs.push(F.onSnapshot(fdoc('profiles', uid), snap => { if(snap.exists()) social.cards.set(uid, { uid, ...snap.data() }); redraw(); renderFriends(); }));   // live: name, picture, sharing
   social.viewUnsubs.push(F.onSnapshot(F.collection(sync.fb.db, 'profiles', uid, 'plays'), snap => { social.viewPlays = snap.docs.map(d => ({ id:d.id, ...d.data() })); redraw(); }));
   social.viewUnsubs.push(F.onSnapshot(fdoc('profiles', uid, 'meta', 'stats'), snap => { social.viewStats = snap.exists() ? snap.data() : null; redraw(); }));
 }
