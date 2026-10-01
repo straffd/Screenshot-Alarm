@@ -455,6 +455,9 @@ button.tag{cursor:pointer}
   <div class="sheet hud">
     <header><h3 id="hudTitle">Settings</h3><button class="close" data-close aria-label="Close">×</button></header>
     <div class="hud-row"><span class="lbl">Account</span><div class="ctl account" id="account"></div></div>
+    <div class="hud-row"><span class="lbl">Alarms</span>
+      <div class="ctl"><label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label></div>
+      <p class="note">Turn this off to use the app without alarms: matches are still listed and still get Cash / Chalk once they start.</p></div>
     <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
       <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
     <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old alarms</label>
@@ -1081,7 +1084,7 @@ function render(){
   $('#railLabel').textContent = 'Alarms';
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
-  $('#alarmCount').textContent = alarms.length ? `${active} upcoming` : '';
+  $('#alarmCount').textContent = (alarms.length ? `${active} upcoming` : '') + (alarmsOn() ? '' : (alarms.length ? ' · ' : '') + 'alarms off');
   if(!alarms.length){ list.innerHTML = '<div class="empty">No alarms yet. Send a match screenshot in the chat to add one.</div>'; return; }
   for(const a of alarms){
     const c = document.createElement('div');
@@ -1123,6 +1126,16 @@ function render(){
     list.appendChild(c);
   }
 }
+
+/* ---------- Alarms on / off ---------- */
+const alarmsOn = () => store.get('tt.alarmsOn', true) !== false;
+function alarmsPrefs(){ $('#alarmsOn').checked = alarmsOn(); }
+$('#alarmsOn').onchange = e => {
+  store.set('tt.alarmsOn', e.target.checked); alarmsPrefs();
+  if(!e.target.checked) [...ringing].forEach(stopAlarm);   // switching off silences anything ringing now
+  render();
+};
+alarmsPrefs();
 
 /* ---------- Toolbar (expands right of the settings button) ---------- */
 function setBar(open){
@@ -1720,6 +1733,7 @@ function askNotify(){
 
 const notes = new Map();   // alarm id → its desktop notification while it rings
 function fire(a){
+  if(!alarmsOn()){ a.fired = true; store.set('tt.alarms', alarms); render(); return; }   // alarms switched off: just mark it as started, silently
   a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
   $('#landing').hidden = true;   // never ring behind the home page
   startLoop();
@@ -1768,7 +1782,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx', 'tt.alarmsOn'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1798,7 +1812,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
-    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl();
+    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
     tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }

@@ -28,6 +28,8 @@ Screenshots are read by Google Gemini (free tier).
    matches) or a **Graph** (running total over 7, 30, 90 days or all time).
 10. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
     and set the background picture's **blur** and **saturation**.
+11. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
+    Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 
 Keep the tab open for alarms to ring.
 
