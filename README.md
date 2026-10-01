@@ -9,8 +9,9 @@ Screenshots are read by Google Gemini (free tier).
 2. Click the ⚙ button (top left) → **Gemini settings** and paste your free Gemini API key from https://aistudio.google.com/apikey.
 3. Paste (Ctrl+V), drop, or attach a match screenshot and press Enter.
 4. Click the player names on an alarm to open its competition on Ladbrokes. The first player's name is copied
-   so you can paste it into the Ladbrokes search. Set each competition's page link (TT Cup, TT Elite Series,
-   Czech Liga Pro) and turn the copying on or off in ⚙ Settings.
+   so you can paste it into the Ladbrokes search. Clicking the desktop notification when an alarm rings does the
+   same (and stops the alarm). TT Cup, TT Elite Series and Czech Liga Pro link to their ladbrokes.com.au pages by
+   default; change the links or turn the copying off in ⚙ Settings.
 5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click an alarm to tag it.
    Tags show next to OVER/UNDER. You can also create a new tag straight from an alarm.
 6. Alarms are removed automatically a few hours after their match starts (3 by default). Change the number,
