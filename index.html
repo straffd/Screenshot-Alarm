@@ -19,13 +19,21 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--text);font:15px/1.5 var(--sans);display:flex;flex-direction:column}
+body{background:var(--bg);color:var(--text);font:15px/1.5 var(--sans);display:flex;flex-direction:column;position:relative}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
 
 /* Top bar */
 .top{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.tools{display:flex;align-items:center;gap:18px;flex:1;flex-wrap:wrap}
+/* Collapsed: the bar shrinks to a tab holding just the logo and the settings button */
+.top.collapsed{position:absolute;top:0;left:0;z-index:5;border-right:1px solid var(--line);border-radius:0 0 14px 0;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.top.collapsed .tools{display:none}
+body.top-collapsed .log{padding-top:78px}
+.iconbtn{width:38px;height:38px;padding:0;display:grid;place-items:center}
+.iconbtn svg{transition:transform .25s}
+.top:not(.collapsed) #menuBtn svg{transform:rotate(90deg)}
 .brand{font:700 20px/1 var(--cond);letter-spacing:.01em;display:flex;align-items:center;gap:10px}
 .ball{width:14px;height:14px;border-radius:50%;background:#f4f1e8;box-shadow:inset -3px -3px 0 rgba(0,0,0,.18)}
 .lead{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted)}
@@ -48,7 +56,6 @@ button{cursor:pointer}
 .chat.has-bg .chatbg{display:block}
 .chat .log,.chat .composer{position:relative;z-index:1}
 .chat.has-bg .msg.bot{background:rgba(30,33,37,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.chat.has-bg .send{background:var(--send-bg,var(--yellow));color:var(--send-fg,#1a1a1a)}
 .bgpick{display:flex;align-items:center;gap:4px}
 .bgpick #bgClear{display:none;padding:7px 10px}
 body.has-bg #bgClear{display:inline-block}
@@ -61,11 +68,11 @@ body.has-bg #bgClear{display:inline-block}
 .msg .facts{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin-top:8px;font-size:14px}
 .msg .facts span:nth-child(odd){color:var(--muted)}
 
-.composer{border-top:1px solid var(--line);padding:14px 20px;background:var(--panel)}
+.composer{padding:14px 20px;background:transparent}
 .drop{display:flex;gap:10px;align-items:flex-end}
 .drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
-.composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px}
-.attach{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center}
+.composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:rgba(22,24,27,.55);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(22,24,27,.55);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
@@ -77,12 +84,21 @@ body.has-bg #bgClear{display:inline-block}
 .preview .clear{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px}
 .msg .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:6px}
 .msg .shots img{margin:0;width:100%;height:auto}
-.hint{color:var(--muted);font-size:13px;margin-top:8px}
 
 /* Alarm rail */
 .rail{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
-.rail h2{font:600 17px/1 var(--cond);margin:0;padding:18px 18px 12px;display:flex;justify-content:space-between;align-items:baseline}
-.rail h2 small{font:500 13px var(--sans);color:var(--muted)}
+.rail h2{font:600 17px/1 var(--cond);margin:0;padding:12px 14px 12px 8px;display:flex;align-items:center;gap:6px}
+.rail h2 small{font:500 13px var(--sans);color:var(--muted);margin-left:auto}
+.railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
+.railToggle:hover{color:var(--text);border-color:var(--line)}
+.railToggle svg{transition:transform .25s}
+/* Collapsed: alarms tuck into a thin strip on the right */
+.main{transition:grid-template-columns .25s}
+.main.rail-collapsed{grid-template-columns:1fr 48px}
+.main.rail-collapsed .rail h2{flex-direction:column;padding:12px 0;gap:10px}
+.main.rail-collapsed .rail h2 .label,.main.rail-collapsed .list{display:none}
+.main.rail-collapsed .rail h2 small{margin:0;writing-mode:vertical-rl}
+.main.rail-collapsed .railToggle svg{transform:rotate(180deg)}
 .list{flex:1;overflow-y:auto;padding:0 14px 18px;display:flex;flex-direction:column;gap:10px}
 .empty{color:var(--muted);font-size:14px;padding:4px 4px;line-height:1.6}
 
@@ -138,6 +154,12 @@ body.has-bg #bgClear{display:inline-block}
   .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .chat{border-right:none;border-bottom:1px solid var(--line)}
   .rail{max-height:42vh}
+  .main.rail-collapsed{grid-template-columns:1fr}
+  .main.rail-collapsed .rail h2{flex-direction:row;padding:10px 14px 10px 8px}
+  .main.rail-collapsed .rail h2 .label{display:inline}
+  .main.rail-collapsed .rail h2 small{writing-mode:horizontal-tb;margin-left:auto}
+  .railToggle svg{transform:rotate(90deg)}
+  .main.rail-collapsed .railToggle svg{transform:rotate(-90deg)}
   .lead{margin-left:0}
 }
 @media (prefers-reduced-motion:reduce){.card.ringing{animation:none}}
@@ -145,8 +167,12 @@ body.has-bg #bgClear{display:inline-block}
 </head>
 <body>
 
-<div class="top">
+<div class="top" id="top">
   <div class="brand"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</div>
+  <button class="ghost iconbtn" id="menuBtn" aria-controls="tools" aria-expanded="true" aria-label="Settings" title="Settings">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <div class="tools" id="tools">
   <button class="ghost danger" id="clearAll">Clear all alarms</button>
   <div class="lead">
     <label for="leadMin">Alert me</label>
@@ -171,6 +197,7 @@ body.has-bg #bgClear{display:inline-block}
     <input type="file" id="bgFile" accept="image/*" hidden>
   </div>
   <button class="ghost" id="openSettings">Gemini settings</button>
+  </div>
 </div>
 
 <div class="main">
@@ -184,15 +211,18 @@ body.has-bg #bgClear{display:inline-block}
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5"/></svg>
         </button>
         <input type="file" id="file" accept="image/*" multiple hidden>
-        <textarea id="text" rows="1" placeholder="Paste, drop or attach up to 10 match screenshots, or type a message"></textarea>
-        <button class="send" id="send">Send</button>
+        <textarea id="text" rows="1" enterkeyhint="send" placeholder="Paste or attach up to 10 screenshots, then press Enter"></textarea>
       </div>
-      <div class="hint">Keep this tab open: alarms ring in the browser.</div>
     </div>
   </section>
 
   <aside class="rail">
-    <h2>Alarms <small id="alarmCount"></small></h2>
+    <h2>
+      <button class="railToggle" id="railToggle" aria-expanded="true" aria-label="Hide alarms" title="Hide alarms">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <span class="label">Alarms</span> <small id="alarmCount"></small>
+    </h2>
     <div class="list" id="list"></div>
   </aside>
 </div>
@@ -311,8 +341,8 @@ function addMsg(who, text, opts={}){
   return d;
 }
 addMsg('bot', ready()
-  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time at the top.'
-  : 'Add your free Gemini API key in Gemini settings (top right), then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
+  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under the ⚙ button at the top left.'
+  : 'Add your free Gemini API key under the ⚙ button (top left) → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
 
 /* ---------- Image input (up to MAX_SHOTS) ---------- */
 let capWarned = false;
@@ -351,7 +381,23 @@ const drop = $('#drop');
 ['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if(ev==='drop' || !e.relatedTarget) drop.classList.remove('over'); }));
 document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
 $('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
-$('#send').onclick = send;
+
+/* ---------- Collapsible top bar and alarm rail ---------- */
+function setTop(open){
+  $('#top').classList.toggle('collapsed', !open); document.body.classList.toggle('top-collapsed', !open);
+  $('#menuBtn').setAttribute('aria-expanded', open);
+  store.set('tt.topOpen', open);
+}
+setTop(store.get('tt.topOpen', false));
+$('#menuBtn').onclick = () => setTop($('#top').classList.contains('collapsed'));
+function setRail(open){
+  $('.main').classList.toggle('rail-collapsed', !open);
+  const t = $('#railToggle'); t.setAttribute('aria-expanded', open);
+  t.title = open ? 'Hide alarms' : 'Show alarms'; t.setAttribute('aria-label', t.title);
+  store.set('tt.railOpen', open);
+}
+setRail(store.get('tt.railOpen', true));
+$('#railToggle').onclick = () => setRail($('.main').classList.contains('rail-collapsed'));
 
 /* Shrink screenshots before saving so localStorage doesn't fill up */
 function shrink(dataUrl, maxW=1400){
@@ -373,54 +419,8 @@ function applyBg(url){
   $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
   $('.chat').classList.toggle('has-bg', !!url);
   document.body.classList.toggle('has-bg', !!url);
-  if(url) mainColor(url).then(c => {
-    if(!c || !$('.chat').classList.contains('has-bg')) return;
-    $('.chat').style.setProperty('--send-bg', `rgb(${c.rgb})`);
-    $('.chat').style.setProperty('--send-fg', c.light ? '#1a1a1a' : '#fff');
-  });
 }
 
-/* Most common colourful shade in the image, adjusted so the Send button stays visible on the dark UI */
-function mainColor(url){
-  return new Promise(res => {
-    const im = new Image();
-    im.onload = () => {
-      const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
-      const ctx = c.getContext('2d'); ctx.drawImage(im, 0, 0, N, N);
-      const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
-      for(let i = 0; i < d.length; i += 4){
-        if(d[i+3] < 128) continue;
-        const [r,g,b] = [d[i],d[i+1],d[i+2]], mx = Math.max(r,g,b), mn = Math.min(r,g,b);
-        const w = (mx - mn) / 255 + .05;           // favour colourful pixels over greys
-        const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5);
-        const e = bins.get(k) || { w:0, r:0, g:0, b:0 };
-        e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
-      }
-      let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
-      if(!best) return res(null);
-      let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
-      l = Math.min(.66, Math.max(.46, l));
-      const rgb = fromHsl(h, sat, l);
-      const lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
-      res({ rgb: rgb.join(','), light: lum > .55 });
-    };
-    im.onerror = () => res(null);
-    im.src = url;
-  });
-}
-function toHsl(r, g, b){
-  r/=255; g/=255; b/=255;
-  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2;
-  if(mx === mn) return [0, 0, l];
-  const dd = mx - mn, s = l > .5 ? dd/(2-mx-mn) : dd/(mx+mn);
-  const h = mx === r ? (g-b)/dd + (g<b ? 6 : 0) : mx === g ? (b-r)/dd + 2 : (r-g)/dd + 4;
-  return [h/6, s, l];
-}
-function fromHsl(h, s, l){
-  const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
-  const f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < 1/2 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; };
-  return [f(h+1/3), f(h), f(h-1/3)].map(v => Math.round(v*255));
-}
 applyBg(store.get('tt.bg', null));
 $('#bgPick').onclick = () => $('#bgFile').click();
 $('#bgFile').onchange = e => {
@@ -551,13 +551,15 @@ function countdown(ms){
 }
 
 /* ---------- Send ---------- */
+let sending = false;
 async function send(){
+  if(sending) return;
   const text = $('#text').value.trim();
   const imgs = pendingImgs.slice();
   if(!text && !imgs.length) return;
   addMsg('user', text, { imgs });
   $('#text').value=''; pendingImgs = []; renderPreview();
-  $('#send').disabled = true;
+  sending = true;
   const many = imgs.length > 1;
   const thinking = addMsg('bot', imgs.length ? (many ? `Reading screenshot 1 of ${imgs.length}…` : 'Reading the screenshot…') : '…');
   const status = t => { thinking.firstChild.textContent = t; };
@@ -595,7 +597,7 @@ async function send(){
   }catch(e){
     thinking.remove();
     addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again, or switch to another model in Gemini settings.' : e.message, { err:true });
-  }finally{ $('#send').disabled = false; }
+  }finally{ sending = false; }
 }
 
 function cropRow(dataUrl, box){
