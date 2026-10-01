@@ -145,7 +145,7 @@ body.has-bg #bgClear{display:inline-block}
 .railToggle svg{transition:transform .25s}
 .histBtn svg{transform:none !important}
 .histBtn[aria-pressed="true"]{color:var(--yellow);border-color:var(--line)}
-.main:not(.rail-collapsed) .histBtn{display:none}   /* the history switch only lives on the folded bar */
+.main.rail-collapsed .histBtn{display:none}   /* the history switch sits next to the list title, not on the folded bar */
 /* Daily P/L tracker: an angled tab hanging from the top-right of the chat area */
 .pltab{position:absolute;top:0;right:0;z-index:4;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
 .pltab-in{display:flex;align-items:center;gap:14px;height:48px;padding:0 22px 0 44px;background:var(--bg);white-space:nowrap;
@@ -383,10 +383,11 @@ button.tag{cursor:pointer}
       <button class="railToggle" id="railToggle" aria-expanded="true" aria-label="Hide alarms" title="Hide alarms">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
+      <span class="label" id="railLabel">Alarms</span>
       <button class="railToggle histBtn" id="histBtn" aria-pressed="false" aria-label="Show match history" title="Match history">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
       </button>
-      <span class="label" id="railLabel">Alarms</span> <small id="alarmCount"></small>
+      <small id="alarmCount"></small>
     </h2>
     <div class="list" id="list"></div>
   </aside>
@@ -1306,8 +1307,8 @@ function setRailMode(mode){
   const b = $('#histBtn'); b.setAttribute('aria-pressed', mode === 'history');
   render();
 }
-// Folded bar: the arrow opens the alarms, the ⟲ button under it opens the history
-$('#histBtn').onclick = () => { setRailMode('history'); setRail(true); };
+// Folded bar: the arrow opens the alarms
+$('#histBtn').onclick = () => setRailMode(railMode === 'history' ? 'alarms' : 'history');   // next to the title: switch between alarms and history
 $('#railToggle').onclick = () => { if($('.main').classList.contains('rail-collapsed')){ setRailMode('alarms'); setRail(true); } else setRail(false); };
 setRailMode(railMode);
 

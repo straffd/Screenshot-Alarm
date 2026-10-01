@@ -16,9 +16,9 @@ Screenshots are read by Google Gemini (free tier).
 6. Alarms are removed automatically a few hours after their match starts (3 by default). Change the number,
    or set 0 to keep them, in ⚙ Settings → Remove old alarms.
 7. When a match has started, its alarm shows **Cash** and **Chalk**. Cash asks for the decimal odds and units placed;
-   Chalk records a loss with your last-used units. The match then moves to your history: fold the right-hand list
-   with its arrow, then press the ⟲ button under the arrow to open your history (green = cash, red = chalk) with
-   your total won or lost. Click a history entry to edit or delete it.
+   Chalk records a loss with your last-used units. The match then moves to your history: press the ⟲ button next
+   to the "Alarms" title on the right to switch to your history (green = cash, red = chalk) with your total won
+   or lost, and press it again to go back. Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's P/L (matches starting today, reset to 0 at 12 AM) and either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
