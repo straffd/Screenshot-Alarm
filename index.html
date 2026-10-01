@@ -159,8 +159,8 @@ body.has-bg #bgClear{display:inline-block}
 /* PNL shows the combined total; hovering it (or tapping on phones) splits it into Me and Bot */
 #plValBox{pointer-events:auto;cursor:default}
 .pl-split{display:none}
-#plValBox:hover #plVal,#plValBox.split #plVal,#plValBox:hover .k,#plValBox.split .k{display:none}
-#plValBox:hover .pl-split,#plValBox.split .pl-split{display:inline}
+#plValBox:hover #plVal,#plValBox.tapped #plVal,#plValBox:hover .k,#plValBox.tapped .k{display:none}
+#plValBox:hover .pl-split,#plValBox.tapped .pl-split{display:inline}
 .pltab .who{font:600 11px/1 var(--sans);letter-spacing:.04em;color:var(--muted);margin:0 5px 0 0;text-transform:uppercase}
 #plMe + .who{margin-left:12px}   /* gap between Me and Bot */
 #plVal.up,#plMe.up,#plBot.up{color:var(--green)}
@@ -1602,7 +1602,7 @@ function tickTracker(){
   }
 }
 plSettings();
-$('#plValBox').onclick = () => $('#plValBox').classList.toggle('split');   // phones have no hover
+$('#plValBox').onclick = () => { if(matchMedia('(hover: none)').matches) $('#plValBox').classList.toggle('tapped'); };   // touch screens have no hover: tap to split
 
 
 /* ---------- Profit & loss page (calendar / graph) ---------- */
@@ -1623,8 +1623,8 @@ function subject(forUid = pnlFor){
 }
 const pnlSubject = () => subject(pnlFor);
 // "Me +1u" and "Bot −2u" lines shown when you hover a combined total
-function splitEl(S, me, bot){
-  const sp = el('span', 'split'), pair = (k, v) => { const w = el('span', 'pair'); w.append(k + ' ', el('i', plClass(v), S.txt(v))); return w; };
+function splitEl(S, me, bot, fmt){   // fmt: show the values some other way (e.g. win rate), uncoloured
+  const sp = el('span', 'split'), pair = (k, v) => { const w = el('span', 'pair'); w.append(k + ' ', fmt ? el('i', '', fmt(v)) : el('i', plClass(v), S.txt(v))); return w; };
   sp.append(pair('Me', me), pair('Bot', bot)); return sp;
 }
 function subjectHead(sel, forUid, title){
@@ -1705,6 +1705,10 @@ function renderPnl(){
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
     if(splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
+    if(i === 3){   // Win rate: personal and bot separately
+      const rate = bot => { const ps = S.plays.filter(p => isBot(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
+      const me = rate(false), bot = rate(true); d.appendChild(splitEl(S, me, bot, v => v)); d.classList.add('hassplit'); d.tabIndex = 0;
+      d.title = `Personal ${me} · Bot ${bot}`; }
     if(i === 1){   // This month: click to list every bet this month under the calendar
       d.classList.add('click'); d.setAttribute('role', 'button'); d.setAttribute('aria-pressed', pnlSel === 'month');
       d.title += ' · click to list this month\'s bets';
@@ -2538,11 +2542,14 @@ function renderFAlarms(){
       <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
     card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
     card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
-    const cp = btn(have ? 'In your bets' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have; card.children[3].replaceWith(cp);
+    const started = p.start <= Date.now();   // too late to copy once the match has started
+    const cp = btn(have ? 'In your bets' : started ? 'Started' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have || started;
+    if(started && !have) cp.title = 'This match has already started'; card.children[3].replaceWith(cp);
     list.appendChild(card);
   });
 }
 function copyPlay(p, from){
+  if(p.start <= Date.now()) return toast('This match has already started.');
   if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))) return toast('You already have this play.');
   const now = Date.now();
   alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
