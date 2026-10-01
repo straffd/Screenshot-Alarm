@@ -10,7 +10,7 @@
 <style>
 :root{
   --bg:#16181b; --panel:#1e2125; --panel-2:#25292e; --line:#30353b;
-  --text:#ebe9e4; --muted:#8b9099; --green:#3ecf6e; --yellow:#f2c230; --red:#ef5a5a; --blue:#5aa7ef;
+  --text:#ebe9e4; --muted:#8b9099; --green:#3ecf6e; --yellow:#f2c230; --red:#ef5a5a; --blue:#5aa7ef; --ringbg:#3a3218; --onyellow:#1a1a1a;
   --sans:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --cond:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
 }
@@ -29,6 +29,11 @@ button{cursor:pointer}
 .lead input{width:64px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:center;font-family:var(--cond);font-weight:600;font-size:16px}
 .ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--text)}
 .ghost:hover{border-color:var(--muted)}
+.danger{color:var(--red);border-color:var(--red)}
+.danger:disabled{opacity:.4;cursor:default}
+.danger.confirm{background:var(--red);color:#fff}
+.sound{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.sound select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
 
 /* Main layout */
 .main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
@@ -51,8 +56,13 @@ button{cursor:pointer}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
 .preview.show{display:flex}
-.preview img{height:44px;border-radius:4px;border:1px solid var(--line)}
-.preview button{background:none;border:none;color:var(--muted);font-size:18px}
+.preview{flex-wrap:wrap}
+.thumb{position:relative}
+.thumb img{display:block;height:44px;max-width:120px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.thumb button{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:13px;line-height:1;padding:0}
+.preview .clear{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px}
+.msg .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:6px}
+.msg .shots img{margin:0;width:100%;height:auto}
 .hint{color:var(--muted);font-size:13px;margin-top:8px}
 
 /* Alarm rail */
@@ -66,10 +76,18 @@ button{cursor:pointer}
 .card:hover{background:var(--panel-2)}
 .card.over{border-left-color:var(--green)}
 .card.under{border-left-color:var(--red)}
-.card.ringing{animation:ring 1s infinite}
+.card.ringing{animation:buzz 1.1s infinite;border-color:var(--yellow);background:var(--ringbg)}
 .card.fired{opacity:.55}
-@keyframes ring{50%{background:#3a3218;border-color:var(--yellow)}}
+@keyframes buzz{
+  0%,46%,100%{transform:translate(0,0) rotate(0)}
+  4%{transform:translate(-4px,0) rotate(-1deg)} 8%{transform:translate(4px,0) rotate(1deg)}
+  12%{transform:translate(-4px,0) rotate(-1deg)} 16%{transform:translate(4px,0) rotate(1deg)}
+  20%{transform:translate(-3px,0) rotate(-.6deg)} 24%{transform:translate(3px,0) rotate(.6deg)}
+  28%{transform:translate(-3px,0) rotate(-.6deg)} 32%{transform:translate(3px,0) rotate(.6deg)}
+  36%{transform:translate(-2px,0)} 40%{transform:translate(2px,0)}}
+.stop{font:700 13px/1 var(--cond);letter-spacing:.03em;background:var(--yellow);color:var(--onyellow);border:none;border-radius:5px;padding:6px 10px}
 .card .names{grid-column:1/-1;font:600 16px/1.25 var(--cond);padding-right:22px}
+.card .comp{grid-column:1/-1;justify-self:start;font:600 12px/1 var(--cond);letter-spacing:.03em;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:4px 7px;margin:2px 0 4px}
 .card .when{font-size:13px;color:var(--muted)}
 .card .when b{color:var(--text);font-weight:600}
 .card .count{font:600 15px/1 var(--cond);font-variant-numeric:tabular-nums;color:var(--text);text-align:right;align-self:center}
@@ -108,33 +126,45 @@ button{cursor:pointer}
   .rail{max-height:42vh}
   .lead{margin-left:0}
 }
-@media (prefers-reduced-motion:reduce){.card.ringing{animation:none;border-color:var(--yellow)}}
+@media (prefers-reduced-motion:reduce){.card.ringing{animation:none}}
 </style>
 </head>
 <body>
 
 <div class="top">
   <div class="brand"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</div>
+  <button class="ghost danger" id="clearAll">Clear all alarms</button>
   <div class="lead">
     <label for="leadMin">Alert me</label>
     <input id="leadMin" type="number" min="0" max="600" value="5">
     <span>min before the match</span>
   </div>
+  <div class="sound">
+    <label for="soundPick">Sound</label>
+    <select id="soundPick">
+      <option value="beep">Beep</option>
+      <option value="pingpong">Ping pong</option>
+      <option value="chime">Chime</option>
+      <option value="bell">Bell</option>
+      <option value="digital">Digital</option>
+      <option value="siren">Siren</option>
+    </select>
+  </div>
   <button class="ghost" id="testSound">Test sound</button>
-  <button class="ghost" id="openSettings">AI settings</button>
+  <button class="ghost" id="openSettings">Gemini settings</button>
 </div>
 
 <div class="main">
   <section class="chat">
     <div class="log" id="log"></div>
     <div class="composer">
-      <div class="preview" id="preview"><img id="previewImg" alt="Attached screenshot"><span>Screenshot attached</span><button id="clearImg" aria-label="Remove screenshot">×</button></div>
+      <div class="preview" id="preview"><div id="thumbs" style="display:flex;gap:10px;flex-wrap:wrap"></div><span id="shotCount"></span><button class="clear" id="clearImg">Remove all</button></div>
       <div class="drop" id="drop">
         <button class="attach" id="attachBtn" aria-label="Attach screenshot" title="Attach screenshot">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5"/></svg>
         </button>
-        <input type="file" id="file" accept="image/*" hidden>
-        <textarea id="text" rows="1" placeholder="Paste a match screenshot (Ctrl+V), drop one here, or type a message"></textarea>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <textarea id="text" rows="1" placeholder="Paste, drop or attach up to 10 match screenshots, or type a message"></textarea>
         <button class="send" id="send">Send</button>
       </div>
       <div class="hint">Keep this tab open: alarms ring in the browser.</div>
@@ -158,37 +188,47 @@ button{cursor:pointer}
 <!-- Settings -->
 <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet settings">
-    <header><h3 id="setTitle">AI settings</h3><button class="close" data-close aria-label="Close">×</button></header>
+    <header><h3 id="setTitle">Gemini settings</h3><button class="close" data-close aria-label="Close">×</button></header>
     <div class="field">
-      <label for="provider">Provider</label>
-      <select id="provider">
-        <option value="gemini">Google Gemini (free tier)</option>
-        <option value="openrouter">OpenRouter (free models)</option>
+      <label for="mode">Connect through</label>
+      <select id="mode">
+        <option value="server">My server (key hidden, nothing to paste on each device)</option>
+        <option value="key">My own Gemini key in this browser</option>
       </select>
+    </div>
+    <div id="serverFields">
+      <div class="field">
+        <label for="serverUrl">Server address</label>
+        <input id="serverUrl" placeholder="https://tt-alarm.yourname.workers.dev" autocomplete="off">
+        <p>The address of your Cloudflare Worker.</p>
+      </div>
+      <div class="field">
+        <label for="serverPass">Server password</label>
+        <input id="serverPass" type="password" autocomplete="off">
+        <p>The APP_PASSWORD you set in Cloudflare. Leave empty if you didn't set one.</p>
+      </div>
     </div>
     <div class="field">
       <label for="model">Model</label>
       <input id="model">
       <p id="modelHint"></p>
     </div>
-    <div class="field">
+    <div class="field" id="backupField">
+      <label for="backup">Backup model</label>
+      <input id="backup">
+      <p>Used automatically when the main model is busy or out of requests. Leave empty to turn off. Test connection lists the model names your key can use.</p>
+    </div>
+    <div class="field" id="keyField">
       <label for="apiKey">API key</label>
       <input id="apiKey" type="password" autocomplete="off">
       <p id="keyHint"></p>
     </div>
+    <button class="ghost" id="testConn" style="width:100%;margin-bottom:10px">Test connection</button>
+    <p id="testOut" style="margin:0 0 14px;font-size:13px;color:var(--muted);white-space:pre-wrap"></p>
     <button class="send" id="saveSettings" style="width:100%">Save settings</button>
   </div>
 </div>
 
-<!-- Ringing -->
-<div class="modal" id="ringModal" role="alertdialog" aria-modal="true">
-  <div class="sheet ring-sheet">
-    <div class="ball" style="margin:0 auto;width:22px;height:22px"></div>
-    <div class="big" id="ringNames"></div>
-    <div id="ringInfo" style="color:var(--muted)"></div>
-    <button class="send" id="dismiss">Dismiss alarm</button>
-  </div>
-</div>
 
 <script>
 /* ---------- Storage ---------- */
@@ -196,19 +236,34 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
-const PROVIDERS = {
-  gemini: { model:'gemini-2.5-flash',
-    modelHint:'Any Gemini model with image input, e.g. gemini-2.5-flash or gemini-2.0-flash.',
-    keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' },
-  openrouter: { model:'meta-llama/llama-4-maverick:free',
-    modelHint:'Use a free model that accepts images (ends in ":free"). Check openrouter.ai/models for current ones.',
-    keyHint:'Get a free key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.' }
-};
-let settings = store.get('tt.settings', { provider:'gemini', model:PROVIDERS.gemini.model, key:'' });
+const GEMINI = { model:'gemini-3.8-flash', backup:'gemini-3.5-flash-lite',
+  modelHint:'Use a Flash model, e.g. gemini-3.8-flash. Flash models are on the free tier.',
+  keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' };
+// settings = { model, backup, key }
+// Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
+const SERVER_URL = '';
+
+// settings = { mode:'server'|'key', server, pass, model, backup, key }
+let settings = (() => {
+  const old = store.get('tt.settings', {});
+  let g = old.byProvider ? old.byProvider.gemini || {}          // multi-provider format
+        : (!old.provider || old.provider === 'gemini') ? old : {};  // original and current format
+  const out = { model: g.model || GEMINI.model, backup: g.backup ?? GEMINI.backup, key: g.key || '',
+                server: g.server || SERVER_URL, pass: g.pass || '',
+                mode: g.mode || ((g.server || SERVER_URL) ? 'server' : 'key') };
+  if(/^gemini-(1\.|2\.)/.test(out.model)) out.model = GEMINI.model;
+  if(out.backup === 'gemini-3.1-flash-lite') out.backup = GEMINI.backup;
+  return out;
+})();
+store.set('tt.settings', settings);
+const active = () => settings;
+const ready = () => settings.mode === 'server' ? !!settings.server : !!settings.key;
+const serverBase = () => settings.server.trim().replace(/\/+$/, '');
 let alarms = store.get('tt.alarms', []);
 let lead = store.get('tt.lead', 5);
-let pendingImg = null;   // data URL
-let ringing = null;      // alarm id
+const MAX_SHOTS = 10;
+let pendingImgs = [];    // data URLs waiting to be sent
+const ringing = new Set();   // ids of alarms currently going off
 let audioCtx = null, beepTimer = null;
 
 const $ = s => document.querySelector(s);
@@ -219,7 +274,11 @@ function addMsg(who, text, opts={}){
   const d = document.createElement('div');
   d.className = 'msg ' + who + (opts.err ? ' err' : '');
   if(text){ const t = document.createElement('div'); t.textContent = text; d.appendChild(t); }
-  if(opts.img){ const i = document.createElement('img'); i.src = opts.img; i.alt = 'Screenshot'; d.appendChild(i); }
+  if(opts.imgs && opts.imgs.length){
+    const g = document.createElement(opts.imgs.length > 1 ? 'div' : 'span'); if(opts.imgs.length > 1) g.className = 'shots';
+    opts.imgs.forEach((src, n) => { const i = document.createElement('img'); i.src = src; i.alt = 'Screenshot ' + (n+1); g.appendChild(i); });
+    d.appendChild(g);
+  }
   if(opts.facts){
     const f = document.createElement('div'); f.className = 'facts';
     for(const [k,v] of opts.facts){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('span'); b.textContent=v; f.append(a,b); }
@@ -229,27 +288,46 @@ function addMsg(who, text, opts={}){
   $('#log').scrollTop = $('#log').scrollHeight;
   return d;
 }
-addMsg('bot', settings.key
+addMsg('bot', ready()
   ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time at the top.'
-  : 'Add a free API key in AI settings (top right), then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
+  : 'Add your free Gemini API key in Gemini settings (top right), then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
 
-/* ---------- Image input ---------- */
-function loadFile(file){
-  if(!file || !file.type.startsWith('image/')) return;
-  const r = new FileReader();
-  r.onload = () => { pendingImg = r.result; $('#previewImg').src = pendingImg; $('#preview').classList.add('show'); };
-  r.readAsDataURL(file);
+/* ---------- Image input (up to MAX_SHOTS) ---------- */
+let capWarned = false;
+function loadFiles(files){
+  const imgs = [...files].filter(f => f && f.type && f.type.startsWith('image/'));
+  const room = MAX_SHOTS - pendingImgs.length;
+  if(imgs.length > room && !capWarned){ capWarned = true; addMsg('bot', `You can send up to ${MAX_SHOTS} screenshots at once. Extra ones weren't added.`, { err:true }); }
+  imgs.slice(0, Math.max(0, room)).forEach(f => {
+    const r = new FileReader();
+    r.onload = () => { if(pendingImgs.length < MAX_SHOTS){ pendingImgs.push(r.result); renderPreview(); } };
+    r.readAsDataURL(f);
+  });
+}
+function renderPreview(){
+  const box = $('#thumbs'); box.innerHTML = '';
+  pendingImgs.forEach((src, n) => {
+    const t = document.createElement('div'); t.className = 'thumb';
+    const im = document.createElement('img'); im.src = src; im.alt = 'Screenshot ' + (n+1);
+    const x = document.createElement('button'); x.textContent = '×'; x.setAttribute('aria-label', 'Remove screenshot ' + (n+1));
+    x.onclick = () => { pendingImgs.splice(n, 1); renderPreview(); };
+    t.append(im, x); box.appendChild(t);
+  });
+  $('#shotCount').textContent = `${pendingImgs.length} of ${MAX_SHOTS}`;
+  $('#preview').classList.toggle('show', pendingImgs.length > 0);
+  if(!pendingImgs.length) capWarned = false;
 }
 $('#attachBtn').onclick = () => $('#file').click();
-$('#file').onchange = e => { loadFile(e.target.files[0]); e.target.value=''; };
-$('#clearImg').onclick = () => { pendingImg=null; $('#preview').classList.remove('show'); };
+$('#file').onchange = e => { loadFiles(e.target.files); e.target.value=''; };
+$('#clearImg').onclick = () => { pendingImgs = []; renderPreview(); };
 document.addEventListener('paste', e => {
-  for(const it of (e.clipboardData||{}).items||[]){ if(it.type.startsWith('image/')){ loadFile(it.getAsFile()); e.preventDefault(); } }
+  const files = [...((e.clipboardData||{}).items||[])].filter(it => it.type.startsWith('image/')).map(it => it.getAsFile());
+  if(files.length){ loadFiles(files); e.preventDefault(); }
 });
 const drop = $('#drop');
 ['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if(ev==='drop' || !e.relatedTarget) drop.classList.remove('over'); }));
-document.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
 $('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
 $('#send').onclick = send;
 
@@ -269,50 +347,74 @@ function shrink(dataUrl, maxW=1400){
 }
 
 /* ---------- LLM ---------- */
-const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. Return ONLY a JSON object, no markdown, with these keys:
-{
- "player1": "first player exactly as shown, e.g. Minda M.",
- "player2": "second player exactly as shown",
- "time": "match start time in 24h HH:MM",
- "date": "match date as YYYY-MM-DD, or null if not shown (dates on screen are usually DD.MM.YYYY)",
- "ou_line": "the O/U value text, e.g. 36/8",
- "ou_pct": "the percentage next to O/U, e.g. 82%",
- "ou_side": "OVER or UNDER",
- "edge": "the edge percentage shown under the progress bar at the far right, e.g. 51%",
- "league": "league tag if shown, else null"
-}
-Rules for ou_side: if the O/U value is written in GREEN it is OVER; if it is RED/orange it is UNDER. If the words Over/Under appear explicitly, use them.
+const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
+Return ONLY a JSON object, no markdown, in this shape:
+{"matches":[
+ {
+  "player1": "top player of the row exactly as shown, e.g. Minda M.",
+  "player2": "bottom player of the row exactly as shown",
+  "time": "match start time in 24h HH:MM",
+  "ou_line": "the O/U value text, e.g. 36/8",
+  "ou_pct": "the percentage next to O/U, e.g. 82%",
+  "ou_color": "the text colour of the O/U value: green, red or grey",
+  "ou_side": "OVER or UNDER",
+  "edge": "the edge percentage shown under the progress bar at the far right of that row, e.g. 51%",
+  "league": "the competition name of THAT row, from the small grey tag under its player names (e.g. TT ELITE), or null if the row has none",
+  "box_2d": [ymin, xmin, ymax, xmax]
+ }
+]}
+List every complete match row, top to bottom. Skip rows that are cut off so the players or time can't be read.
+box_2d is the bounding box of that whole row, normalised to 0-1000.
+Rules for ou_side: if the O/U value is written in GREEN it is OVER; if it is RED/orange it is UNDER. If it is GREY/white/neutral, use the O/U percentage: above 50% is OVER, 50% or below is UNDER. If the words Over/Under appear explicitly, use them.
+Keep each row's values together: never take a value from a neighbouring row.
 Do not confuse other percentages (H2H, SWEEP, SPLIT, 5-SET, O18.5, OT) with the edge. The edge is the lone percentage below the small horizontal bar.
-If the image is not a table tennis match row, return {"error":"short reason"}.`;
+The date shown under "pts" is NOT the match date; ignore it.
+If the image shows no table tennis match rows, return {"error":"short reason"}.`;
 
-async function callLLM(promptText, imgDataUrl, wantJson){
-  if(!settings.key) throw new Error('No API key yet. Open AI settings and paste a free key.');
-  if(settings.provider === 'gemini'){
+async function callLLM(promptText, imgDataUrl, wantJson, onStatus){
+  const cfg = settings, P = { name:'Gemini' };
+  if(!ready()) throw new Error(settings.mode === 'server' ? 'No server address yet. Open Gemini settings and paste your Worker address.' : 'No Gemini API key yet. Open Gemini settings and paste your free key.');
+  const img = imgDataUrl ? { mime: imgDataUrl.match(/data:(.*?);/)[1], b64: imgDataUrl.split(',')[1] } : null;
+
+  // One request to one model. Returns { ok, status, text, msg }.
+  async function once(model){
     const parts = [{ text: promptText }];
-    if(imgDataUrl){
-      const [meta, b64] = imgDataUrl.split(',');
-      parts.push({ inline_data: { mime_type: meta.match(/data:(.*?);/)[1], data: b64 } });
-    }
-    const body = { contents:[{ parts }], generationConfig:{ temperature:0 } };
-    if(wantJson) body.generationConfig.responseMimeType = 'application/json';
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent`, {
-      method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify(body)
-    });
-    const j = await r.json();
-    if(!r.ok) throw new Error((j.error && j.error.message) || ('Gemini returned ' + r.status));
-    return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-  } else {
-    const content = [{ type:'text', text: promptText }];
-    if(imgDataUrl) content.push({ type:'image_url', image_url:{ url: imgDataUrl } });
-    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + settings.key, 'X-Title':'TT Alarm Bot' },
-      body: JSON.stringify({ model: settings.model, temperature:0, messages:[{ role:'user', content }] })
-    });
-    const j = await r.json();
-    if(!r.ok) throw new Error((j.error && j.error.message) || ('OpenRouter returned ' + r.status));
-    return j.choices?.[0]?.message?.content || '';
+    if(img) parts.push({ inline_data:{ mime_type: img.mime, data: img.b64 } });
+    const body = { contents:[{ parts }], generationConfig: wantJson ? { responseMimeType:'application/json' } : {} };
+    let r, j;
+    try{
+      r = cfg.mode === 'server'
+        ? await fetch(serverBase() + '/generate', {   // your Worker adds the key
+            method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Password': cfg.pass || '' }, body: JSON.stringify({ model, request: body })
+          })
+        : await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+            method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': cfg.key }, body: JSON.stringify(body)
+          });
+      j = await r.json().catch(() => ({}));
+    }catch(e){ return { ok:false, status:0, msg: e && e.message || 'network error' }; }
+    if(r.ok) return { ok:true, text: (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('') };
+    return { ok:false, status:r.status, msg: (j.error && j.error.message) || ('Gemini returned ' + r.status) };
   }
+
+  const models = [cfg.model, cfg.backup].filter((m,i,a) => m && a.indexOf(m)===i);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let last, netFails = 0, tries = 0;
+  for(const model of models){
+    for(let attempt = 0; attempt < 3; attempt++){
+      if(attempt){ onStatus && onStatus(`${model} is busy. Trying again (${attempt + 1} of 3)…`); await wait(attempt * 3000); }
+      else if(model !== models[0]) onStatus && onStatus(`Switching to backup model ${model}…`);
+      tries++;
+      const res = await once(model);
+      if(res.ok) return res.text;
+      last = { model, ...res };
+      if(res.status === 0){ netFails++; continue; }
+      if([400,401,403,413].includes(res.status)) throw new Error(`${model}: ${res.msg}`);        // bad key, no credit, bad request
+      if([500,502,503,504,529].includes(res.status)) continue;                            // overloaded: retry this model
+      break;                                                                               // 404 or 429: try the backup
+    }
+  }
+  if(netFails === tries) throw new Error(`Your browser couldn't connect to ${P.name} at all, so no answer came back. This is usually an ad blocker or privacy extension, a VPN, or a work or school network. Open Gemini settings and click Test connection to check.\n\nBrowser said: ${last.msg}`);
+  throw new Error(`${P.name} is busy or out of requests right now. Wait a minute and send again, or change the models in Gemini settings.\n\nLast error from ${last.model}: ${last.msg}`);
 }
 
 function parseJson(text){
@@ -338,10 +440,9 @@ function parseDate(d){
 }
 function matchStart(info){
   const hm = to24(info.time); if(!hm) return null;
-  const dt = parseDate(info.date);
-  let when;
-  if(dt) when = new Date(dt[0], dt[1], dt[2], hm[0], hm[1]);
-  else { when = new Date(); when.setHours(hm[0], hm[1], 0, 0); if(when < Date.now() - 60000) when.setDate(when.getDate()+1); }
+  const when = new Date(); when.setHours(hm[0], hm[1], 0, 0);
+  // Started under 30 min ago: treat as live (caller skips it). Longer ago: it's tomorrow's match.
+  if(when.getTime() < Date.now() - 30*60000) when.setDate(when.getDate()+1);
   return when.getTime();
 }
 const clean = n => String(n||'').trim().replace(/\.+$/,'');
@@ -362,25 +463,40 @@ function countdown(ms){
 /* ---------- Send ---------- */
 async function send(){
   const text = $('#text').value.trim();
-  const img = pendingImg;
-  if(!text && !img) return;
-  addMsg('user', text, { img });
-  $('#text').value=''; pendingImg=null; $('#preview').classList.remove('show');
+  const imgs = pendingImgs.slice();
+  if(!text && !imgs.length) return;
+  addMsg('user', text, { imgs });
+  $('#text').value=''; pendingImgs = []; renderPreview();
   $('#send').disabled = true;
-  const thinking = addMsg('bot', img ? 'Reading the screenshot…' : '…');
+  const many = imgs.length > 1;
+  const thinking = addMsg('bot', imgs.length ? (many ? `Reading screenshot 1 of ${imgs.length}…` : 'Reading the screenshot…') : '…');
+  const status = t => { thinking.firstChild.textContent = t; };
   try{
-    if(img){
+    if(imgs.length){
       const prompt = EXTRACT_PROMPT + (text ? `\n\nExtra note from the user: ${text}` : '');
-      const info = parseJson(await callLLM(prompt, img, true));
+      const entries = [], problems = [];
+      for(let n = 0; n < imgs.length; n++){   // one at a time, so free-tier rate limits aren't hit all at once
+        const tag = many ? `Screenshot ${n+1}: ` : '';
+        if(many) status(`Reading screenshot ${n+1} of ${imgs.length}…`);
+        try{
+          const info = parseJson(await callLLM(prompt, imgs[n], true, t => status(tag + t)));
+          if(info.error){ problems.push(tag + 'doesn\'t look like a match row (' + info.error + ')'); continue; }
+          const list = Array.isArray(info.matches) ? info.matches : (info.player1 ? [info] : []);
+          if(!list.length){ problems.push(tag + 'no complete match rows found'); continue; }
+          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1 }));
+        }catch(e){
+          problems.push(tag + (e instanceof SyntaxError ? 'the model\'s answer wasn\'t readable' : e.message));
+        }
+      }
       thinking.remove();
-      if(info.error){ addMsg('bot', 'That doesn\'t look like a match row: ' + info.error, { err:true }); return; }
-      await createAlarm(info, img);
+      if(entries.length) await createAlarms(entries, problems);
+      else addMsg('bot', problems.join('\n\n') || 'No matches found.', { err:true });
     } else {
       // Plain chat: let the user change lead time by typing, otherwise ask the LLM
       const m = text.match(/(\d{1,3})\s*(min|minute|m\b)/i);
       if(m && /alarm|before|remind|alert|set/i.test(text)){
-        setLead(+m[1]); thinking.remove();
-        addMsg('bot', `New alarms will ring ${lead} min before the match. Existing alarms keep their time.`);
+        const msg = setLead(+m[1]); thinking.remove();
+        addMsg('bot', msg || `Alarms already ring ${lead} min before the match.`);
       } else {
         const reply = await callLLM(`You are a helper inside a table tennis match alarm app. Users send screenshots of matches to set alarms. Answer briefly.\n\nUser: ${text}`, null, false);
         thinking.remove(); addMsg('bot', reply.trim());
@@ -388,57 +504,126 @@ async function send(){
     }
   }catch(e){
     thinking.remove();
-    addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again, or switch to another model in AI settings.' : e.message, { err:true });
+    addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again, or switch to another model in Gemini settings.' : e.message, { err:true });
   }finally{ $('#send').disabled = false; }
 }
 
-async function createAlarm(info, img){
-  const start = matchStart(info);
-  if(!start){ addMsg('bot', 'I couldn\'t read the start time from that screenshot. Try a sharper crop that includes the time.', { err:true }); return; }
-  const side = /under/i.test(info.ou_side) ? 'UNDER' : 'OVER';
-  const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
-  const a = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-    name: `${clean(info.player1)} vs ${clean(info.player2)}`,
-    start, ring: start - lead*60000, lead,
-    side, line: info.ou_line || '', ouPct: info.ou_pct || '',
-    edge: isNaN(edgeNum) ? null : edgeNum,
-    league: info.league || '',
-    img: await shrink(img), fired: false
-  };
-  alarms.push(a); alarms.sort((x,y)=>x.ring-y.ring);
-  if(!store.set('tt.alarms', alarms)){
-    alarms = alarms.map(x => x.id===a.id ? x : x); // keep in memory
-    addMsg('bot', 'Browser storage is full, so this alarm won\'t survive a reload. Delete a few old alarms to free space.', { err:true });
-  }
-  render();
-  const past = a.ring <= Date.now();
-  addMsg('bot', past ? 'Alarm set, but the alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${lead} min before the start.`, {
-    facts: [['Match', a.name], ['Starts', `${fmtDay(start)}, ${fmtTime(start)}`], ['Over/under', `${side}${a.line ? ' ' + a.line : ''}${a.ouPct ? ' (' + a.ouPct + ')' : ''}`], ['Edge', a.edge==null ? 'not found' : a.edge + '%']]
+function cropRow(dataUrl, box){
+  return new Promise(res => {
+    if(!Array.isArray(box) || box.length !== 4 || box.some(v => typeof v !== 'number')) return res(null);
+    const im = new Image();
+    im.onload = () => {
+      let [y0,,y1] = box.map(v => Math.max(0, Math.min(1000, v)) / 1000);
+      if(y1 - y0 < 0.03) return res(null);
+      const pad = (y1 - y0) * 0.12;
+      y0 = Math.max(0, y0 - pad); y1 = Math.min(1, y1 + pad);
+      const c = document.createElement('canvas');
+      c.width = im.width; c.height = Math.round((y1 - y0) * im.height);
+      c.getContext('2d').drawImage(im, 0, Math.round(y0 * im.height), im.width, c.height, 0, 0, c.width, c.height);
+      res(c.toDataURL('image/png'));
+    };
+    im.onerror = () => res(null);
+    im.src = dataUrl;
   });
-  askNotify();
 }
 
-function setLead(v){
-  lead = Math.max(0, Math.min(600, Math.round(+v || 0)));
-  $('#leadMin').value = lead; store.set('tt.lead', lead);
+// Green = OVER, red = UNDER, grey = decided by the O/U percentage (above 50% OVER, otherwise UNDER).
+// Worked out here from the colour and percentage the AI read, so the rule is applied the same way every time.
+function ouSide(info){
+  const color = String(info.ou_color || '').toLowerCase();
+  const pct = parseFloat(String(info.ou_pct || '').replace(/[^\d.]/g, ''));
+  if(/green/.test(color)) return 'OVER';
+  if(/red|orange/.test(color)) return 'UNDER';
+  if(/gr[ae]y|white|neutral/.test(color) && !isNaN(pct)) return pct > 50 ? 'OVER' : 'UNDER';
+  return /under/i.test(info.ou_side) ? 'UNDER' : 'OVER';
 }
-$('#leadMin').onchange = e => setLead(e.target.value);
+
+// Returns {ok:true, a} or {ok:false, why, name}
+async function createAlarm(info, img, cropIt){
+  const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
+  const start = matchStart(info);
+  if(!start) return { ok:false, name, why:'start time unreadable' };
+  if(start <= Date.now()) return { ok:false, name, why:`started at ${fmtTime(start)}` };
+  if(alarms.some(x => x.name === name && x.start === start)) return { ok:false, name, why:'alarm already set' };
+  const side = ouSide(info);
+  const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
+  const shot = (cropIt && await cropRow(img, info.box_2d)) || img;
+  const a = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name, start, ring: start - lead*60000, lead,
+    side, line: info.ou_line || '', ouPct: info.ou_pct || '',
+    edge: isNaN(edgeNum) ? null : edgeNum,
+    league: compName(info.league),
+    img: await shrink(shot), fired: false
+  };
+  alarms.push(a);
+  return { ok:true, a };
+}
+
+// "TT ELITE" -> "TT Elite": short words stay as abbreviations
+function compName(v){
+  const t = String(v || '').trim();
+  if(!t || /^null$/i.test(t)) return '';
+  const words = ['CUP','PRO','ONE','TOP','NEW','THE','AND','OF','DE','LA'];
+  return t.split(/\s+/).map(w => w.length <= 3 && /^[A-Za-z]+$/.test(w) && !words.includes(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+async function createAlarms(entries, problems = []){
+  const results = [];
+  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop));
+  alarms.sort((x,y)=>x.ring-y.ring);
+  if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new alarms won\'t survive a reload. Delete a few old alarms to free space.', { err:true });
+  render();
+  const made = results.filter(r => r.ok).map(r => r.a);
+  const skipped = results.filter(r => !r.ok);
+  const fmtSide = a => `${a.side}${a.line ? ' ' + a.line : ''}`;
+  if(made.length === 1 && !skipped.length && !problems.length){
+    const a = made[0], past = a.ring <= Date.now();
+    addMsg('bot', past ? 'Alarm set. The alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
+      facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%']]
+    });
+  } else {
+    const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}`]);
+    skipped.forEach(r => facts.push(['Skipped', `${r.name}: ${r.why}`]));
+    problems.forEach(pr => facts.push(['Not read', pr]));
+    const n = entries.length;
+    addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. Set ${made.length} alarm${made.length>1?'s':''}, each ${lead} min before the start.` : `Found ${n} match${n>1?'es':''}, but no new alarms were needed.`, { facts });
+  }
+  if(made.length) askNotify();
+}
+
+// Changing the lead time moves every alarm that hasn't gone off yet. Returns a short summary.
+function setLead(v){
+  const next = Math.max(0, Math.min(600, Math.round(+v || 0)));
+  $('#leadMin').value = next;
+  if(next === lead) return '';
+  lead = next; store.set('tt.lead', lead);
+  const now = Date.now(), upcoming = alarms.filter(a => !a.fired && a.start > now);
+  upcoming.forEach(a => { a.lead = lead; a.ring = a.start - lead*60000; });
+  if(!upcoming.length) return `Alarms will now ring ${lead} min before the match.`;
+  alarms.sort((x,y)=>x.ring-y.ring); store.set('tt.alarms', alarms); render();
+  const now2 = upcoming.filter(a => a.ring <= now).length;
+  return `Alarms will now ring ${lead} min before the match. Moved ${upcoming.length} upcoming alarm${upcoming.length>1?'s':''}`
+    + (now2 ? `; ${now2} of them ${now2>1?'are':'is'} already inside that window, so ${now2>1?'they ring':'it rings'} now.` : '.');
+}
+$('#leadMin').onchange = e => { const msg = setLead(e.target.value); if(msg) addMsg('bot', msg); };
 
 /* ---------- Render alarm list ---------- */
 function render(){
+  if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
   $('#alarmCount').textContent = alarms.length ? `${active} upcoming` : '';
   if(!alarms.length){ list.innerHTML = '<div class="empty">No alarms yet. Send a match screenshot in the chat to add one.</div>'; return; }
   for(const a of alarms){
     const c = document.createElement('div');
-    c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing===a.id?' ringing':''}`;
+    c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing.has(a.id)?' ringing':''}`;
     c.tabIndex = 0; c.setAttribute('role','button'); c.setAttribute('aria-label', `${a.name}, open screenshot`);
     c.innerHTML = `
       <div class="names"></div>
+      ${a.league ? '<div class="comp"></div>' : ''}
       <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before</div>
-      <div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>
+      ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : `<div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
         <span class="line"></span>
@@ -446,10 +631,13 @@ function render(){
       </div>
       <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
     c.querySelector('.names').textContent = a.name;
+    if(a.league) c.querySelector('.comp').textContent = a.league;
     c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
-    c.onclick = () => openViewer(a);
-    c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openViewer(a); } };
-    c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing===a.id) dismiss(); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
+    if(ringing.has(a.id)) c.setAttribute('aria-label', `${a.name} alarm going off, click to stop`);
+    const act = () => ringing.has(a.id) ? stopAlarm(a.id) : openViewer(a);   // while it's going off, a click stops it
+    c.onclick = act;
+    c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } };
+    c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
     c.querySelector('.side').onclick = e => { e.stopPropagation(); a.side = a.side==='OVER'?'UNDER':'OVER'; store.set('tt.alarms', alarms); render(); };
     list.appendChild(c);
   }
@@ -459,51 +647,148 @@ function render(){
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(el){ el.classList.remove('show'); }
 document.querySelectorAll('.modal').forEach(m => {
-  m.addEventListener('click', e => { if((e.target===m || e.target.hasAttribute('data-close')) && m.id!=='ringModal') closeModal(m); });
+  m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
 document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal'].forEach(id=>closeModal($(id))); });
 
 function openViewer(a){
-  $('#viewerTitle').textContent = `${a.name} · ${fmtTime(a.start)}`;
+  $('#viewerTitle').textContent = `${a.name}${a.league ? ' · ' + a.league : ''} · ${fmtTime(a.start)}`;
   $('#viewerImg').src = a.img;
   openModal('#viewer');
 }
 
 /* Settings */
+function showMode(){
+  const server = $('#mode').value === 'server';
+  $('#serverFields').style.display = server ? '' : 'none';
+  $('#keyField').style.display = server ? 'none' : '';
+  $('#testOut').textContent = '';
+}
 function fillSettings(){
-  $('#provider').value = settings.provider;
-  $('#model').value = settings.model;
-  $('#apiKey').value = settings.key;
-  hints();
+  $('#mode').value = settings.mode; $('#serverUrl').value = settings.server || ''; $('#serverPass').value = settings.pass || '';
+  $('#model').value = settings.model; $('#backup').value = settings.backup || ''; $('#apiKey').value = settings.key;
+  $('#modelHint').textContent = GEMINI.modelHint; $('#keyHint').innerHTML = GEMINI.keyHint;
+  showMode();
 }
-function hints(){
-  const p = PROVIDERS[$('#provider').value];
-  $('#modelHint').textContent = p.modelHint; $('#keyHint').innerHTML = p.keyHint;
-}
-$('#provider').onchange = () => { $('#model').value = PROVIDERS[$('#provider').value].model; hints(); };
+$('#mode').onchange = showMode;
 $('#openSettings').onclick = () => { fillSettings(); openModal('#settingsModal'); };
+$('#testConn').onclick = async () => {
+  const out = $('#testOut'), key = $('#apiKey').value.trim(), server = $('#mode').value === 'server';
+  const url = $('#serverUrl').value.trim().replace(/\/+$/, '');
+  out.style.color = 'var(--muted)';
+  if(server && !url){ out.textContent = 'Paste your server address first.'; return; }
+  if(!server && !key){ out.textContent = 'Paste your API key first.'; return; }
+  out.textContent = 'Testing…';
+  try{
+    const r = server
+      ? await fetch(url + '/models', { headers:{ 'X-App-Password': $('#serverPass').value } })
+      : await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers:{ 'x-goog-api-key': key } });
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok){ out.style.color='var(--red)'; out.textContent = (server ? 'Reached your server, but it refused: ' : 'Connected, but Google rejected the key: ') + ((j.error && j.error.message) || r.status); return; }
+    const names = (j.models||[]).filter(m => (m.supportedGenerationMethods||[]).includes('generateContent')).map(m => m.name.replace('models/',''));
+    const want = [$('#model').value.trim(), $('#backup').value.trim()].filter(Boolean);
+    const missing = want.filter(w => !names.includes(w));
+    out.style.color = missing.length ? 'var(--red)' : 'var(--green)';
+    out.textContent = (server ? 'Your server works and its key is valid.' : 'Connected and your key works.') + (missing.length ? '\nNot available to your key: ' + missing.join(', ') : '\nBoth models are available.')
+      + '\nFlash models you can use: ' + (names.filter(n => /flash/.test(n)).join(', ') || 'none listed');
+  }catch(e){
+    out.style.color='var(--red)';
+    out.textContent = server ? `Couldn't reach your server (${e && e.message}). Check the address, and that ALLOWED_ORIGIN in Cloudflare matches this site's address exactly.` : `Couldn't connect to Google at all (${e && e.message}). Turn off ad blockers or privacy extensions for this site, or try another network or browser.`;
+  }
+};
 $('#saveSettings').onclick = () => {
-  settings = { provider: $('#provider').value, model: $('#model').value.trim(), key: $('#apiKey').value.trim() };
+  settings = { mode: $('#mode').value, server: $('#serverUrl').value.trim(), pass: $('#serverPass').value, model: $('#model').value.trim() || GEMINI.model, backup: $('#backup').value.trim(), key: $('#apiKey').value.trim() };
   store.set('tt.settings', settings); closeModal($('#settingsModal'));
-  addMsg('bot', `Settings saved. Using ${settings.model}.`);
+  addMsg('bot', `Settings saved. Using ${settings.model}${settings.backup ? ', with ' + settings.backup + ' as backup' : ''}, through ${settings.mode === 'server' ? 'your server' : 'your own key'}.`);
 };
 
 /* ---------- Alarm engine ---------- */
-function beep(){
-  try{
-    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    [0, .18, .36].forEach(t => {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type='square'; o.frequency.value = 880;
-      g.gain.setValueAtTime(.0001, audioCtx.currentTime+t);
-      g.gain.exponentialRampToValueAtTime(.25, audioCtx.currentTime+t+.01);
-      g.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime+t+.14);
-      o.connect(g).connect(audioCtx.destination); o.start(audioCtx.currentTime+t); o.stop(audioCtx.currentTime+t+.15);
-    });
-  }catch(e){}
+/* ---------- Alarm sounds (generated in the browser, no files) ---------- */
+// Each sound is one cycle: len = seconds before the next cycle starts (the loop repeats them back to back).
+const SOUNDS = {
+  // steady beeping
+  beep: { len:.6, play:(tone, t) => { [0, .2, .4].forEach(d => tone({ at:t+d, freq:880, type:'square', len:.14, vol:.22 })); } },
+  // a ball bouncing faster and faster on a table
+  pingpong: { len:1.35, play:(tone, t) => {
+    let d = 0, gap = .32;
+    for(let n = 0; n < 8; n++){ tone({ at:t+d, freq:1500 - n*40, type:'triangle', len:.05, vol:.5 }); d += gap; gap *= .78; }
+  } },
+  // rising three-note chime, notes ring into each other
+  chime: { len:.75, play:(tone, t) => { [523.25, 659.25, 783.99].forEach((f, n) => tone({ at:t+n*.2, freq:f, type:'sine', len:.9, vol:.28 })); } },
+  // a struck bell, struck again while still ringing
+  bell: { len:.9, play:(tone, t) => { [[660,.35],[1320,.15],[1980,.08],[2640,.05]].forEach(([f,v]) => tone({ at:t, freq:f, type:'sine', len:1.3, vol:v })); } },
+  // fast digital-watch double beeps
+  digital: { len:.5, play:(tone, t) => { [0,.1].forEach(d => tone({ at:t+d, freq:2000, type:'square', len:.07, vol:.15 })); } },
+  // continuous up-and-down siren
+  siren: { len:1.3, play:(tone, t) => { tone({ at:t, freq:600, to:1200, type:'sawtooth', len:.65, vol:.14 }); tone({ at:t+.65, freq:1200, to:600, type:'sawtooth', len:.65, vol:.14 }); } }
+};
+let soundName = store.get('tt.sound', 'beep');
+if(!SOUNDS[soundName]) soundName = 'beep';
+$('#soundPick').value = soundName;
+
+function ctx(){
+  audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
 }
-$('#testSound').onclick = beep;
+let loopOut = null;   // while an alarm rings, its notes go through this node so they can be cut off instantly
+function tone({ at, freq, to, type, len, vol, out }){
+  const a = ctx(), o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, at);
+  if(to) o.frequency.linearRampToValueAtTime(to, at + len);
+  g.gain.setValueAtTime(.0001, at);
+  g.gain.exponentialRampToValueAtTime(vol, at + .008);
+  g.gain.exponentialRampToValueAtTime(.0001, at + len);
+  o.connect(g).connect(out || a.destination); o.start(at); o.stop(at + len + .02);
+}
+// Play one cycle (Test sound and the preview). Returns when it would end.
+function beep(name = soundName){
+  try{ const t = ctx().currentTime + .02; (SOUNDS[name] || SOUNDS.beep).play(tone, t); return t + (SOUNDS[name] || SOUNDS.beep).len; }catch(e){ return 0; }
+}
+
+// Alarm loop: schedules cycles on the audio clock just ahead of time, so they run back to back with no gaps,
+// even when the browser slows timers down in a background tab.
+let nextCycle = 0;
+function startLoop(){
+  if(beepTimer) return;
+  try{ const a = ctx(); loopOut = a.createGain(); loopOut.connect(a.destination); nextCycle = a.currentTime + .05; }catch(e){ return; }
+  const tick = () => {
+    try{
+      const a = ctx();
+      if(nextCycle < a.currentTime) nextCycle = a.currentTime + .02;
+      const out = loopOut, toneOut = opts => tone({ ...opts, out });
+      while(nextCycle < a.currentTime + 1.5){ const S = SOUNDS[soundName] || SOUNDS.beep; S.play(toneOut, nextCycle); nextCycle += S.len; }
+    }catch(e){}
+  };
+  tick(); beepTimer = setInterval(tick, 250);
+}
+function stopLoop(){
+  clearInterval(beepTimer); beepTimer = null;
+  // cut off notes that were already scheduled ahead
+  try{ if(loopOut){ loopOut.disconnect(); loopOut = null; } }catch(e){}
+}
+$('#testSound').onclick = () => beep();
+$('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.sound', soundName); beep(); };   // preview on change
+
+/* ---------- Clear all (click twice to confirm) ---------- */
+let clearTimer = null;
+function resetClearBtn(){
+  const b = $('#clearAll'); clearTimeout(clearTimer);
+  b.classList.remove('confirm'); b.textContent = 'Clear all alarms'; b.disabled = !alarms.length;
+}
+$('#clearAll').onclick = () => {
+  const b = $('#clearAll');
+  if(!alarms.length) return;
+  if(!b.classList.contains('confirm')){
+    b.classList.add('confirm'); b.textContent = `Click again to delete ${alarms.length} alarm${alarms.length>1?'s':''}`;
+    clearTimer = setTimeout(resetClearBtn, 4000);
+    return;
+  }
+  [...ringing].forEach(stopAlarm);
+  const n = alarms.length;
+  alarms = []; store.set('tt.alarms', alarms); render(); resetClearBtn();
+  addMsg('bot', `Cleared ${n} alarm${n>1?'s':''}.`);
+};
 document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }, { once:true });
 
 function askNotify(){
@@ -511,25 +796,26 @@ function askNotify(){
 }
 
 function fire(a){
-  a.fired = true; ringing = a.id; store.set('tt.alarms', alarms);
-  $('#ringNames').textContent = a.name;
-  $('#ringInfo').textContent = `Starts at ${fmtTime(a.start)} · ${a.side}${a.line?' '+a.line:''} · edge ${a.edge==null?'—':a.edge+'%'}`;
-  openModal('#ringModal');
-  beep(); clearInterval(beepTimer); beepTimer = setInterval(beep, 1500);
+  a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
+  startLoop();
+  try{ navigator.vibrate && navigator.vibrate([400,200,400,200,400]); }catch(e){}   // phones: real vibration too
   if('Notification' in window && Notification.permission==='granted'){
-    try{ new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true }); }catch(e){}
+    try{ new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true }); }catch(e){}
   }
   document.title = '🔔 ' + a.name;
   render();
+  const card = document.querySelector('.card.ringing');
+  if(card) card.scrollIntoView({ block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
-function dismiss(){
-  clearInterval(beepTimer); ringing = null; closeModal($('#ringModal')); document.title = 'TT Alarm Bot'; render();
+function stopAlarm(id){
+  ringing.delete(id);
+  if(!ringing.size){ stopLoop(); document.title = 'TT Alarm Bot'; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
+  render();
 }
-$('#dismiss').onclick = dismiss;
 
 setInterval(() => {
   const now = Date.now();
-  if(!ringing){ const due = alarms.find(a => !a.fired && a.ring <= now); if(due) fire(due); }
+  alarms.filter(a => !a.fired && a.ring <= now).forEach(fire);
   document.querySelectorAll('[data-count]').forEach(el => {
     const a = alarms.find(x=>x.id===el.dataset.count);
     if(a && !a.fired) el.textContent = countdown(a.ring);
