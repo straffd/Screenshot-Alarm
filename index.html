@@ -434,7 +434,7 @@ button.tag{cursor:pointer}
           <label>Czech Liga Pro<input id="lbCzech" type="url" placeholder="Paste the Ladbrokes Czech Liga Pro page link"></label>
         </div>
       </div>
-      <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Empty links open the main Ladbrokes table tennis page.</p></div>
+      <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Clear a link to go back to its default. Other competitions open the main Ladbrokes table tennis page.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -1076,25 +1076,31 @@ cleanupPrefs();
 
 /* ---------- Ladbrokes links ---------- */
 const LB_TABLE_TENNIS = 'https://www.ladbrokes.com.au/sports/table-tennis';
+const LB_DEFAULTS = {   // used when a competition's link in Settings is left empty
+  cup:   'https://www.ladbrokes.com.au/sports/table-tennis/tt-cup',
+  elite: 'https://www.ladbrokes.com.au/sports/table-tennis/tt-elite-series',
+  czech: 'https://www.ladbrokes.com.au/sports/table-tennis/czech-liga-pro'
+};
 const LB_FIELDS = { cup:'#lbCup', elite:'#lbElite', czech:'#lbCzech' };
 function linkPrefs(){
   const l = store.get('tt.links', {}) || {};
-  Object.entries(LB_FIELDS).forEach(([k, sel]) => { $(sel).value = l[k] || ''; });
+  Object.entries(LB_FIELDS).forEach(([k, sel]) => { $(sel).value = l[k] || LB_DEFAULTS[k]; });
   $('#copyName').checked = store.get('tt.copyName', true) !== false;
 }
 Object.entries(LB_FIELDS).forEach(([k, sel]) => $(sel).onchange = () => {
   let v = $(sel).value.trim();
   if(v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
-  $(sel).value = v;
+  if(v === LB_DEFAULTS[k]) v = '';   // matching the default = no custom link
+  $(sel).value = v || LB_DEFAULTS[k];
   store.set('tt.links', { ...(store.get('tt.links', {}) || {}), [k]: v });
 });
 $('#copyName').onchange = e => store.set('tt.copyName', e.target.checked);
-const compKey = league => /cup/i.test(league) ? 'cup' : /elite/i.test(league) ? 'elite' : /czech|liga/i.test(league) ? 'czech' : null;
+const compKey = league => /\btt\s*cup\b/i.test(league) ? 'cup' : /\belite\b/i.test(league) ? 'elite' : /czech|liga\s*pro/i.test(league) ? 'czech' : null;
 let toastTimer = null;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200); }
 function openLadbrokes(a){
   const key = compKey(a.league || ''), links = store.get('tt.links', {}) || {};
-  const url = (key && links[key]) || LB_TABLE_TENNIS;
+  const url = (key && (links[key] || LB_DEFAULTS[key])) || LB_TABLE_TENNIS;
   const first = String(a.name || '').split(/\s+vs\.?\s+/i)[0].trim().split(/\s+/)[0].replace(/[.,]+$/, '');
   if(first && store.get('tt.copyName', true) !== false){
     (navigator.clipboard ? navigator.clipboard.writeText(first) : Promise.reject())
@@ -1475,7 +1481,7 @@ function fire(a){
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
       notes.set(a.id, n);
       n.onclose = () => { if(notes.get(a.id) === n){ notes.delete(a.id); if(ringing.has(a.id)) stopAlarm(a.id); } };   // closing the popup stops the alarm
-      n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
+      n.onclick = () => { openLadbrokes(a); n.close(); };   // clicking the popup opens the match's competition on Ladbrokes (and stops the alarm)
     }catch(e){}
   }
   document.title = '🔔 ' + a.name;
