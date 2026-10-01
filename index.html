@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TT Alarm Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#16181b; --panel:#1e2125; --panel-2:#25292e; --line:#30353b;
+  --text:#ebe9e4; --muted:#8b9099; --green:#3ecf6e; --yellow:#f2c230; --red:#ef5a5a; --blue:#5aa7ef;
+  --sans:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 var(--sans);display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+
+/* Top bar */
+.top{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.brand{font:700 20px/1 var(--cond);letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+.ball{width:14px;height:14px;border-radius:50%;background:#f4f1e8;box-shadow:inset -3px -3px 0 rgba(0,0,0,.18)}
+.lead{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted)}
+.lead input{width:64px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:center;font-family:var(--cond);font-weight:600;font-size:16px}
+.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--text)}
+.ghost:hover{border-color:var(--muted)}
+
+/* Main layout */
+.main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
+.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.log{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
+.msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
+.msg.user{background:#2a3440;align-self:flex-end}
+.msg img{display:block;max-width:100%;border-radius:6px;margin-top:6px}
+.msg.err{border-color:var(--red)}
+.msg .facts{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin-top:8px;font-size:14px}
+.msg .facts span:nth-child(odd){color:var(--muted)}
+
+.composer{border-top:1px solid var(--line);padding:14px 20px;background:var(--panel)}
+.drop{display:flex;gap:10px;align-items:flex-end}
+.drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
+.composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px}
+.attach{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center}
+.send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
+.send:disabled{opacity:.5;cursor:default}
+.preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
+.preview.show{display:flex}
+.preview img{height:44px;border-radius:4px;border:1px solid var(--line)}
+.preview button{background:none;border:none;color:var(--muted);font-size:18px}
+.hint{color:var(--muted);font-size:13px;margin-top:8px}
+
+/* Alarm rail */
+.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.rail h2{font:600 17px/1 var(--cond);margin:0;padding:18px 18px 12px;display:flex;justify-content:space-between;align-items:baseline}
+.rail h2 small{font:500 13px var(--sans);color:var(--muted)}
+.list{flex:1;overflow-y:auto;padding:0 14px 18px;display:flex;flex-direction:column;gap:10px}
+.empty{color:var(--muted);font-size:14px;padding:4px 4px;line-height:1.6}
+
+.card{position:relative;text-align:left;width:100%;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:4px 10px 10px 4px;padding:12px 14px 12px 14px;display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.card:hover{background:var(--panel-2)}
+.card.over{border-left-color:var(--green)}
+.card.under{border-left-color:var(--red)}
+.card.ringing{animation:ring 1s infinite}
+.card.fired{opacity:.55}
+@keyframes ring{50%{background:#3a3218;border-color:var(--yellow)}}
+.card .names{grid-column:1/-1;font:600 16px/1.25 var(--cond);padding-right:22px}
+.card .when{font-size:13px;color:var(--muted)}
+.card .when b{color:var(--text);font-weight:600}
+.card .count{font:600 15px/1 var(--cond);font-variant-numeric:tabular-nums;color:var(--text);text-align:right;align-self:center}
+.card .row{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:6px}
+.side{font:700 14px/1 var(--cond);letter-spacing:.04em;padding:4px 8px;border-radius:4px;border:1px solid currentColor;background:none}
+.side.over{color:var(--green)}
+.side.under{color:var(--red)}
+.line{color:var(--muted);font-size:13px}
+.edge{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--yellow);font:700 16px/1 var(--cond)}
+.bar{width:54px;height:6px;border-radius:3px;background:#3a3e44;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--yellow)}
+.del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px}
+.del:hover{color:var(--red);background:#2b2f34}
+
+/* Modals */
+.modal{position:fixed;inset:0;background:rgba(5,6,8,.78);display:none;align-items:center;justify-content:center;padding:24px;z-index:10}
+.modal.show{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:min(1200px,96vw);max-height:92vh;overflow:auto;padding:18px}
+.sheet header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+.sheet h3{margin:0;font:600 19px var(--cond)}
+.sheet img{display:block;max-width:100%;border-radius:6px}
+.close{background:none;border:none;color:var(--muted);font-size:24px;line-height:1}
+.settings{width:440px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{color:var(--muted);font-size:13px}
+.field input,.field select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px}
+.field p{margin:0;color:var(--muted);font-size:13px}
+.field a{color:var(--blue)}
+.ring-sheet{text-align:center;width:420px}
+.ring-sheet .big{font:700 26px/1.2 var(--cond);margin:8px 0}
+.ring-sheet .send{margin-top:14px;width:100%}
+
+@media (max-width:860px){
+  .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .chat{border-right:none;border-bottom:1px solid var(--line)}
+  .rail{max-height:42vh}
+  .lead{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){.card.ringing{animation:none;border-color:var(--yellow)}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="brand"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</div>
+  <div class="lead">
+    <label for="leadMin">Alert me</label>
+    <input id="leadMin" type="number" min="0" max="600" value="5">
+    <span>min before the match</span>
+  </div>
+  <button class="ghost" id="testSound">Test sound</button>
+  <button class="ghost" id="openSettings">AI settings</button>
+</div>
+
+<div class="main">
+  <section class="chat">
+    <div class="log" id="log"></div>
+    <div class="composer">
+      <div class="preview" id="preview"><img id="previewImg" alt="Attached screenshot"><span>Screenshot attached</span><button id="clearImg" aria-label="Remove screenshot">×</button></div>
+      <div class="drop" id="drop">
+        <button class="attach" id="attachBtn" aria-label="Attach screenshot" title="Attach screenshot">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5"/></svg>
+        </button>
+        <input type="file" id="file" accept="image/*" hidden>
+        <textarea id="text" rows="1" placeholder="Paste a match screenshot (Ctrl+V), drop one here, or type a message"></textarea>
+        <button class="send" id="send">Send</button>
+      </div>
+      <div class="hint">Keep this tab open: alarms ring in the browser.</div>
+    </div>
+  </section>
+
+  <aside class="rail">
+    <h2>Alarms <small id="alarmCount"></small></h2>
+    <div class="list" id="list"></div>
+  </aside>
+</div>
+
+<!-- Screenshot viewer -->
+<div class="modal" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
+  <div class="sheet">
+    <header><h3 id="viewerTitle"></h3><button class="close" data-close aria-label="Close">×</button></header>
+    <img id="viewerImg" alt="Match screenshot">
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="sheet settings">
+    <header><h3 id="setTitle">AI settings</h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="field">
+      <label for="provider">Provider</label>
+      <select id="provider">
+        <option value="gemini">Google Gemini (free tier)</option>
+        <option value="openrouter">OpenRouter (free models)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="model">Model</label>
+      <input id="model">
+      <p id="modelHint"></p>
+    </div>
+    <div class="field">
+      <label for="apiKey">API key</label>
+      <input id="apiKey" type="password" autocomplete="off">
+      <p id="keyHint"></p>
+    </div>
+    <button class="send" id="saveSettings" style="width:100%">Save settings</button>
+  </div>
+</div>
+
+<!-- Ringing -->
+<div class="modal" id="ringModal" role="alertdialog" aria-modal="true">
+  <div class="sheet ring-sheet">
+    <div class="ball" style="margin:0 auto;width:22px;height:22px"></div>
+    <div class="big" id="ringNames"></div>
+    <div id="ringInfo" style="color:var(--muted)"></div>
+    <button class="send" id="dismiss">Dismiss alarm</button>
+  </div>
+</div>
+
+<script>
+/* ---------- Storage ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+};
+const PROVIDERS = {
+  gemini: { model:'gemini-2.5-flash',
+    modelHint:'Any Gemini model with image input, e.g. gemini-2.5-flash or gemini-2.0-flash.',
+    keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' },
+  openrouter: { model:'meta-llama/llama-4-maverick:free',
+    modelHint:'Use a free model that accepts images (ends in ":free"). Check openrouter.ai/models for current ones.',
+    keyHint:'Get a free key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.' }
+};
+let settings = store.get('tt.settings', { provider:'gemini', model:PROVIDERS.gemini.model, key:'' });
+let alarms = store.get('tt.alarms', []);
+let lead = store.get('tt.lead', 5);
+let pendingImg = null;   // data URL
+let ringing = null;      // alarm id
+let audioCtx = null, beepTimer = null;
+
+const $ = s => document.querySelector(s);
+$('#leadMin').value = lead;
+
+/* ---------- Chat log ---------- */
+function addMsg(who, text, opts={}){
+  const d = document.createElement('div');
+  d.className = 'msg ' + who + (opts.err ? ' err' : '');
+  if(text){ const t = document.createElement('div'); t.textContent = text; d.appendChild(t); }
+  if(opts.img){ const i = document.createElement('img'); i.src = opts.img; i.alt = 'Screenshot'; d.appendChild(i); }
+  if(opts.facts){
+    const f = document.createElement('div'); f.className = 'facts';
+    for(const [k,v] of opts.facts){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('span'); b.textContent=v; f.append(a,b); }
+    d.appendChild(f);
+  }
+  $('#log').appendChild(d);
+  $('#log').scrollTop = $('#log').scrollHeight;
+  return d;
+}
+addMsg('bot', settings.key
+  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time at the top.'
+  : 'Add a free API key in AI settings (top right), then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
+
+/* ---------- Image input ---------- */
+function loadFile(file){
+  if(!file || !file.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = () => { pendingImg = r.result; $('#previewImg').src = pendingImg; $('#preview').classList.add('show'); };
+  r.readAsDataURL(file);
+}
+$('#attachBtn').onclick = () => $('#file').click();
+$('#file').onchange = e => { loadFile(e.target.files[0]); e.target.value=''; };
+$('#clearImg').onclick = () => { pendingImg=null; $('#preview').classList.remove('show'); };
+document.addEventListener('paste', e => {
+  for(const it of (e.clipboardData||{}).items||[]){ if(it.type.startsWith('image/')){ loadFile(it.getAsFile()); e.preventDefault(); } }
+});
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if(ev==='drop' || !e.relatedTarget) drop.classList.remove('over'); }));
+document.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+$('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+$('#send').onclick = send;
+
+/* Shrink screenshots before saving so localStorage doesn't fill up */
+function shrink(dataUrl, maxW=1400){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const s = Math.min(1, maxW/im.width);
+      const c = document.createElement('canvas'); c.width = Math.round(im.width*s); c.height = Math.round(im.height*s);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      res(c.toDataURL('image/jpeg', .85));
+    };
+    im.onerror = () => res(dataUrl);
+    im.src = dataUrl;
+  });
+}
+
+/* ---------- LLM ---------- */
+const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. Return ONLY a JSON object, no markdown, with these keys:
+{
+ "player1": "first player exactly as shown, e.g. Minda M.",
+ "player2": "second player exactly as shown",
+ "time": "match start time in 24h HH:MM",
+ "date": "match date as YYYY-MM-DD, or null if not shown (dates on screen are usually DD.MM.YYYY)",
+ "ou_line": "the O/U value text, e.g. 36/8",
+ "ou_pct": "the percentage next to O/U, e.g. 82%",
+ "ou_side": "OVER or UNDER",
+ "edge": "the edge percentage shown under the progress bar at the far right, e.g. 51%",
+ "league": "league tag if shown, else null"
+}
+Rules for ou_side: if the O/U value is written in GREEN it is OVER; if it is RED/orange it is UNDER. If the words Over/Under appear explicitly, use them.
+Do not confuse other percentages (H2H, SWEEP, SPLIT, 5-SET, O18.5, OT) with the edge. The edge is the lone percentage below the small horizontal bar.
+If the image is not a table tennis match row, return {"error":"short reason"}.`;
+
+async function callLLM(promptText, imgDataUrl, wantJson){
+  if(!settings.key) throw new Error('No API key yet. Open AI settings and paste a free key.');
+  if(settings.provider === 'gemini'){
+    const parts = [{ text: promptText }];
+    if(imgDataUrl){
+      const [meta, b64] = imgDataUrl.split(',');
+      parts.push({ inline_data: { mime_type: meta.match(/data:(.*?);/)[1], data: b64 } });
+    }
+    const body = { contents:[{ parts }], generationConfig:{ temperature:0 } };
+    if(wantJson) body.generationConfig.responseMimeType = 'application/json';
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent`, {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': settings.key }, body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if(!r.ok) throw new Error((j.error && j.error.message) || ('Gemini returned ' + r.status));
+    return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+  } else {
+    const content = [{ type:'text', text: promptText }];
+    if(imgDataUrl) content.push({ type:'image_url', image_url:{ url: imgDataUrl } });
+    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + settings.key, 'X-Title':'TT Alarm Bot' },
+      body: JSON.stringify({ model: settings.model, temperature:0, messages:[{ role:'user', content }] })
+    });
+    const j = await r.json();
+    if(!r.ok) throw new Error((j.error && j.error.message) || ('OpenRouter returned ' + r.status));
+    return j.choices?.[0]?.message?.content || '';
+  }
+}
+
+function parseJson(text){
+  const clean = text.replace(/```json|```/g,'').trim();
+  const m = clean.match(/\{[\s\S]*\}/);
+  return JSON.parse(m ? m[0] : clean);
+}
+
+/* ---------- Time helpers ---------- */
+function to24(t){
+  if(!t) return null;
+  const m = String(t).trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+  if(!m) return null;
+  let h = +m[1]; const min = +m[2];
+  if(m[3]){ const pm = /p/i.test(m[3]); if(pm && h<12) h+=12; if(!pm && h===12) h=0; }
+  return [h,min];
+}
+function parseDate(d){
+  if(!d) return null;
+  let m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return [+m[1],+m[2]-1,+m[3]];
+  m = String(d).match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/); if(m) return [+m[3],+m[2]-1,+m[1]];
+  return null;
+}
+function matchStart(info){
+  const hm = to24(info.time); if(!hm) return null;
+  const dt = parseDate(info.date);
+  let when;
+  if(dt) when = new Date(dt[0], dt[1], dt[2], hm[0], hm[1]);
+  else { when = new Date(); when.setHours(hm[0], hm[1], 0, 0); if(when < Date.now() - 60000) when.setDate(when.getDate()+1); }
+  return when.getTime();
+}
+const clean = n => String(n||'').trim().replace(/\.+$/,'');
+const fmtTime = ms => new Date(ms).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+const fmtDay = ms => {
+  const d = new Date(ms), t = new Date(); const tm = new Date(); tm.setDate(t.getDate()+1);
+  if(d.toDateString()===t.toDateString()) return 'Today';
+  if(d.toDateString()===tm.toDateString()) return 'Tomorrow';
+  return d.toLocaleDateString([], { day:'numeric', month:'short' });
+};
+function countdown(ms){
+  let s = Math.round((ms - Date.now())/1000);
+  if(s <= 0) return 'now';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60); s = s%60;
+  return h ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+/* ---------- Send ---------- */
+async function send(){
+  const text = $('#text').value.trim();
+  const img = pendingImg;
+  if(!text && !img) return;
+  addMsg('user', text, { img });
+  $('#text').value=''; pendingImg=null; $('#preview').classList.remove('show');
+  $('#send').disabled = true;
+  const thinking = addMsg('bot', img ? 'Reading the screenshot…' : '…');
+  try{
+    if(img){
+      const prompt = EXTRACT_PROMPT + (text ? `\n\nExtra note from the user: ${text}` : '');
+      const info = parseJson(await callLLM(prompt, img, true));
+      thinking.remove();
+      if(info.error){ addMsg('bot', 'That doesn\'t look like a match row: ' + info.error, { err:true }); return; }
+      await createAlarm(info, img);
+    } else {
+      // Plain chat: let the user change lead time by typing, otherwise ask the LLM
+      const m = text.match(/(\d{1,3})\s*(min|minute|m\b)/i);
+      if(m && /alarm|before|remind|alert|set/i.test(text)){
+        setLead(+m[1]); thinking.remove();
+        addMsg('bot', `New alarms will ring ${lead} min before the match. Existing alarms keep their time.`);
+      } else {
+        const reply = await callLLM(`You are a helper inside a table tennis match alarm app. Users send screenshots of matches to set alarms. Answer briefly.\n\nUser: ${text}`, null, false);
+        thinking.remove(); addMsg('bot', reply.trim());
+      }
+    }
+  }catch(e){
+    thinking.remove();
+    addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again, or switch to another model in AI settings.' : e.message, { err:true });
+  }finally{ $('#send').disabled = false; }
+}
+
+async function createAlarm(info, img){
+  const start = matchStart(info);
+  if(!start){ addMsg('bot', 'I couldn\'t read the start time from that screenshot. Try a sharper crop that includes the time.', { err:true }); return; }
+  const side = /under/i.test(info.ou_side) ? 'UNDER' : 'OVER';
+  const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
+  const a = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name: `${clean(info.player1)} vs ${clean(info.player2)}`,
+    start, ring: start - lead*60000, lead,
+    side, line: info.ou_line || '', ouPct: info.ou_pct || '',
+    edge: isNaN(edgeNum) ? null : edgeNum,
+    league: info.league || '',
+    img: await shrink(img), fired: false
+  };
+  alarms.push(a); alarms.sort((x,y)=>x.ring-y.ring);
+  if(!store.set('tt.alarms', alarms)){
+    alarms = alarms.map(x => x.id===a.id ? x : x); // keep in memory
+    addMsg('bot', 'Browser storage is full, so this alarm won\'t survive a reload. Delete a few old alarms to free space.', { err:true });
+  }
+  render();
+  const past = a.ring <= Date.now();
+  addMsg('bot', past ? 'Alarm set, but the alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${lead} min before the start.`, {
+    facts: [['Match', a.name], ['Starts', `${fmtDay(start)}, ${fmtTime(start)}`], ['Over/under', `${side}${a.line ? ' ' + a.line : ''}${a.ouPct ? ' (' + a.ouPct + ')' : ''}`], ['Edge', a.edge==null ? 'not found' : a.edge + '%']]
+  });
+  askNotify();
+}
+
+function setLead(v){
+  lead = Math.max(0, Math.min(600, Math.round(+v || 0)));
+  $('#leadMin').value = lead; store.set('tt.lead', lead);
+}
+$('#leadMin').onchange = e => setLead(e.target.value);
+
+/* ---------- Render alarm list ---------- */
+function render(){
+  const list = $('#list'); list.innerHTML = '';
+  const active = alarms.filter(a=>!a.fired).length;
+  $('#alarmCount').textContent = alarms.length ? `${active} upcoming` : '';
+  if(!alarms.length){ list.innerHTML = '<div class="empty">No alarms yet. Send a match screenshot in the chat to add one.</div>'; return; }
+  for(const a of alarms){
+    const c = document.createElement('div');
+    c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing===a.id?' ringing':''}`;
+    c.tabIndex = 0; c.setAttribute('role','button'); c.setAttribute('aria-label', `${a.name}, open screenshot`);
+    c.innerHTML = `
+      <div class="names"></div>
+      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before</div>
+      <div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>
+      <div class="row">
+        <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
+        <span class="line"></span>
+        <span class="edge">${a.edge==null?'—':`<span class="bar"><i style="width:${Math.min(100,a.edge)}%"></i></span>${a.edge}%`}</span>
+      </div>
+      <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
+    c.querySelector('.names').textContent = a.name;
+    c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
+    c.onclick = () => openViewer(a);
+    c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openViewer(a); } };
+    c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing===a.id) dismiss(); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
+    c.querySelector('.side').onclick = e => { e.stopPropagation(); a.side = a.side==='OVER'?'UNDER':'OVER'; store.set('tt.alarms', alarms); render(); };
+    list.appendChild(c);
+  }
+}
+
+/* ---------- Modals ---------- */
+function openModal(id){ $(id).classList.add('show'); }
+function closeModal(el){ el.classList.remove('show'); }
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if((e.target===m || e.target.hasAttribute('data-close')) && m.id!=='ringModal') closeModal(m); });
+});
+document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal'].forEach(id=>closeModal($(id))); });
+
+function openViewer(a){
+  $('#viewerTitle').textContent = `${a.name} · ${fmtTime(a.start)}`;
+  $('#viewerImg').src = a.img;
+  openModal('#viewer');
+}
+
+/* Settings */
+function fillSettings(){
+  $('#provider').value = settings.provider;
+  $('#model').value = settings.model;
+  $('#apiKey').value = settings.key;
+  hints();
+}
+function hints(){
+  const p = PROVIDERS[$('#provider').value];
+  $('#modelHint').textContent = p.modelHint; $('#keyHint').innerHTML = p.keyHint;
+}
+$('#provider').onchange = () => { $('#model').value = PROVIDERS[$('#provider').value].model; hints(); };
+$('#openSettings').onclick = () => { fillSettings(); openModal('#settingsModal'); };
+$('#saveSettings').onclick = () => {
+  settings = { provider: $('#provider').value, model: $('#model').value.trim(), key: $('#apiKey').value.trim() };
+  store.set('tt.settings', settings); closeModal($('#settingsModal'));
+  addMsg('bot', `Settings saved. Using ${settings.model}.`);
+};
+
+/* ---------- Alarm engine ---------- */
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    [0, .18, .36].forEach(t => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type='square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(.0001, audioCtx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(.25, audioCtx.currentTime+t+.01);
+      g.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime+t+.14);
+      o.connect(g).connect(audioCtx.destination); o.start(audioCtx.currentTime+t); o.stop(audioCtx.currentTime+t+.15);
+    });
+  }catch(e){}
+}
+$('#testSound').onclick = beep;
+document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }, { once:true });
+
+function askNotify(){
+  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+}
+
+function fire(a){
+  a.fired = true; ringing = a.id; store.set('tt.alarms', alarms);
+  $('#ringNames').textContent = a.name;
+  $('#ringInfo').textContent = `Starts at ${fmtTime(a.start)} · ${a.side}${a.line?' '+a.line:''} · edge ${a.edge==null?'—':a.edge+'%'}`;
+  openModal('#ringModal');
+  beep(); clearInterval(beepTimer); beepTimer = setInterval(beep, 1500);
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true }); }catch(e){}
+  }
+  document.title = '🔔 ' + a.name;
+  render();
+}
+function dismiss(){
+  clearInterval(beepTimer); ringing = null; closeModal($('#ringModal')); document.title = 'TT Alarm Bot'; render();
+}
+$('#dismiss').onclick = dismiss;
+
+setInterval(() => {
+  const now = Date.now();
+  if(!ringing){ const due = alarms.find(a => !a.fired && a.ring <= now); if(due) fire(due); }
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const a = alarms.find(x=>x.id===el.dataset.count);
+    if(a && !a.fired) el.textContent = countdown(a.ring);
+  });
+}, 1000);
+
+render();
+</script>
+</body>
+</html>
