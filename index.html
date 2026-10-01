@@ -946,13 +946,19 @@ function shrink(dataUrl, maxW=1400){
 
 /* ---------- UI colour and opacity ---------- */
 if(isPhone()) $('#text').placeholder = 'Screenshot or type a match';
-const UI_DEFAULT = { color:'#1e2125', alpha:100 };
+const UI_DEFAULT = { color:'#1e2125', alpha:40 };   // desktop default: 40% opacity (phones are always solid)
 function applyTheme(t){
   const root = document.documentElement.style;
   const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted','--scroll','--scroll-hover'];
-  if(!t || (t.color === UI_DEFAULT.color && (t.alpha === UI_DEFAULT.alpha || isPhone()))){ names.forEach(n => root.removeProperty(n)); }
+  const th = t || UI_DEFAULT;
+  if(th.color === UI_DEFAULT.color && (th.alpha === 100 || isPhone())){ names.forEach(n => root.removeProperty(n)); }   // solid default grey: the stylesheet's own colours
+  else if(th.color === UI_DEFAULT.color){   // default grey, see-through: the stylesheet's greys with this opacity
+    const a = th.alpha / 100; names.forEach(n => root.removeProperty(n));
+    root.setProperty('--panel', `rgba(30,33,37,${a})`); root.setProperty('--panel-2', `rgba(37,41,46,${a})`);
+    root.setProperty('--glass-msg', `rgba(30,33,37,${+(.72*a).toFixed(3)})`); root.setProperty('--glass-input', `rgba(22,24,27,${+(.55*a).toFixed(3)})`);
+  }
   else {
-    const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = isPhone() ? 1 : t.alpha/100;   // phones: always solid
+    const hex = th.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = isPhone() ? 1 : th.alpha/100;   // phones: always solid
     const mix = (to, k) => c.map(v => Math.round(v + (to - v)*k));        // k>0 toward white (to=255) or black (to=0)
     const rgba = (rgb, al) => `rgba(${rgb.join(',')},${+al.toFixed(3)})`;
     const light = (.2126*c[0] + .7152*c[1] + .0722*c[2]) / 255 > .55;
