@@ -165,6 +165,8 @@ body.has-bg #bgClear{display:inline-block}
 .settle .cash:hover{background:color-mix(in srgb,var(--green) 16%,transparent)}
 .settle .chalk{color:var(--red)}
 .settle .chalk:hover{background:color-mix(in srgb,var(--red) 16%,transparent)}
+.settle .more{color:var(--muted);padding:6px 9px}
+.settle .more:hover{color:var(--text);background:color-mix(in srgb,var(--text) 10%,transparent)}
 /* History cards: green = cash, red = chalk */
 .card.hit{border-left-color:var(--green);background:color-mix(in srgb,var(--green) 9%,var(--panel))}
 .card.miss{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 9%,var(--panel))}
@@ -173,6 +175,8 @@ body.has-bg #bgClear{display:inline-block}
 .card.miss .result{color:var(--red)}
 .card .money{grid-column:1/-1;display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:4px}
 .card .money b{color:var(--text);font-weight:600}
+.card .betline{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:2px}
+.card .betline .cash{color:var(--green)} .card .betline .chalk{color:var(--red)}
 .card .money .pl{margin-left:auto;font:700 16px/1 var(--cond)}
 .card.hit .money .pl{color:var(--green)}
 .card.miss .money .pl{color:var(--red)}
@@ -186,6 +190,15 @@ body.has-bg #bgClear{display:inline-block}
 .settle-sheet .resultpick button{flex:1;font:700 14px/1 var(--cond);letter-spacing:.04em;padding:9px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--muted)}
 .settle-sheet .resultpick button[aria-pressed="true"].cash{color:var(--green);border-color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
 .settle-sheet .resultpick button[aria-pressed="true"].chalk{color:var(--red);border-color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent)}
+.settle-sheet .resultpick button[aria-pressed="true"].void{color:var(--text);border-color:var(--muted);background:color-mix(in srgb,var(--text) 10%,transparent)}
+.settle-sheet .bets{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;max-height:46vh;overflow-y:auto}
+.settle-sheet .bet{display:grid;grid-template-columns:1fr 1fr auto;gap:6px 8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:8px}
+.settle-sheet .bet .resultpick{grid-column:1/-1;margin:0}
+.settle-sheet .bet .resultpick button{padding:6px;font-size:12px}
+.settle-sheet .bet label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.settle-sheet .bet input{width:100%;font-size:15px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.settle-sheet .bet .rm{align-self:center;margin-top:16px}
+.settle-sheet #addBet{width:100%;margin-bottom:12px}
 .settle-sheet .actions{display:flex;gap:8px}
 .settle-sheet .actions .send{flex:1}
 /* Collapsed: alarms tuck into a thin strip on the right */
@@ -611,12 +624,17 @@ button.tag{cursor:pointer}
 <div class="modal" id="settleModal" role="dialog" aria-modal="true" aria-labelledby="settleTitle">
   <div class="sheet settle-sheet">
     <header><h3 id="settleTitle"></h3><button class="close" data-close aria-label="Close">×</button></header>
-    <div class="resultpick">
-      <button class="cash" id="pickCash" aria-pressed="true">CASH</button>
-      <button class="chalk" id="pickChalk" aria-pressed="false">CHALK</button>
+    <div id="settleOne">
+      <div class="resultpick">
+        <button class="cash" id="pickCash" aria-pressed="true">CASH</button>
+        <button class="chalk" id="pickChalk" aria-pressed="false">CHALK</button>
+      </div>
+      <div class="field"><label for="settleOdds">Odds (decimal)</label><input id="settleOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"></div>
+      <div class="field"><label for="settleUnits">Units placed</label><input id="settleUnits" type="number" min="0.01" step="0.1" inputmode="decimal" placeholder="e.g. 1"></div>
     </div>
-    <div class="field"><label for="settleOdds">Odds (decimal)</label><input id="settleOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"></div>
-    <div class="field"><label for="settleUnits">Units placed</label><input id="settleUnits" type="number" min="0.01" step="0.1" inputmode="decimal" placeholder="e.g. 1"></div>
+    <!-- More than one bet on the match: one slot per bet -->
+    <div class="bets" id="betRows" hidden></div>
+    <button class="ghost" id="addBet">+ Add another bet</button>
     <div class="profit" id="settleProfit"></div>
     <div class="actions">
       <button class="ghost danger" id="settleDelete" hidden>Delete</button>
@@ -1159,7 +1177,7 @@ function render(){
       <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
       <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}</div>
-      ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
+      ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button><button class="more" title="More than one bet on this match: record each one">+</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
         <span class="tags"></span>
@@ -1171,6 +1189,7 @@ function render(){
     if(c.querySelector('.settle')){
       c.querySelector('.cash').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash' }); };
       c.querySelector('.chalk').onclick = e => { e.stopPropagation(); settle(a, 'chalk', null, lastUnits()); };
+      c.querySelector('.more').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash', multi:true }); };
     }
     c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
     if(a.league) c.querySelector('.comp').textContent = a.league;
@@ -1346,31 +1365,71 @@ const inDollars = () => plPrefs.money === 'dollars';
 const unitValue = () => +plPrefs.unitValue > 0 ? +plPrefs.unitValue : 10;
 // Signed P/L in the chosen display: "+1.7u" or "+$17.00"
 const fmtPL = n => (n > 0 ? '+' : n < 0 ? '−' : '') + (inDollars() ? '$' + (Math.abs(n) * unitValue()).toFixed(2) : fmtU(Math.abs(n)) + 'u');
-const playPL = p => p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
+// One bet: cash wins units × (odds − 1), chalk loses the units, void (refunded / not settled) is 0
+const betPL = b => b.result === 'cash' ? (b.units || 0) * ((b.odds || 1) - 1) : b.result === 'chalk' ? -(b.units || 0) : 0;
+// A match is either one bet (result/odds/units) or several (bets: [{ result, odds, units }])
+const playPL = p => Array.isArray(p.bets) && p.bets.length ? p.bets.reduce((t, b) => t + betPL(b), 0) : betPL(p);
+// Overall result of a multi-bet match: cash if it came out ahead (or level with a cashed bet), otherwise chalk
+const betsResult = bets => { const pl = bets.reduce((t, b) => t + betPL(b), 0); return pl > 0 || (pl === 0 && bets.some(b => b.result === 'cash')) ? 'cash' : 'chalk'; };
+const betsUnits = bets => +bets.reduce((t, b) => t + (b.units || 0), 0).toFixed(4);
 const lastUnits = () => store.get('tt.lastUnits', 1);
 function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); renderPnl(); }
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
-function settle(a, result, odds, units){
+function settle(a, result, odds, units, bets){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
-                  edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, settled: Date.now() });
-  if(units) store.set('tt.lastUnits', units);
+                  edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, ...(bets ? { bets } : {}), settled: Date.now() });
+  if(units && !bets) store.set('tt.lastUnits', units);
   alarms = alarms.filter(x => x.id !== a.id); store.set('tt.alarms', alarms);
-  toast(result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (${fmtPL(playPL(plays[0]))})` : `Chalked: ${a.name} (${fmtPL(-(units || 0))})`);
+  toast(bets ? `Recorded ${bets.length} bets: ${a.name} (${fmtPL(playPL(plays[0]))})`
+    : result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (${fmtPL(playPL(plays[0]))})` : `Chalked: ${a.name} (${fmtPL(-(units || 0))})`);
   savePlays();
 }
 // Popup: new cash from an alarm, or edit any history entry
-let settling = null;   // { alarm } for a new record, or { play } when editing
-function openSettle({ alarm, play, result }){
-  settling = { alarm, play, result: play ? play.result : result };
+let settling = null;   // { alarm } for a new record, or { play } when editing; bets is set when recording several bets
+function openSettle({ alarm, play, result, multi }){
+  settling = { alarm, play, result: play ? play.result : result, bets: null };
   const src = play || alarm;
   $('#settleTitle').textContent = src.name;
   $('#settleOdds').value = play && play.odds ? play.odds : '';
   $('#settleUnits').value = play ? play.units : lastUnits();
   $('#settleDelete').hidden = !play;
   $('#settleSave').textContent = play ? 'Save changes' : 'Save to history';
-  pickResult(settling.result); openModal('#settleModal');
-  setTimeout(() => (settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
+  if(play && Array.isArray(play.bets) && play.bets.length) settling.bets = play.bets.map(b => ({ ...b }));
+  else if(multi) settling.bets = [{ result:'cash', odds:'', units:lastUnits() }, { result:'cash', odds:'', units:lastUnits() }];
+  showBets(); pickResult(settling.result); openModal('#settleModal');
+  setTimeout(() => (settling.bets ? $('#betRows input') : settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
 }
+// Several bets: one slot each, with its own Cash / Chalk / Void, odds and units
+function showBets(){
+  const multi = !!settling.bets, box = $('#betRows');
+  $('#settleOne').hidden = multi; box.hidden = !multi; box.innerHTML = '';
+  if(multi) settling.bets.forEach((b, i) => {
+    const row = el('div', 'bet'), pick = el('div', 'resultpick');
+    [['cash', 'CASH'], ['chalk', 'CHALK'], ['void', 'VOID']].forEach(([r, l]) => {
+      const x = el('button', r, l); x.setAttribute('aria-pressed', b.result === r);
+      if(r === 'void') x.title = 'Refunded or not settled: counts as 0';
+      x.onclick = () => { b.result = r; showBets(); }; pick.appendChild(x);
+    });
+    const field = (key, label, attrs) => { const w = el('div'), lab = el('label', '', label), inp = el('input');
+      Object.assign(inp, { type:'number', inputMode:'decimal', value: b[key] || '' }, attrs);
+      inp.oninput = () => { b[key] = inp.value; settleProfit(); };
+      inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('#settleSave').click(); } };
+      w.append(lab, inp); return w; };
+    const odds = field('odds', `Bet ${i + 1} odds`, { min:'1.01', step:'0.01', placeholder:'e.g. 1.85' });
+    if(b.result !== 'cash') odds.style.opacity = '.5';
+    const rm = el('button', 'close rm', '×'); rm.title = 'Remove this bet'; rm.setAttribute('aria-label', `Remove bet ${i + 1}`);
+    rm.onclick = () => { settling.bets.splice(i, 1); if(!settling.bets.length) settling.bets = null; showBets(); };
+    row.append(pick, odds, field('units', 'Units', { min:'0.01', step:'0.1', placeholder:'e.g. 1' }), rm);
+    box.appendChild(row);
+  });
+  settleProfit();
+}
+$('#addBet').onclick = () => {
+  // from a single bet, keep what was typed as the first slot
+  if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || lastUnits() }];
+  settling.bets.push({ result:'cash', odds:'', units: lastUnits() });
+  showBets(); const ins = $('#betRows').querySelectorAll('.bet:last-child input'); if(ins[0]) ins[0].focus();
+};
 function pickResult(r){
   settling.result = r;
   $('#pickCash').setAttribute('aria-pressed', r === 'cash'); $('#pickChalk').setAttribute('aria-pressed', r === 'chalk');
@@ -1379,6 +1438,10 @@ function pickResult(r){
 }
 function settleProfit(){
   const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, el = $('#settleProfit');
+  if(settling.bets){
+    const ok = settling.bets.filter(b => +b.units > 0 && (b.result !== 'cash' || +b.odds > 1)), t = ok.reduce((s, b) => s + betPL({ result:b.result, odds:+b.odds, units:+b.units }), 0);
+    el.className = 'profit ' + (t < 0 ? 'neg' : 'pos'); el.textContent = ok.length ? `Total ${fmtPL(t)} over ${settling.bets.length} bet${settling.bets.length === 1 ? '' : 's'}` : ''; return;
+  }
   if(settling.result === 'chalk'){ el.className = 'profit neg'; el.textContent = units > 0 ? fmtPL(-units) : ''; return; }
   el.className = 'profit pos'; el.textContent = odds > 1 && units > 0 ? `${fmtPL(units * (odds - 1))} profit` : '';
 }
@@ -1387,15 +1450,36 @@ $('#pickChalk').onclick = () => pickResult('chalk');
 $('#settleOdds').oninput = settleProfit; $('#settleUnits').oninput = settleProfit;
 [$('#settleOdds'), $('#settleUnits')].forEach(i => i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('#settleSave').click(); } });
 $('#settleSave').onclick = () => {
+  if(settling.bets) return saveBets();
   const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, r = settling.result;
   if(r === 'cash' && !(odds > 1)){ $('#settleOdds').focus(); return toast('Enter the decimal odds, e.g. 1.85'); }
   if(!(units > 0)){ $('#settleUnits').focus(); return toast('Enter the units you placed'); }
   closeModal($('#settleModal'));
   if(settling.play){
-    Object.assign(settling.play, { result: r, odds: r === 'cash' ? odds : (odds > 1 ? odds : null), units });
+    Object.assign(settling.play, { result: r, odds: r === 'cash' ? odds : (odds > 1 ? odds : null), units }); delete settling.play.bets;
     store.set('tt.lastUnits', units); savePlays();
   } else settle(settling.alarm, r, odds > 1 ? odds : null, units);
 };
+function saveBets(){
+  const rows = $('#betRows').querySelectorAll('.bet'), bets = [];
+  for(let i = 0; i < settling.bets.length; i++){
+    const b = settling.bets[i], odds = +b.odds, units = +b.units, [oi, ui] = rows[i].querySelectorAll('input');
+    if(b.result === 'cash' && !(odds > 1)){ oi.focus(); return toast(`Enter the decimal odds for bet ${i + 1}, e.g. 1.85`); }
+    if(!(units > 0)){ ui.focus(); return toast(`Enter the units for bet ${i + 1}`); }
+    bets.push({ result: b.result, odds: odds > 1 ? odds : null, units });
+  }
+  closeModal($('#settleModal'));
+  if(bets.length === 1){   // only one slot left: store it as a plain single bet
+    const [b] = bets, r = b.result === 'void' ? 'chalk' : b.result;
+    if(b.result !== 'void'){
+      if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; store.set('tt.lastUnits', b.units); return savePlays(); }
+      return settle(settling.alarm, r, b.odds, b.units);
+    }
+  }
+  const result = betsResult(bets), units = betsUnits(bets);
+  if(settling.play){ Object.assign(settling.play, { result, odds:null, units, bets }); savePlays(); }
+  else settle(settling.alarm, result, null, units, bets);
+}
 $('#settleDelete').onclick = () => {
   if(!settling.play) return;
   plays = plays.filter(p => p !== settling.play); closeModal($('#settleModal')); savePlays();
@@ -1408,7 +1492,7 @@ function renderHistory(){
   $('#histSum').textContent = S.plays.length ? `${wins}/${S.plays.length} cashed · ${S.own ? fmtPL(total) : S.txt(total)}` : '';
   if(!S.plays.length){ list.innerHTML = S.own ? '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>' : '<div class="empty">No settled matches shared yet.</div>'; return; }
   for(const p of S.plays){
-    const c = document.createElement('div'), pl = S.val(p), showMoney = S.own || S.stakes;
+    const c = document.createElement('div'), pl = S.val(p), showMoney = S.own || S.stakes, multi = S.own && Array.isArray(p.bets) && p.bets.length;
     c.className = `card ${p.result === 'cash' ? 'hit' : 'miss'}`;
     c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', `${p.name}, ${p.result}, edit`);
     c.innerHTML = `
@@ -1417,7 +1501,11 @@ function renderHistory(){
       <div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div>
       <div class="result">${p.result === 'cash' ? 'CASH' : 'CHALK'}</div>
       <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="tags"></span><span class="line"></span></div>
-      ${showMoney ? `<div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div>` : ''}`;
+      ${showMoney && multi ? `<div class="money"><span>Bets <b>${p.bets.length}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div><div class="betline"></div>`
+        : showMoney ? `<div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div>` : ''}`;
+    // each bet: "Cash 2u @1.9 · Chalk 1u · Void 1u"
+    if(c.querySelector('.betline')) p.bets.forEach((b, i) => { if(i) c.querySelector('.betline').append(' · ');
+      c.querySelector('.betline').appendChild(el('span', b.result, `${b.result[0].toUpperCase() + b.result.slice(1)} ${fmtU(b.units || 0)}u${b.odds ? ' @' + b.odds : ''}`)); });
     c.querySelector('.names').textContent = p.name;
     if(p.league) c.querySelector('.comp').textContent = p.league;
     c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
