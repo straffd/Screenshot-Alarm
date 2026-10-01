@@ -98,9 +98,9 @@ button{cursor:pointer}
 .sound select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
 
 /* Main layout */
-.main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0;position:relative;overflow:hidden;overflow:clip}
+.main{flex:1;display:grid;grid-template-columns:1fr;min-height:0;position:relative;overflow:hidden;overflow:clip}
 html,body{overflow-x:hidden}
-.chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);position:relative;overflow:hidden}
+.chat{display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden}
 /* Custom chat background: blurred image under a dark glass tint */
 .chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
 .chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(var(--bg-blur,3px)) saturate(var(--bg-sat,1))}
@@ -140,16 +140,14 @@ body.has-bg #bgClear{display:inline-block}
 .msg .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-top:6px}
 .msg .shots img{margin:0;width:100%;height:auto}
 
-/* Alarm rail */
-.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg);position:relative;z-index:8}
-.rail h2{font:600 17px/1 var(--cond);margin:0;padding:12px 14px 12px 8px;display:flex;align-items:center;gap:6px}
-.rail h2 small{font:500 13px var(--sans);color:var(--muted);margin-left:auto}
-.railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
-.railToggle:hover{color:var(--text);border-color:var(--line)}
-.railToggle svg{transition:transform .25s}
 /* Daily P/L tracker: an angled tab hanging from the top-right of the chat area */
 .pltab{position:absolute;top:0;right:0;z-index:4;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));transition:transform .3s ease}
 .main.pnl-open .pltab{transform:translateX(calc(-1 * var(--pnl-w, 0px)))}
+/* keep the chat and the message box clear of open panels (computers; on phones panels cover the screen) */
+@media (min-width:861px){
+  .log,.composer{transition:margin-right .25s}
+  .main.pnl-open .log,.main.pnl-open .composer{margin-right:var(--pnl-w, 0px)}
+}
 .pltab.over{top:64px}   /* no room beside the top-left tab: sit just below it instead of covering its buttons */
 .pltab-in{display:flex;align-items:center;gap:14px;height:48px;padding:0 22px 0 44px;background:var(--bg);white-space:nowrap;
   clip-path:polygon(0 0,100% 0,100% 100%,30px 100%);font:700 19px/1 var(--cond);font-variant-numeric:tabular-nums}
@@ -201,13 +199,6 @@ body.has-bg #bgClear{display:inline-block}
 .settle-sheet #addBet{width:100%;margin-bottom:12px}
 .settle-sheet .actions{display:flex;gap:8px}
 .settle-sheet .actions .send{flex:1}
-/* Collapsed: alarms tuck into a thin strip on the right */
-.main{transition:grid-template-columns .25s}
-.main.rail-collapsed{grid-template-columns:1fr 48px}
-.main.rail-collapsed .rail h2{flex-direction:column;padding:12px 0;gap:10px}
-.main.rail-collapsed .rail h2 .label,.main.rail-collapsed .list{display:none}
-.main.rail-collapsed .rail h2 small{margin:0;writing-mode:vertical-rl}
-.main.rail-collapsed .railToggle svg{transform:rotate(180deg)}
 .list{flex:1;overflow-y:auto;padding:0 14px 18px;display:flex;flex-direction:column;gap:10px}
 .empty{color:var(--muted);font-size:14px;padding:4px 4px;line-height:1.6}
 
@@ -311,8 +302,15 @@ button.tag{cursor:pointer}
 .syncdot.busy{background:var(--yellow)}
 .syncdot.err{background:var(--red)}
 
-/* Profit & loss panel: slides out from behind the right-hand list */
-.pnl{position:absolute;top:0;bottom:0;right:var(--rail-w,360px);width:min(560px,calc(100% - var(--rail-w,360px)));z-index:7;background:var(--panel);border-left:1px solid var(--line);
+/* Slide-out panels (Bets, History, PNL, Friends): slide in from the right edge */
+#bets .list{padding:4px 18px 18px}
+/* narrow Bets panel (several panels open): Cash / Chalk / + get their own line */
+#bets .list{container-type:inline-size}
+@container (max-width:330px){
+  #bets .card .settle{grid-column:1/-1;justify-self:start}
+  #bets .card .count{grid-column:1/-1;justify-self:start}
+}
+.pnl{position:absolute;top:0;bottom:0;right:0;width:min(560px,100%);z-index:7;background:var(--panel);border-left:1px solid var(--line);
   box-shadow:-12px 0 32px rgba(0,0,0,.4);display:flex;flex-direction:column;transform:translateX(calc(100% + 40px));visibility:hidden;transition:transform .3s ease,visibility 0s .3s,right .25s}
 .pnl.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s,right .25s,width .25s}
 .pnl .hsum{color:var(--muted);font-size:13px}
@@ -353,7 +351,6 @@ button.tag{cursor:pointer}
 .card .copy{font:700 12.5px var(--cond);letter-spacing:.04em;border:1px solid var(--blue);color:var(--blue);background:none;border-radius:5px;padding:5px 10px;align-self:center}
 .card .copy:disabled{border-color:var(--line);color:var(--muted);cursor:default}
 .card .have{font-size:12px;color:var(--muted)}
-.main.rail-collapsed{--rail-w:48px}
 .pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
 .pnl h3{margin:0;font:600 20px var(--cond);flex:1}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
@@ -391,16 +388,7 @@ button.tag{cursor:pointer}
 .chart .tip b{font:700 14px var(--cond)}
 .chart .empty{padding:30px 0;text-align:center}
 @media (max-width:860px){
-  .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
-  .chat{border-right:none;border-bottom:1px solid var(--line)}
-  .rail{max-height:42vh}
   .pnl{position:fixed;inset:0;right:0;width:auto;z-index:30;border-left:none}
-  .main.rail-collapsed{grid-template-columns:1fr}
-  .main.rail-collapsed .rail h2{flex-direction:row;padding:10px 14px 10px 8px}
-  .main.rail-collapsed .rail h2 .label{display:inline}
-  .main.rail-collapsed .rail h2 small{writing-mode:horizontal-tb;margin-left:auto}
-  .railToggle svg{transform:rotate(90deg)}
-  .main.rail-collapsed .railToggle svg{transform:rotate(-90deg)}
   .lead{margin-left:0}
 }
 @media (prefers-reduced-motion:reduce){.card.ringing{animation:none}}
@@ -417,7 +405,7 @@ button.tag{cursor:pointer}
     <ul>
       <li>Reads the players, start time, over/under and edge straight from your screenshots.</li>
       <li>Rings in your browser a few minutes before each match.</li>
-      <li>Sign in to keep your alarms, background and settings on every device.</li>
+      <li>Sign in to keep your bets, background and settings on every device.</li>
     </ul>
     <div class="landing-user" id="landingUser">
       <span id="landingAvatar"></span>
@@ -448,6 +436,7 @@ button.tag{cursor:pointer}
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
   <div class="toolbar" id="toolbar" hidden>
+    <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false">Bets</button>
     <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
     <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false">History</button>
     <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
@@ -475,16 +464,14 @@ button.tag{cursor:pointer}
     </div>
   </section>
 
-  <aside class="rail">
-    <h2>
-      <button class="railToggle" id="railToggle" aria-expanded="true" aria-label="Hide alarms" title="Hide alarms">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-      </button>
-      <span class="label" id="railLabel">Alarms</span>
-      <small id="alarmCount"></small>
-    </h2>
+  <section class="pnl" id="bets" aria-labelledby="betsTitle" aria-hidden="true">
+    <header>
+      <h3 id="betsTitle">Bets</h3>
+      <span class="hsum" id="alarmCount"></span>
+      <button class="close" id="betsClose" aria-label="Close bets">×</button>
+    </header>
     <div class="list" id="list"></div>
-  </aside>
+  </section>
   <section class="pnl" id="friends" aria-labelledby="friendsTitle" aria-hidden="true">
     <header>
       <h3 id="friendsTitle">Friends</h3>
@@ -498,8 +485,8 @@ button.tag{cursor:pointer}
   </section>
   <section class="pnl" id="falarms" aria-labelledby="faTitle" aria-hidden="true">
     <header>
-      <h3 id="faTitle">Alarms</h3>
-      <button class="close" id="faClose" aria-label="Close friend's alarms">×</button>
+      <h3 id="faTitle">Bets</h3>
+      <button class="close" id="faClose" aria-label="Close friend's bets">×</button>
     </header>
     <div class="pnl-body" id="faBody"></div>
   </section>
@@ -535,7 +522,7 @@ button.tag{cursor:pointer}
       <p class="note">Turn this off to use the app without alarms: matches are still listed and still get Cash / Chalk once they start.</p></div>
     <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
       <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
-    <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old alarms</label>
+    <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old bets</label>
       <div class="ctl lead"><input id="cleanupHours" type="number" min="0" max="168" value="3"><span>hours after the match starts (0 = never)</span></div></div>
     <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
       <div class="ctl sound"><select id="soundPick">
@@ -573,7 +560,7 @@ button.tag{cursor:pointer}
           <label>Czech Liga Pro<input id="lbCzech" type="url" placeholder="Paste the Ladbrokes Czech Liga Pro page link"></label>
         </div>
       </div>
-      <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Clear a link to go back to its default. Other competitions open the main Ladbrokes table tennis page.</p></div>
+      <p class="note">Click the player names on a bet to open its competition on Ladbrokes. Clear a link to go back to its default. Other competitions open the main Ladbrokes table tennis page.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -605,7 +592,7 @@ button.tag{cursor:pointer}
       <p class="note">Tags show next to OVER/UNDER on your alarms. Click an alarm to add or remove its tags.</p></div>
     <div class="hud-foot">
       <button class="ghost" id="openSettings">Gemini settings</button>
-      <button class="ghost danger" id="clearAll">Clear all alarms</button>
+      <button class="ghost danger" id="clearAll">Clear all bets</button>
     </div>
   </div>
 </div>
@@ -798,16 +785,9 @@ const drop = $('#drop');
 document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
 $('#text').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
 
-/* ---------- Collapsible top bar and alarm rail ---------- */
+/* ---------- Top bar ---------- */
 // ⚙ opens Settings; clicking it again (even from the full Settings page) closes it
 $('#menuBtn').onclick = () => { const shown = ['#hud', '#settingsModal'].filter(id => $(id).classList.contains('show')); if(shown.length) shown.forEach(id => closeModal($(id))); else openModal('#hud'); };
-function setRail(open){
-  $('.main').classList.toggle('rail-collapsed', !open);
-  const t = $('#railToggle'); t.setAttribute('aria-expanded', open);
-  t.title = open ? 'Hide the list' : 'Show alarms'; t.setAttribute('aria-label', t.title);
-  store.set('tt.railOpen', open);
-}
-setRail(store.get('tt.railOpen', true));
 
 /* Shrink screenshots before saving so localStorage doesn't fill up */
 function shrink(dataUrl, maxW=1400){
@@ -1092,7 +1072,7 @@ async function createAlarm(info, img, cropIt){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
-  if(alarms.some(x => x.name === name && x.start === start)) return { ok:false, name, why:'alarm already set' };
+  if(alarms.some(x => x.name === name && x.start === start)) return { ok:false, name, why:'already in your bets' };
   const side = ouSide(info);
   const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
   const shot = (cropIt && await cropRow(img, info.box_2d)) || img;
@@ -1121,7 +1101,7 @@ async function createAlarms(entries, problems = []){
   const results = [];
   for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop));
   alarms.sort((x,y)=>x.ring-y.ring);
-  if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new alarms won\'t survive a reload. Delete a few old alarms to free space.', { err:true });
+  if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new bets won\'t survive a reload. Delete a few old bets to free space.', { err:true });
   render();
   const made = results.filter(r => r.ok).map(r => r.a);
   const skipped = results.filter(r => !r.ok);
@@ -1139,7 +1119,7 @@ async function createAlarms(entries, problems = []){
     const n = entries.length;
     const done = made.filter(a => a.fired).length, set = made.length - done;
     addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
-                              : `Found ${n} match${n>1?'es':''}, but no new alarms were needed.`, { facts });
+                              : `Found ${n} match${n>1?'es':''}, but they were all already in your bets.`, { facts });
   }
   if(made.some(a => !a.fired)) askNotify();
 }
@@ -1166,11 +1146,10 @@ function render(){
   if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
   renderHistory();   // keeps the History panel current when it's open
   if(social && social.view) renderFAlarms();
-  $('#railLabel').textContent = 'Alarms';
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
   $('#alarmCount').textContent = (alarms.length ? `${active} upcoming` : '') + (alarmsOn() ? '' : (alarms.length ? ' · ' : '') + 'alarms off');
-  if(!alarms.length){ list.innerHTML = '<div class="empty">No alarms yet. Send a match screenshot in the chat to add one.</div>'; return; }
+  if(!alarms.length){ list.innerHTML = '<div class="empty">No bets yet. Send a match screenshot in the chat to add one.</div>'; return; }
   for(const a of alarms){
     const c = document.createElement('div');
     c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing.has(a.id)?' ringing':''}`;
@@ -1186,7 +1165,7 @@ function render(){
         <span class="line"></span>
         <span class="edge">${a.edge==null?'—':`<span class="bar"><i style="width:${Math.min(100,a.edge)}%"></i></span>${a.edge}%`}</span>
       </div>
-      <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
+      <button class="del" aria-label="Delete bet" title="Delete bet">×</button>`;
     c.querySelector('.names').textContent = a.name;
     if(c.querySelector('.settle')){
       c.querySelector('.cash').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash' }); };
@@ -1347,8 +1326,8 @@ function renderViewerTags(){
     box.appendChild(b);
   });
   const wrap = document.createElement('span'); wrap.className = 'tagnew';
-  const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 24; inp.placeholder = 'New tag…'; inp.setAttribute('aria-label', 'New tag for this alarm');
-  const add = document.createElement('button'); add.className = 'ghost'; add.textContent = '+'; add.title = 'Create the tag and add it to this alarm';
+  const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 24; inp.placeholder = 'New tag…'; inp.setAttribute('aria-label', 'New tag for this bet');
+  const add = document.createElement('button'); add.className = 'ghost'; add.textContent = '+'; add.title = 'Create the tag and add it to this bet';
   const make = () => { const t = newTag(inp.value); if(!t) return inp.focus(); toggleTag(a.id, t.id, true); store.set('tt.tags', tags); renderTagSettings(); setTimeout(() => { const n = $('#viewerTags input'); n && n.focus(); }); };
   add.onclick = make; inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); make(); } };
   wrap.append(inp, add); box.appendChild(wrap);
@@ -1492,7 +1471,7 @@ function renderHistory(){
   subjectHead('#histTitle', histFor, 'History');
   const total = S.plays.reduce((t, p) => t + S.val(p), 0), wins = S.plays.filter(p => p.result === 'cash').length;
   $('#histSum').textContent = S.plays.length ? `${wins}/${S.plays.length} cashed · ${S.own ? fmtPL(total) : S.txt(total)}` : '';
-  if(!S.plays.length){ list.innerHTML = S.own ? '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>' : '<div class="empty">No settled matches shared yet.</div>'; return; }
+  if(!S.plays.length){ list.innerHTML = S.own ? '<div class="empty">No settled matches yet. When a bet\'s match has started, press Cash or Chalk on it to record the result here.</div>' : '<div class="empty">No settled matches shared yet.</div>'; return; }
   for(const p of S.plays){
     const c = document.createElement('div'), pl = S.val(p), showMoney = true, multi = S.own && Array.isArray(p.bets) && p.bets.length;
     c.className = `card ${p.result === 'cash' ? 'hit' : 'miss'}`;
@@ -1556,7 +1535,6 @@ function tickTracker(){
 }
 plSettings();
 
-$('#railToggle').onclick = () => { setRail($('.main').classList.contains('rail-collapsed')); layoutSlides(); };
 
 /* ---------- Profit & loss page (calendar / graph) ---------- */
 let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
@@ -1583,26 +1561,27 @@ function subjectHead(sel, forUid, title){
 }
 const plClass = n => n > 1e-9 ? 'up' : n < -1e-9 ? 'down' : '';
 const plText = n => Math.abs(n) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(n);
-/* Slide-out panels (History, PNL). Each opens from behind the alarm list; a panel opened while another is out
+/* Slide-out panels (Bets, History, PNL, Friends). Each slides in from the right edge; a panel opened while another is out
    slides out further left, past it. The time | PNL tab always sits just left of the outermost panel. Panels narrow
    (down to 360px) so the tab still fits beside the top-left tab; if it can't, the tab drops just below the top bar. */
 const SLIDES = {
+  bets: { el:'#bets', btn:'#betsBtn', onOpen: () => render() },
   hist: { el:'#hist', btn:'#histOpen', onOpen: () => renderHistory() },
   pnl:  { el:'#pnl',  btn:'#pnlBtn',   onOpen: () => renderPnl() }
 };
-let slideOrder = [];   // open panels, first opened = nearest the alarm list
+let slideOrder = [];   // open panels, first opened = nearest the right edge
 function setSlide(key, open){
   const sl = SLIDES[key], el = $(sl.el);
   slideOrder = slideOrder.filter(k => k !== key); if(open) slideOrder.push(key);
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
   if(key !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
+  if(key === 'bets') store.set('tt.railOpen', open);   // the Bets panel stays open or closed across visits (per device)
   layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
   const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
-  // use the list's final width (not its mid-animation width while folding/unfolding)
-  const railW = $('.main').classList.contains('rail-collapsed') ? 48 : 360, chatR = innerWidth - railW, topR = $('#top').getBoundingClientRect().right;
+  const chatR = innerWidth, topR = $('#top').getBoundingClientRect().right;
   const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
   // Never slide under the top-left toolbar: if the panels can't all fit (300px each), close the oldest one
   if(desk && n > 1 && n * 300 > room) return setSlide(slideOrder[0], false);
@@ -1611,7 +1590,7 @@ function layoutSlides(){
     const el = $(sl.el), i = slideOrder.indexOf(k);
     if(!desk){ el.style.right = el.style.width = ''; el.style.zIndex = i < 0 ? '' : 30 + i; return; }   // phones: full screen, newest on top
     el.style.width = w + 'px';
-    el.style.right = (railW + Math.max(i, 0) * w) + 'px';
+    el.style.right = Math.max(i, 0) * w + 'px';
     el.style.zIndex = i < 0 ? 7 : 7 + (n - i);   // earlier panels sit above later ones, so a new one slides out from behind them
   });
   const off = desk ? n * w : 0;
@@ -1620,6 +1599,9 @@ function layoutSlides(){
 }
 const pnlShift = layoutSlides;
 addEventListener('resize', layoutSlides);
+$('#betsBtn').onclick = () => setSlide('bets', !$('#bets').classList.contains('open'));
+$('#betsClose').onclick = () => setSlide('bets', false);
+if(store.get('tt.railOpen', innerWidth > 860)) setSlide('bets', true);   // open by default on computers
 const setPnl = open => setSlide('pnl', open);
 $('#pnlBtn').onclick = () => { if($('#pnl').classList.contains('open') && !pnlFor) return setSlide('pnl', false); pnlFor = null; pnlSel = null; setSlide('pnl', true); renderPnl(); };   // toolbar = my own PNL
 $('#pnlClose').onclick = () => { setSlide('pnl', false); pnlFor = null; };
@@ -1920,20 +1902,20 @@ $('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.soun
 let clearTimer = null;
 function resetClearBtn(){
   const b = $('#clearAll'); clearTimeout(clearTimer);
-  b.classList.remove('confirm'); b.textContent = 'Clear all alarms'; b.disabled = !alarms.length;
+  b.classList.remove('confirm'); b.textContent = 'Clear all bets'; b.disabled = !alarms.length;
 }
 $('#clearAll').onclick = () => {
   const b = $('#clearAll');
   if(!alarms.length) return;
   if(!b.classList.contains('confirm')){
-    b.classList.add('confirm'); b.textContent = `Click again to delete ${alarms.length} alarm${alarms.length>1?'s':''}`;
+    b.classList.add('confirm'); b.textContent = `Click again to delete ${alarms.length} bet${alarms.length>1?'s':''}`;
     clearTimer = setTimeout(resetClearBtn, 4000);
     return;
   }
   [...ringing].forEach(stopAlarm);
   const n = alarms.length;
   alarms = []; store.set('tt.alarms', alarms); render(); resetClearBtn();
-  addMsg('bot', `Cleared ${n} alarm${n>1?'s':''}.`);
+  addMsg('bot', `Cleared ${n} bet${n>1?'s':''}.`);
 };
 document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }, { once:true });
 
@@ -1945,6 +1927,7 @@ const notes = new Map();   // alarm id → its desktop notification while it rin
 function fire(a){
   if(!alarmsOn()){ a.fired = true; store.set('tt.alarms', alarms); render(); return; }   // alarms switched off: just mark it as started, silently
   a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
+  if(!$('#bets').classList.contains('open')) setSlide('bets', true);   // show the bet that's ringing
   $('#landing').hidden = true;   // never ring behind the home page
   startLoop();
   try{ navigator.vibrate && navigator.vibrate([400,200,400,200,400]); }catch(e){}   // phones: real vibration too
@@ -2284,11 +2267,11 @@ function fList(body){
   fr.forEach(f => {
     const uid = f.members.find(m => m !== social.uid), c = social.cards.get(uid) || { username:'…' }, open = social.open === uid;
     const row = el('div', 'frow click'); row.setAttribute('aria-expanded', open); row.tabIndex = 0;
-    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'PNL · History · Alarms')); return w; })(), el('span', 'chev', open ? '▴' : '▾'));
+    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'PNL · History · Bets')); return w; })(), el('span', 'chev', open ? '▴' : '▾'));
     row.onclick = () => { social.open = open ? null : uid; renderFriends(); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
     body.appendChild(row);
-    if(open) body.appendChild(friendMenu([['PNL', () => friendAction(uid, 'pnl'), '', false, friendOn(uid, 'pnl')], ['History', () => friendAction(uid, 'hist'), '', false, friendOn(uid, 'hist')], ['Alarms', () => friendAction(uid, 'alarms'), '', false, friendOn(uid, 'alarms')],
+    if(open) body.appendChild(friendMenu([['PNL', () => friendAction(uid, 'pnl'), '', false, friendOn(uid, 'pnl')], ['History', () => friendAction(uid, 'hist'), '', false, friendOn(uid, 'hist')], ['Bets', () => friendAction(uid, 'alarms'), '', false, friendOn(uid, 'alarms')],
       ['Block', () => blockUser(uid), 'danger', true], ['Unfriend', () => { fdb().deleteDoc(fdoc('friendships', pairId(social.uid, uid))); social.open = null; }, 'danger', true]]));
   });
   if(social.blocked.length){
@@ -2443,14 +2426,14 @@ function friendOn(uid, what){
 function renderFAlarms(){
   if(!$('#falarms').classList.contains('open') || !social.view) return;
   const c = social.cards.get(social.view) || { username:'…' }, body = $('#faBody'); body.innerHTML = '';
-  subjectHead('#faTitle', social.view, 'Alarms');
+  subjectHead('#faTitle', social.view, 'Bets');
   const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming').sort((a, b) => a.start - b.start);
   const filt = el('div', 'seg ranges');
   [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', l); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderFAlarms(); }; filt.appendChild(b); });
   body.appendChild(filt);
   const shown = up.filter(p => social.filter === 'all' || (social.filter === 'both') === mine.has(playKey(p.name, p.start)));
   if(!up.length) body.appendChild(el('p', 'fnote', c.shareUpcoming === false ? `@${c.username} doesn't share upcoming plays.` : `@${c.username} has no upcoming plays.`));
-  else if(!shown.length) body.appendChild(el('p', 'fnote', social.filter === 'missing' ? 'You already have all of their plays.' : 'None of their plays are in your alarms.'));
+  else if(!shown.length) body.appendChild(el('p', 'fnote', social.filter === 'missing' ? 'You already have all of their plays.' : 'None of their plays are in your bets.'));
   const list = el('div', 'histlist'); body.appendChild(list);
   shown.forEach(p => {
     const have = mine.has(playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
@@ -2458,7 +2441,7 @@ function renderFAlarms(){
       <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
     card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
     card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
-    const cp = btn(have ? 'In your alarms' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have; card.children[3].replaceWith(cp);
+    const cp = btn(have ? 'In your bets' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have; card.children[3].replaceWith(cp);
     list.appendChild(card);
   });
 }
@@ -2468,7 +2451,7 @@ function copyPlay(p, from){
   alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
                 side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, league:p.league || '', img:'', fired:p.start <= now, added:now, from, tags:[] });
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
-  toast(`Copied ${p.name} to your alarms.`);
+  toast(`Copied ${p.name} to your bets.`);
 }
 SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => renderFriends() };
 SLIDES.falarms = { el:'#falarms', btn:'#friendsBtn', onOpen: () => renderFAlarms() };
