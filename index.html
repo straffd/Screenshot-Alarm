@@ -147,9 +147,6 @@ body.has-bg #bgClear{display:inline-block}
 .railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
 .railToggle:hover{color:var(--text);border-color:var(--line)}
 .railToggle svg{transition:transform .25s}
-.histBtn svg{transform:none !important}
-.histBtn[aria-pressed="true"]{color:var(--yellow);border-color:var(--line)}
-.main.rail-collapsed .histBtn{display:none}   /* the history switch sits next to the list title, not on the folded bar */
 /* Daily P/L tracker: an angled tab hanging from the top-right of the chat area */
 .pltab{position:absolute;top:0;right:0;z-index:4;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));transition:transform .3s ease}
 .main.pnl-open .pltab{transform:translateX(calc(-1 * var(--pnl-w, 0px)))}
@@ -304,7 +301,9 @@ button.tag{cursor:pointer}
 /* Profit & loss panel: slides out from behind the right-hand list */
 .pnl{position:absolute;top:0;bottom:0;right:var(--rail-w,360px);width:min(560px,calc(100% - var(--rail-w,360px)));z-index:7;background:var(--panel);border-left:1px solid var(--line);
   box-shadow:-12px 0 32px rgba(0,0,0,.4);display:flex;flex-direction:column;transform:translateX(calc(100% + 40px));visibility:hidden;transition:transform .3s ease,visibility 0s .3s,right .25s}
-.pnl.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s,right .25s}
+.pnl.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s,right .25s,width .25s}
+.pnl .hsum{color:var(--muted);font-size:13px}
+.histlist{display:flex;flex-direction:column;gap:10px}
 .main.rail-collapsed{--rail-w:48px}
 .pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
 .pnl h3{margin:0;font:600 20px var(--cond);flex:1}
@@ -312,7 +311,7 @@ button.tag{cursor:pointer}
 .seg button{background:none;border:none;padding:6px 12px;color:var(--muted);font:600 13px var(--sans)}
 .seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--text)}
 .pnl-body{flex:1;overflow:auto;padding:4px 18px 18px}
-.pnl-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.pnl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:16px}
 .pnl-stats div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
 .pnl-stats small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
 .pnl-stats b{font:700 18px/1 var(--cond);font-variant-numeric:tabular-nums}
@@ -401,6 +400,7 @@ button.tag{cursor:pointer}
   </button>
   <div class="toolbar" id="toolbar" hidden>
     <button class="ghost" disabled title="Coming soon">Friends <span class="soon">Soon</span></button>
+    <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false">History</button>
     <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
   </div>
 </div>
@@ -432,13 +432,18 @@ button.tag{cursor:pointer}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
       <span class="label" id="railLabel">Alarms</span>
-      <button class="railToggle histBtn" id="histBtn" aria-pressed="false" aria-label="Show match history" title="Match history">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
-      </button>
       <small id="alarmCount"></small>
     </h2>
     <div class="list" id="list"></div>
   </aside>
+  <section class="pnl" id="hist" aria-labelledby="histTitle" aria-hidden="true">
+    <header>
+      <h3 id="histTitle">History</h3>
+      <span class="hsum" id="histSum"></span>
+      <button class="close" id="histClose" aria-label="Close history">×</button>
+    </header>
+    <div class="pnl-body"><div class="histlist" id="histList"></div></div>
+  </section>
   <section class="pnl" id="pnl" aria-labelledby="pnlTitle" aria-hidden="true">
     <header>
       <h3 id="pnlTitle">Profit &amp; loss</h3>
@@ -650,7 +655,6 @@ let alarms = store.get('tt.alarms', []);
 let tags = store.get('tt.tags', []) || [];   // custom tags: [{ id, name, color }]; alarms keep a list of tag ids
 let lead = store.get('tt.lead', 5);
 let plays = store.get('tt.history', []) || [];   // settled matches: { id, name, league, start, side, line, ouPct, edge, tags, result:'cash'|'chalk', odds, units, settled }
-let railMode = store.get('tt.railMode', 'alarms');
 let plPrefs = store.get('tt.plPrefs', {}) || {};   // { showPL, showTime, timeMode:'countdown'|'clock', money:'units'|'dollars', unitValue }   // what the right-hand list shows: 'alarms' or 'history' (per device)
 let cleanupHours = store.get('tt.cleanupHours', 3);   // alarms are removed this many hours after their match starts (0 = never)
 const MAX_SHOTS = 10;
@@ -1087,7 +1091,7 @@ $('#leadMin').onchange = e => { const msg = setLead(e.target.value); if(msg) add
 let sideArmed = null, sideTimer = null;   // OVER/UNDER switches only on a second press within 3 s
 function render(){
   if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
-  if(railMode === 'history') return renderHistory();
+  renderHistory();   // keeps the History panel current when it's open
   $('#railLabel').textContent = 'Alarms';
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
@@ -1343,10 +1347,10 @@ $('#settleDelete').onclick = () => {
   plays = plays.filter(p => p !== settling.play); closeModal($('#settleModal')); savePlays();
 };
 function renderHistory(){
-  const list = $('#list'); list.innerHTML = '';
+  if(!$('#hist').classList.contains('open')) return;
+  const list = $('#histList'); list.innerHTML = '';
   const total = plays.reduce((t, p) => t + playPL(p), 0), wins = plays.filter(p => p.result === 'cash').length;
-  $('#railLabel').textContent = 'History';
-  $('#alarmCount').textContent = plays.length ? `${wins}/${plays.length} cashed · ${fmtPL(total)}` : '';
+  $('#histSum').textContent = plays.length ? `${wins}/${plays.length} cashed · ${fmtPL(total)}` : '';
   if(!plays.length){ list.innerHTML = '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>'; return; }
   for(const p of plays){
     const c = document.createElement('div'), pl = playPL(p);
@@ -1405,15 +1409,7 @@ function tickTracker(){
 }
 plSettings();
 
-function setRailMode(mode){
-  railMode = mode; store.set('tt.railMode', mode);
-  const b = $('#histBtn'); b.setAttribute('aria-pressed', mode === 'history');
-  render();
-}
-// Folded bar: the arrow opens the alarms
-$('#histBtn').onclick = () => setRailMode(railMode === 'history' ? 'alarms' : 'history');   // next to the title: switch between alarms and history
-$('#railToggle').onclick = () => { if($('.main').classList.contains('rail-collapsed')){ setRailMode('alarms'); setRail(true); } else setRail(false); setTimeout(pnlShift, 260); };
-setRailMode(railMode);
+$('#railToggle').onclick = () => { setRail($('.main').classList.contains('rail-collapsed')); layoutSlides(); };
 
 /* ---------- Profit & loss page (calendar / graph) ---------- */
 let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
@@ -1422,28 +1418,46 @@ const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Da
 function dailyPL(){ const m = new Map(); plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += playPL(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 const plClass = n => n > 1e-9 ? 'up' : n < -1e-9 ? 'down' : '';
 const plText = n => Math.abs(n) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(n);
-// Keep the time | PNL tab just left of the panel while it's open. The panel narrows (down to 420px) so the tab
-// still fits beside the top-left ⚙ tab; if it can't, the tab drops just below the top bar rather than hiding or covering buttons.
-function pnlShift(){
-  const pnl = $('#pnl'), open = pnl.classList.contains('open') && innerWidth > 860, tab = $('#plTab');
-  pnl.style.width = '';
-  if(open){
-    const chatR = $('.chat').getBoundingClientRect().right, topR = $('#top').getBoundingClientRect().right;
-    const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, fit = chatR - topR - tabW - 12;
-    pnl.style.width = Math.round(Math.max(420, Math.min(560, fit, chatR))) + 'px';
-    tab.classList.toggle('over', !tab.hidden && chatR - pnl.offsetWidth - tabW < topR);
-  } else tab.classList.remove('over');
-  $('.main').style.setProperty('--pnl-w', (open ? pnl.offsetWidth : 0) + 'px');
+/* Slide-out panels (History, PNL). Each opens from behind the alarm list; a panel opened while another is out
+   slides out further left, past it. The time | PNL tab always sits just left of the outermost panel. Panels narrow
+   (down to 360px) so the tab still fits beside the top-left tab; if it can't, the tab drops just below the top bar. */
+const SLIDES = {
+  hist: { el:'#hist', btn:'#histOpen', onOpen: () => renderHistory() },
+  pnl:  { el:'#pnl',  btn:'#pnlBtn',   onOpen: () => renderPnl() }
+};
+let slideOrder = [];   // open panels, first opened = nearest the alarm list
+function setSlide(key, open){
+  const sl = SLIDES[key], el = $(sl.el);
+  slideOrder = slideOrder.filter(k => k !== key); if(open) slideOrder.push(key);
+  el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
+  $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open);
+  layoutSlides(); if(open) sl.onOpen();
 }
-addEventListener('resize', pnlShift);
-function setPnl(open){
-  $('#pnl').classList.toggle('open', open); $('#pnl').setAttribute('aria-hidden', !open);
-  $('.main').classList.toggle('pnl-open', open); pnlShift();
-  $('#pnlBtn').setAttribute('aria-expanded', open); $('#pnlBtn').setAttribute('aria-pressed', open);
-  if(open) renderPnl();
+function layoutSlides(){
+  const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
+  // use the list's final width (not its mid-animation width while folding/unfolding)
+  const railW = $('.main').classList.contains('rail-collapsed') ? 48 : 360, chatR = innerWidth - railW, topR = $('#top').getBoundingClientRect().right;
+  const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth;
+  const w = Math.round(Math.max(360, Math.min(560, (chatR - topR - tabW - 12) / Math.max(n, 1), chatR / Math.max(n, 1))));
+  Object.entries(SLIDES).forEach(([k, sl]) => {
+    const el = $(sl.el), i = slideOrder.indexOf(k);
+    if(!desk){ el.style.right = el.style.width = ''; el.style.zIndex = i < 0 ? '' : 30 + i; return; }   // phones: full screen, newest on top
+    el.style.width = w + 'px';
+    el.style.right = (railW + Math.max(i, 0) * w) + 'px';
+    el.style.zIndex = i < 0 ? 7 : 7 + (n - i);   // earlier panels sit above later ones, so a new one slides out from behind them
+  });
+  const off = desk ? n * w : 0;
+  $('.main').classList.toggle('pnl-open', off > 0); $('.main').style.setProperty('--pnl-w', off + 'px');
+  tab.classList.toggle('over', off > 0 && !tab.hidden && chatR - off - tabW < topR);
 }
-$('#pnlBtn').onclick = () => setPnl(!$('#pnl').classList.contains('open'));
-$('#pnlClose').onclick = () => setPnl(false);
+const pnlShift = layoutSlides;
+addEventListener('resize', layoutSlides);
+const setPnl = open => setSlide('pnl', open);
+$('#pnlBtn').onclick = () => setSlide('pnl', !$('#pnl').classList.contains('open'));
+$('#pnlClose').onclick = () => setSlide('pnl', false);
+$('#histOpen').onclick = () => setSlide('hist', !$('#hist').classList.contains('open'));
+$('#histClose').onclick = () => setSlide('hist', false);
+layoutSlides();
 $('#pnlCal').onclick = () => { pnlView = 'calendar'; store.set('tt.pnlView', pnlView); renderPnl(); };
 $('#pnlGraph').onclick = () => { pnlView = 'graph'; store.set('tt.pnlView', pnlView); renderPnl(); };
 function renderPnl(){
@@ -1568,7 +1582,7 @@ function closeModal(el){ el.classList.remove('show'); }
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
-document.addEventListener('keydown', e => { if(e.key==='Escape'){ if(document.querySelector('.modal.show')) ['#viewer','#settingsModal','#hud','#settleModal'].forEach(id=>closeModal($(id))); else setPnl(false); } });
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ if(document.querySelector('.modal.show')) ['#viewer','#settingsModal','#hud','#settleModal'].forEach(id=>closeModal($(id))); else if(slideOrder.length) setSlide(slideOrder[slideOrder.length - 1], false); } });
 
 function openViewer(a){
   viewing = a.id; renderViewerTags();
