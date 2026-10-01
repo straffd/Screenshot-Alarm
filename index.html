@@ -14,10 +14,18 @@
 :root{
   --bg:#16181b; --panel:#1e2125; --panel-2:#25292e; --line:#30353b;
   --glass-msg:rgba(30,33,37,.72); --glass-input:rgba(22,24,27,.55);
+  --scroll:#3d434a; --scroll-hover:#565d66;
   --text:#ebe9e4; --muted:#8b9099; --green:#3ecf6e; --yellow:#f2c230; --red:#ef5a5a; --blue:#5aa7ef; --ringbg:#3a3218; --onyellow:#1a1a1a;
   --sans:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --cond:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
 }
+/* Custom scrollbar: thin, no arrow buttons, transparent track, rounded thumb that follows the UI colour */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:10px;border:3px solid transparent;background-clip:padding-box;min-height:40px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover);background-clip:padding-box;border-width:2px}
+@supports not selector(::-webkit-scrollbar){ *{scrollbar-width:thin;scrollbar-color:var(--scroll) transparent} }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font:15px/1.5 var(--sans);display:flex;flex-direction:column;position:relative}
@@ -500,7 +508,7 @@ function shrink(dataUrl, maxW=1400){
 const UI_DEFAULT = { color:'#1e2125', alpha:100 };
 function applyTheme(t){
   const root = document.documentElement.style;
-  const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted'];
+  const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted','--scroll','--scroll-hover'];
   if(!t || (t.color === UI_DEFAULT.color && t.alpha === UI_DEFAULT.alpha)){ names.forEach(n => root.removeProperty(n)); }
   else {
     const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = t.alpha/100;
@@ -515,6 +523,8 @@ function applyTheme(t){
     root.setProperty('--glass-input', rgba(c, .55*a));
     root.setProperty('--text', light ? '#1a1a1a' : '#ebe9e4');
     root.setProperty('--muted', light ? '#4d535b' : '#8b9099');
+    root.setProperty('--scroll', `rgb(${mix(light ? 0 : 255, .22).join(',')})`);
+    root.setProperty('--scroll-hover', `rgb(${mix(light ? 0 : 255, .38).join(',')})`);
   }
   const cur = t || UI_DEFAULT;
   $('#uiColor').value = cur.color; $('#uiAlpha').value = cur.alpha; $('#uiAlphaOut').textContent = cur.alpha + '%';
