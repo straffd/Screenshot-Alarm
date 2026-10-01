@@ -358,6 +358,8 @@ button.tag{cursor:pointer}
 .pf-head{display:flex;align-items:center;gap:14px;padding:0 0 14px}
 .pf-head b{font:700 22px var(--cond)}
 .card .copy{font:700 12.5px var(--cond);letter-spacing:.04em;border:1px solid var(--blue);color:var(--blue);background:none;border-radius:5px;padding:5px 10px;align-self:center}
+.side:empty{display:none}
+.card .typed{font:600 11px/1 var(--sans);color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:3px 6px}
 .card .copy:disabled{border-color:var(--line);color:var(--muted);cursor:default}
 .card .have{font-size:12px;color:var(--muted)}
 .pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
@@ -1051,9 +1053,11 @@ async function send(){
       if(entries.length) await createAlarms(entries, problems);
       else addMsg('bot', problems.join('\n\n') || 'No matches found.', { err:true });
     } else {
-      // Plain chat: let the user change lead time by typing, otherwise ask the LLM
+      // Plain chat: a typed bet ("Will vs Zed 3:20pm"), a lead-time change, otherwise ask the LLM
+      const typed = parseTypedBets(text);
       const m = text.match(/(\d{1,3})\s*(min|minute|m\b)/i);
-      if(m && /alarm|before|remind|alert|set/i.test(text)){
+      if(typed.length){ thinking.remove(); addTypedBets(typed); }
+      else if(m && /alarm|before|remind|alert|set/i.test(text)){
         const msg = setLead(+m[1]); thinking.remove();
         addMsg('bot', msg || `Alarms already ring ${lead} min before the match.`);
       } else {
@@ -1150,6 +1154,64 @@ async function createAlarm(info, img, cropIt){
   return { ok:true, a };
 }
 
+/* Typed bets: "Will vs Zed 3:20pm", "3:20 pm Will v Zed", "Will vs Zed at 15:20 under" (one per line).
+   They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them. */
+function parseTypedBets(text){
+  const out = [];
+  for(const raw of String(text).split(/\n+/)){
+    let line = raw.trim(); if(!line) continue;
+    // a time needs a colon or am/pm, so numbers in names aren't mistaken for one
+    const tm = line.match(/(?:^|[\s@,(])(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?(?=$|[\s,)])/i);
+    const okTime = tm && (tm[2] != null || tm[3]);
+    if(!okTime) continue;
+    let h = +tm[1], min = tm[2] != null ? +tm[2] : 0; const ap = tm[3] ? tm[3].replace(/\./g, '').toLowerCase() : '';
+    if(h > 23 || min > 59 || (ap && (h < 1 || h > 12))) continue;
+    if(ap === 'pm' && h < 12) h += 12; if(ap === 'am' && h === 12) h = 0;
+    if(!ap && h < 12){   // no am/pm: take whichever of morning / evening comes next (or has just started)
+      const t = new Date(); t.setHours(h, min, 0, 0);
+      if(t.getTime() < Date.now() - 30 * 6e4) h += 12;
+    }
+    line = (line.slice(0, tm.index) + ' ' + line.slice(tm.index + tm[0].length)).replace(/\s(?:at|@|on)\s*$/i, ' ');
+    let side = '';
+    line = line.replace(/\b(over|under)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
+    // tag names written in the line ("bot", "#strong", "live bet") become tags; longest names first
+    const tagIds = [], esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    [...tags.filter(t => t.id !== 'bot' && t.name.toLowerCase() !== 'bot'), BOT_TAG].sort((a, b) => b.name.length - a.name.length).forEach(t => {
+      const re = new RegExp(`(^|[\\s,(])#?${esc(t.name)}(?=$|[\\s,)])`, 'i');
+      if(re.test(line)){ tagIds.push(t.id); line = line.replace(re, '$1 '); }
+    });
+    const parts = line.split(/\s+(?:vs\.?|v\.?|versus|-)\s+/i);
+    if(parts.length !== 2) continue;
+    const nm = x => x.replace(/^[\s,@:;-]+|[\s,@:;.-]+$/g, '').replace(/\s+/g, ' ');
+    const p1 = nm(parts[0]), p2 = nm(parts[1]);
+    if(!p1 || !p2 || p1.length > 40 || p2.length > 40) continue;
+    out.push({ p1, p2, time: `${h}:${String(min).padStart(2, '0')}`, side, tags: tagIds });
+  }
+  return out;
+}
+function addTypedBets(list){
+  const made = [], skipped = [];
+  for(const t of list){
+    const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time });
+    if(alarms.some(x => x.name === name && x.start === start)){ skipped.push(name); continue; }
+    const a = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, start, ring: start - lead * 60000, lead,
+                side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true };
+    if(a.tags.includes('bot')) ensureBotTag();
+    alarms.push(a); made.push(a);
+  }
+  alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
+  if(!$('#bets').classList.contains('open')) setSlide('bets', true);
+  if(made.length === 1){
+    const a = made[0];
+    addMsg('bot', a.fired ? `Added ${a.name} as done (it started at ${fmtTime(a.start)}). Mark it Cash or Chalk.` : `Bet added. The alarm rings at ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
+      facts: [['Match', a.name], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ...(a.side ? [['Over/under', a.side]] : []), ...(a.tags.length ? [['Tags', a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ')]] : []), ['Note', 'Typed bet: friends can see it but can\'t copy it']] });
+  } else if(made.length){
+    addMsg('bot', `Added ${made.length} bets. Typed bets can't be copied by friends.`, { facts: made.map(a => [fmtTime(a.start), `${a.name}${a.side ? ' · ' + a.side : ''}${a.tags.length ? ' · ' + a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ') : ''}${a.fired ? ' · done' : ''}`]) });
+  }
+  if(skipped.length) addMsg('bot', `Already in your bets: ${skipped.join(', ')}.`);
+  if(made.some(a => !a.fired)) askNotify();
+}
+
 // "TT ELITE" -> "TT Elite": short words stay as abbreviations
 function compName(v){
   const t = String(v || '').trim();
@@ -1218,13 +1280,13 @@ function render(){
     c.innerHTML = `
       <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
-      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}</div>
+      <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}${a.manual ? ' · <span class="typed" title="Typed in the chat: friends can\'t copy it">typed</span>' : ''}</div>
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button><button class="more" title="More than one bet on this match: record each one">+</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
         <span class="tags"></span>
         <span class="line"></span>
-        <span class="edge">${a.edge==null?'—':`<span class="bar"><i style="width:${Math.min(100,a.edge)}%"></i></span>${a.edge}%`}</span>
+        <span class="edge">${a.edge==null?(a.manual ? '' : '—'):`<span class="bar"><i style="width:${Math.min(100,a.edge)}%"></i></span>${a.edge}%`}</span>
       </div>
       <button class="del" aria-label="Delete bet" title="Delete bet">×</button>`;
     c.querySelector('.names').textContent = a.name;
@@ -2034,7 +2096,7 @@ function fire(a){
   try{ navigator.vibrate && navigator.vibrate([400,200,400,200,400]); }catch(e){}   // phones: real vibration too
   if('Notification' in window && Notification.permission==='granted'){
     try{
-      const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body:`${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
+      const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
       notes.set(a.id, n);
       n.onclose = () => { if(notes.get(a.id) === n){ notes.delete(a.id); if(ringing.has(a.id)) stopAlarm(a.id); } };   // closing the popup stops the alarm
       n.onclick = () => { openLadbrokes(a); n.close(); };   // clicking the popup opens the match's competition on Ladbrokes (and stops the alarm)
@@ -2327,7 +2389,7 @@ function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTime
 async function publishPlays(){
   if(!sync.user || !social.me) return;
   const F = fdb(), uid = social.uid, now = Date.now(), want = new Map();
-  if(social.me.shareUpcoming !== false) alarms.forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming' }));
+  if(social.me.shareUpcoming !== false) alarms.forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}) }));   // typed bets: friends see them but can't copy
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
     odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p) }));   // unit gains are always public to friends
@@ -2543,13 +2605,16 @@ function renderFAlarms(){
     card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
     card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
     const started = p.start <= Date.now();   // too late to copy once the match has started
-    const cp = btn(have ? 'In your bets' : started ? 'Started' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have || started;
-    if(started && !have) cp.title = 'This match has already started'; card.children[3].replaceWith(cp);
+    const cp = btn(have ? 'In your bets' : started ? 'Started' : p.manual ? 'Private' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have || started || !!p.manual;
+    if(started && !have) cp.title = 'This match has already started';
+    else if(p.manual && !have) cp.title = `@${c.username} typed this bet in, so it can't be copied`;
+    card.children[3].replaceWith(cp);
     list.appendChild(card);
   });
 }
 function copyPlay(p, from){
   if(p.start <= Date.now()) return toast('This match has already started.');
+  if(p.manual) return toast('Typed bets can\'t be copied.');
   if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))) return toast('You already have this play.');
   const now = Date.now();
   alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
