@@ -98,11 +98,14 @@ button{cursor:pointer}
 .sound select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
 
 /* Main layout */
-.main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0}
+.main{flex:1;display:grid;grid-template-columns:1fr 360px;min-height:0;position:relative}
 .chat{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);position:relative;overflow:hidden}
 /* Custom chat background: blurred image under a dark glass tint */
 .chatbg{position:absolute;inset:0;z-index:0;pointer-events:none;display:none}
-.chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(3px)}
+.chatbg::before{content:"";position:absolute;inset:-24px;background:var(--bg-img) center/cover no-repeat;filter:blur(var(--bg-blur,3px)) saturate(var(--bg-sat,1))}
+.fx{display:grid;grid-template-columns:78px 1fr 46px;align-items:center;gap:8px;font-size:13px;color:var(--muted);width:100%;max-width:330px}
+.fx input[type=range]{accent-color:var(--yellow);width:100%}
+.fx output{color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
 .chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,10,10,.3),rgba(10,10,10,.4))}
 .chat.has-bg .chatbg{display:block}
 .chat .log,.chat .composer{position:relative;z-index:1}
@@ -137,7 +140,7 @@ body.has-bg #bgClear{display:inline-block}
 .msg .shots img{margin:0;width:100%;height:auto}
 
 /* Alarm rail */
-.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.rail{display:flex;flex-direction:column;min-height:0;background:var(--bg);position:relative;z-index:8}
 .rail h2{font:600 17px/1 var(--cond);margin:0;padding:12px 14px 12px 8px;display:flex;align-items:center;gap:6px}
 .rail h2 small{font:500 13px var(--sans);color:var(--muted);margin-left:auto}
 .railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
@@ -295,10 +298,52 @@ button.tag{cursor:pointer}
 .syncdot.busy{background:var(--yellow)}
 .syncdot.err{background:var(--red)}
 
+/* Profit & loss panel: slides out from behind the right-hand list */
+.pnl{position:absolute;top:0;bottom:0;right:var(--rail-w,360px);width:min(560px,calc(100% - var(--rail-w,360px)));z-index:7;background:var(--panel);border-left:1px solid var(--line);
+  box-shadow:-12px 0 32px rgba(0,0,0,.4);display:flex;flex-direction:column;transform:translateX(calc(100% + 40px));visibility:hidden;transition:transform .3s ease,visibility 0s .3s,right .25s}
+.pnl.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s,right .25s}
+.main.rail-collapsed{--rail-w:48px}
+.pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
+.pnl h3{margin:0;font:600 20px var(--cond);flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{background:none;border:none;padding:6px 12px;color:var(--muted);font:600 13px var(--sans)}
+.seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--text)}
+.pnl-body{flex:1;overflow:auto;padding:4px 18px 18px}
+.pnl-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.pnl-stats div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+.pnl-stats small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.pnl-stats b{font:700 18px/1 var(--cond);font-variant-numeric:tabular-nums}
+.up{color:var(--green)} .down{color:var(--red)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-nav b{font:600 16px var(--cond)}
+.cal-nav button{background:none;border:1px solid var(--line);border-radius:6px;width:30px;height:28px;color:var(--text)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .dow{font-size:11px;color:var(--muted);text-align:center;padding-bottom:2px}
+.cal .day{min-height:54px;border-radius:6px;background:var(--bg);border:1px solid var(--line);padding:5px 6px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;color:var(--text);font:inherit}
+.cal .day.blank{visibility:hidden}
+.cal .day .n{font-size:11.5px;color:var(--muted)}
+.cal .day .v{font:700 13px/1 var(--cond);font-variant-numeric:tabular-nums;color:var(--text)}
+.cal .day.win{background:color-mix(in srgb,var(--green) var(--k,18%),var(--bg));border-color:color-mix(in srgb,var(--green) 45%,var(--line))}
+.cal .day.loss{background:color-mix(in srgb,var(--red) var(--k,18%),var(--bg));border-color:color-mix(in srgb,var(--red) 45%,var(--line))}
+.cal .day.today{outline:2px solid var(--yellow);outline-offset:-1px}
+.cal .day.sel{outline:2px solid var(--text);outline-offset:-1px}
+.cal .day[disabled]{cursor:default}
+.daylist{margin-top:14px;display:grid;gap:6px}
+.daylist h4{margin:0 0 2px;font:600 14px var(--cond);color:var(--muted)}
+.daylist .it{display:flex;gap:10px;align-items:center;font-size:13.5px;padding:7px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--line)}
+.daylist .it .r{font:700 12px var(--cond);letter-spacing:.04em}
+.daylist .it .pl{margin-left:auto;font:700 14px var(--cond);font-variant-numeric:tabular-nums}
+.ranges{display:flex;gap:6px;margin-bottom:10px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .tip{position:absolute;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12.5px;white-space:nowrap;transform:translate(-50%,-110%);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.chart .tip b{font:700 14px var(--cond)}
+.chart .empty{padding:30px 0;text-align:center}
 @media (max-width:860px){
   .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
   .chat{border-right:none;border-bottom:1px solid var(--line)}
   .rail{max-height:42vh}
+  .pnl{position:fixed;inset:0;right:0;width:auto;z-index:30;border-left:none}
   .main.rail-collapsed{grid-template-columns:1fr}
   .main.rail-collapsed .rail h2{flex-direction:row;padding:10px 14px 10px 8px}
   .main.rail-collapsed .rail h2 .label{display:inline}
@@ -353,7 +398,7 @@ button.tag{cursor:pointer}
   </button>
   <div class="toolbar" id="toolbar" hidden>
     <button class="ghost" disabled title="Coming soon">Friends <span class="soon">Soon</span></button>
-    <button class="ghost" disabled title="Coming soon">Profit by day <span class="soon">Soon</span></button>
+    <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
   </div>
 </div>
 
@@ -391,6 +436,17 @@ button.tag{cursor:pointer}
     </h2>
     <div class="list" id="list"></div>
   </aside>
+  <section class="pnl" id="pnl" aria-labelledby="pnlTitle" aria-hidden="true">
+    <header>
+      <h3 id="pnlTitle">Profit &amp; loss</h3>
+      <div class="seg" role="group" aria-label="View"><button id="pnlCal" aria-pressed="true">Calendar</button><button id="pnlGraph" aria-pressed="false">Graph</button></div>
+      <button class="close" id="pnlClose" aria-label="Close profit and loss">×</button>
+    </header>
+    <div class="pnl-body">
+      <div class="pnl-stats" id="pnlStats"></div>
+      <div id="pnlView"></div>
+    </div>
+  </section>
 </div>
 
 
@@ -411,7 +467,10 @@ button.tag{cursor:pointer}
         <option value="bell">Bell</option>
         <option value="digital">Digital</option>
         <option value="siren">Siren</option>
-      </select></div></div>
+      </select>
+      <button class="ghost" id="soundAdd" title="Use your own sound file (MP3, WAV, OGG…, up to 1 MB)">Add sound…</button>
+      <button class="ghost" id="soundDel" hidden title="Delete this custom sound" aria-label="Delete this custom sound">×</button>
+      <input type="file" id="soundFile" accept="audio/*" hidden></div></div>
     <div class="hud-row"><label class="lbl" for="uiColor">Colour</label>
       <div class="ctl theme">
         <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
@@ -424,6 +483,8 @@ button.tag{cursor:pointer}
         <button class="ghost" id="bgPick">Choose image</button>
         <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
         <input type="file" id="bgFile" accept="image/*" hidden>
+        <label class="fx">Blur<input type="range" id="bgBlur" min="0" max="20" step="1" value="3"><output id="bgBlurOut">3px</output></label>
+        <label class="fx">Saturation<input type="range" id="bgSat" min="0" max="200" step="5" value="100"><output id="bgSatOut">100%</output></label>
       </div></div>
     <div class="hud-row"><span class="lbl">Ladbrokes</span>
       <div class="ctl" style="display:grid;gap:12px">
@@ -552,8 +613,8 @@ const store = {
   del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); },
   onSet: null   // set by Google account sync while signed in
 };
-const GEMINI = { model:'gemini-3.5-flash', backup:'gemini-3.8-flash',
-  modelHint:'Use a Flash model, e.g. gemini-3.5-flash. Flash models are on the free tier.',
+const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
+  modelHint:'Use a Flash model, e.g. gemini-3.5-flash-lite or gemini-3.5-flash. Flash models are on the free tier.',
   keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' };
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
@@ -570,6 +631,8 @@ function normSettings(old){
   // Move anyone still on the previous defaults (3.8 Flash + 3.5 Flash-Lite) to the new pair
   if(out.model === 'gemini-3.8-flash' && /^gemini-3\.(1|5)-flash-lite$/.test(out.backup)){ out.model = GEMINI.model; out.backup = GEMINI.backup; }
   if(out.backup === 'gemini-3.1-flash-lite') out.backup = GEMINI.backup;
+  // ...and anyone still on the 3.5 Flash + 3.8 Flash defaults moves to 3.5 Flash-Lite
+  if(out.model === 'gemini-3.5-flash' && out.backup === 'gemini-3.8-flash') out.model = GEMINI.model;
   return out;
 }
 let settings = normSettings(store.get('tt.settings', {}));
@@ -711,6 +774,19 @@ $('#uiAlpha').oninput = saveTheme;
 $('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); store.del('tt.theme'); };
 
 /* ---------- Chat background ---------- */
+// Blur and saturation of the background picture (Settings → Background)
+function bgFx(){
+  const fx = store.get('tt.bgFx', {}) || {}, blur = fx.blur ?? 3, sat = fx.sat ?? 100;
+  $('#bgBlur').value = blur; $('#bgBlurOut').textContent = blur + 'px';
+  $('#bgSat').value = sat; $('#bgSatOut').textContent = sat + '%';
+  $('.chat').style.setProperty('--bg-blur', blur + 'px'); $('.chat').style.setProperty('--bg-sat', sat / 100);
+}
+['#bgBlur', '#bgSat'].forEach(id => {
+  $(id).oninput = () => { $('.chat').style.setProperty('--bg-blur', $('#bgBlur').value + 'px'); $('.chat').style.setProperty('--bg-sat', $('#bgSat').value / 100);
+                          $('#bgBlurOut').textContent = $('#bgBlur').value + 'px'; $('#bgSatOut').textContent = $('#bgSat').value + '%'; };
+  $(id).onchange = () => store.set('tt.bgFx', { blur: +$('#bgBlur').value, sat: +$('#bgSat').value });
+});
+bgFx();
 function applyBg(url){
   $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
   $('.chat').classList.toggle('has-bg', !!url);
@@ -1193,7 +1269,7 @@ const unitValue = () => +plPrefs.unitValue > 0 ? +plPrefs.unitValue : 10;
 const fmtPL = n => (n > 0 ? '+' : n < 0 ? '−' : '') + (inDollars() ? '$' + (Math.abs(n) * unitValue()).toFixed(2) : fmtU(Math.abs(n)) + 'u');
 const playPL = p => p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
 const lastUnits = () => store.get('tt.lastUnits', 1);
-function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); }
+function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); renderPnl(); }
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
 function settle(a, result, odds, units){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
@@ -1318,13 +1394,145 @@ $('#histBtn').onclick = () => setRailMode(railMode === 'history' ? 'alarms' : 'h
 $('#railToggle').onclick = () => { if($('.main').classList.contains('rail-collapsed')){ setRailMode('alarms'); setRail(true); } else setRail(false); };
 setRailMode(railMode);
 
+/* ---------- Profit & loss page (calendar / graph) ---------- */
+let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
+const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+function dailyPL(){ const m = new Map(); plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += playPL(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
+const plClass = n => n > 1e-9 ? 'up' : n < -1e-9 ? 'down' : '';
+const plText = n => Math.abs(n) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(n);
+function setPnl(open){
+  $('#pnl').classList.toggle('open', open); $('#pnl').setAttribute('aria-hidden', !open);
+  $('#pnlBtn').setAttribute('aria-expanded', open); $('#pnlBtn').setAttribute('aria-pressed', open);
+  if(open) renderPnl();
+}
+$('#pnlBtn').onclick = () => setPnl(!$('#pnl').classList.contains('open'));
+$('#pnlClose').onclick = () => setPnl(false);
+$('#pnlCal').onclick = () => { pnlView = 'calendar'; store.set('tt.pnlView', pnlView); renderPnl(); };
+$('#pnlGraph').onclick = () => { pnlView = 'graph'; store.set('tt.pnlView', pnlView); renderPnl(); };
+function renderPnl(){
+  if(!$('#pnl').classList.contains('open')) return;
+  $('#pnlCal').setAttribute('aria-pressed', pnlView === 'calendar'); $('#pnlGraph').setAttribute('aria-pressed', pnlView === 'graph');
+  const days = dailyPL(), now = new Date(), tk = dayKey(now);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const sum = f => plays.filter(f).reduce((t, p) => t + playPL(p), 0);
+  const today = (days.get(tk) || { pl:0 }).pl, month = sum(p => p.start >= monthStart), all = sum(() => true);
+  const wins = plays.filter(p => p.result === 'cash').length;
+  $('#pnlStats').innerHTML = '';
+  [['Today', plText(today), plClass(today)], ['This month', plText(month), plClass(month)], ['All time', plText(all), plClass(all)],
+   ['Win rate', plays.length ? Math.round(wins / plays.length * 100) + '%' : '—', '']].forEach(([k, v, c]) => {
+    const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v; $('#pnlStats').appendChild(d);
+  });
+  const view = $('#pnlView'); view.innerHTML = '';
+  if(pnlView === 'calendar') renderCalendar(view, days, tk); else renderGraph(view, days);
+}
+function renderCalendar(view, days, tk){
+  const now = new Date();
+  if(!pnlMonth) pnlMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const y = pnlMonth.getFullYear(), m = pnlMonth.getMonth();
+  const nav = document.createElement('div'); nav.className = 'cal-nav';
+  nav.innerHTML = `<button aria-label="Previous month">‹</button><b>${pnlMonth.toLocaleDateString([], { month:'long', year:'numeric' })}</b><button aria-label="Next month">›</button>`;
+  nav.children[0].onclick = () => { pnlMonth = new Date(y, m - 1, 1); pnlSel = null; renderPnl(); };
+  nav.children[2].onclick = () => { pnlMonth = new Date(y, m + 1, 1); pnlSel = null; renderPnl(); };
+  view.appendChild(nav);
+  const grid = document.createElement('div'); grid.className = 'cal';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => { const e = document.createElement('div'); e.className = 'dow'; e.textContent = d; grid.appendChild(e); });
+  const lead = (new Date(y, m, 1).getDay() + 6) % 7, n = new Date(y, m + 1, 0).getDate();
+  const monthVals = [...Array(n)].map((_, i) => (days.get(dayKey(new Date(y, m, i + 1))) || {}).pl || 0), maxAbs = Math.max(1e-9, ...monthVals.map(Math.abs));
+  for(let i = 0; i < lead; i++){ const b = document.createElement('div'); b.className = 'day blank'; grid.appendChild(b); }
+  for(let d = 1; d <= n; d++){
+    const k = dayKey(new Date(y, m, d)), e = days.get(k), b = document.createElement('button');
+    b.className = 'day' + (e ? (e.pl > 1e-9 ? ' win' : e.pl < -1e-9 ? ' loss' : '') : '') + (k === tk ? ' today' : '') + (k === pnlSel ? ' sel' : '');
+    if(e) b.style.setProperty('--k', Math.round(12 + 30 * Math.abs(e.pl) / maxAbs) + '%');   // stronger tint for bigger days
+    b.innerHTML = `<span class="n">${d}</span><span class="v"></span>`;
+    if(e){ b.querySelector('.v').textContent = plText(e.pl); b.title = `${e.n} match${e.n > 1 ? 'es' : ''}: ${plText(e.pl)}`; b.onclick = () => { pnlSel = pnlSel === k ? null : k; renderPnl(); }; }
+    else b.disabled = true;
+    grid.appendChild(b);
+  }
+  view.appendChild(grid);
+  const sel = pnlSel && days.get(pnlSel);
+  if(sel){
+    const list = document.createElement('div'); list.className = 'daylist';
+    const h = document.createElement('h4'); h.textContent = keyDate(pnlSel).toLocaleDateString([], { weekday:'long', day:'numeric', month:'long' }) + ` · ${plText(sel.pl)}`; list.appendChild(h);
+    sel.plays.slice().sort((a, b) => a.start - b.start).forEach(p => {
+      const it = document.createElement('div'), pl = playPL(p); it.className = 'it';
+      it.innerHTML = `<span class="r ${p.result === 'cash' ? 'up' : 'down'}">${p.result === 'cash' ? 'CASH' : 'CHALK'}</span><span class="nm"></span><span class="pl ${plClass(pl)}"></span>`;
+      it.querySelector('.nm').textContent = `${fmtTime(p.start)} · ${p.name}`; it.querySelector('.pl').textContent = plText(pl);
+      list.appendChild(it);
+    });
+    view.appendChild(list);
+  }
+}
+function renderGraph(view, days){
+  const ranges = document.createElement('div'); ranges.className = 'seg ranges';
+  [[7,'7D'],[30,'30D'],[90,'90D'],[0,'All']].forEach(([v, l]) => { const b = document.createElement('button'); b.textContent = l; b.setAttribute('aria-pressed', pnlRange === v); b.onclick = () => { pnlRange = v; store.set('tt.pnlRange', v); renderPnl(); }; ranges.appendChild(b); });
+  view.appendChild(ranges);
+  const box = document.createElement('div'); box.className = 'chart'; view.appendChild(box);
+  if(!plays.length){ box.innerHTML = '<div class="empty">No settled matches yet. Cash or Chalk a match to start your graph.</div>'; return; }
+  // One point per day from the first day in range to today; value = running total (cumulative P/L)
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstPlay = keyDate([...days.keys()].sort()[0]);
+  let start = pnlRange ? new Date(today.getTime() - (pnlRange - 1) * 864e5) : firstPlay;
+  if(start > today) start = today;
+  let run = plays.filter(p => p.start < start.getTime()).reduce((t, p) => t + playPL(p), 0);
+  const pts = [];
+  for(let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)){ const e = days.get(dayKey(d)); run += e ? e.pl : 0; pts.push({ d: new Date(d), day: e ? e.pl : 0, n: e ? e.n : 0, cum: run }); }
+  const W = Math.max(280, box.clientWidth || 520), H = 240, L = 52, R = 12, T = 12, B = 26;
+  // Round ("nice") gridline steps that always include 0, in the display unit (u or $)
+  const k = inDollars() ? unitValue() : 1, vals = pts.map(p => p.cum * k), lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+  const raw = (hi - lo || 1) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(v => v >= raw) / k;
+  const y0 = Math.floor(lo / k / step) * step, y1 = Math.max(Math.ceil(hi / k / step) * step, y0 + step);
+  const X = i => L + (pts.length < 2 ? (W - L - R) / 2 : i * (W - L - R) / (pts.length - 1)), Y = v => T + (y1 - v) * (H - T - B) / (y1 - y0);
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
+  const last = pts[pts.length - 1].cum;
+  svg.setAttribute('aria-label', `Running profit and loss, ${pts.length} days, now ${plText(last)}`);
+  const el = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); svg.appendChild(e); return e; };
+  // recessive grid + y labels
+  for(let v = y0; v <= y1 + step / 2; v += step){ const yy = Y(v);
+    el('line', { x1:L, x2:W - R, y1:yy, y2:yy, stroke:'var(--line)', 'stroke-width':1, opacity:.6 });
+    const t = el('text', { x:L - 8, y:yy + 4, 'text-anchor':'end', fill:'var(--muted)', 'font-size':11 }); t.textContent = plText(v).replace(/^\+/, ''); }
+  el('line', { x1:L, x2:W - R, y1:Y(0), y2:Y(0), stroke:'var(--muted)', 'stroke-width':1 });   // zero baseline
+  // x labels: first, middle, last
+  [0, Math.floor((pts.length - 1) / 2), pts.length - 1].filter((v, i, a) => a.indexOf(v) === i).forEach(i => {
+    const t = el('text', { x:X(i), y:H - 6, 'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle', fill:'var(--muted)', 'font-size':11 });
+    t.textContent = pts[i].d.toLocaleDateString([], { day:'numeric', month:'short' }); });
+  // area tint (green above zero, red below) + 2px line
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.cum).toFixed(1)}`).join('');
+  const clipId = 'pc' + Date.now(), defs = el('defs', {});
+  const mk = (id, y, h) => { const c = document.createElementNS(ns, 'clipPath'); c.id = id; const r = document.createElementNS(ns, 'rect'); r.setAttribute('x', 0); r.setAttribute('y', y); r.setAttribute('width', W); r.setAttribute('height', Math.max(0, h)); c.appendChild(r); defs.appendChild(c); };
+  mk(clipId + 'a', 0, Y(0)); mk(clipId + 'b', Y(0), H);
+  const area = `${path}L${X(pts.length - 1).toFixed(1)},${Y(0)}L${X(0).toFixed(1)},${Y(0)}Z`;
+  el('path', { d:area, fill:'var(--green)', opacity:.14, 'clip-path':`url(#${clipId}a)` });
+  el('path', { d:area, fill:'var(--red)', opacity:.14, 'clip-path':`url(#${clipId}b)` });
+  el('path', { d:path, fill:'none', stroke:'var(--text)', 'stroke-width':2, 'stroke-linejoin':'round', 'stroke-linecap':'round' });
+  const endDot = el('circle', { cx:X(pts.length - 1), cy:Y(last), r:4.5, fill: last >= 0 ? 'var(--green)' : 'var(--red)', stroke:'var(--panel)', 'stroke-width':2 });
+  // hover: crosshair + tooltip
+  const cross = el('line', { y1:T, y2:H - B, stroke:'var(--muted)', 'stroke-width':1, 'stroke-dasharray':'3 3', visibility:'hidden' });
+  const dot = el('circle', { r:5, fill:'var(--text)', stroke:'var(--panel)', 'stroke-width':2, visibility:'hidden' });
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true;
+  const hit = el('rect', { x:L, y:0, width:W - L - R, height:H, fill:'transparent' });
+  hit.addEventListener('pointermove', e => {
+    const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round(pts.length < 2 ? 0 : (x - L) / ((W - L - R) / (pts.length - 1)))));
+    const p = pts[i]; cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(p.cum)); dot.setAttribute('visibility', 'visible');
+    tip.hidden = false; tip.style.left = (X(i) * r.width / W) + 'px'; tip.style.top = (Y(p.cum) * r.height / H) + 'px';
+    tip.innerHTML = `<div></div><b class="${plClass(p.cum)}"></b><div class="muted"></div>`;
+    tip.children[0].textContent = p.d.toLocaleDateString([], { weekday:'short', day:'numeric', month:'short' });
+    tip.children[1].textContent = 'Total ' + plText(p.cum);
+    tip.children[2].textContent = p.n ? `Day ${plText(p.day)} · ${p.n} match${p.n > 1 ? 'es' : ''}` : 'No matches';
+  });
+  hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  box.appendChild(svg); box.appendChild(tip);
+}
+
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(el){ el.classList.remove('show'); }
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
-document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal','#hud','#settleModal'].forEach(id=>closeModal($(id))); });
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ if(document.querySelector('.modal.show')) ['#viewer','#settingsModal','#hud','#settleModal'].forEach(id=>closeModal($(id))); else setPnl(false); } });
 
 function openViewer(a){
   viewing = a.id; renderViewerTags();
@@ -1398,9 +1606,48 @@ const SOUNDS = {
   // continuous up-and-down siren
   siren: { len:1.3, play:(tone, t) => { tone({ at:t, freq:600, to:1200, type:'sawtooth', len:.65, vol:.14 }); tone({ at:t+.65, freq:1200, to:600, type:'sawtooth', len:.65, vol:.14 }); } }
 };
+// Custom sounds: uploaded audio files kept in this browser as { id, name, data } (data = data: URL)
+let customSounds = store.get('tt.sounds', []) || [];
+const isCustom = n => String(n).startsWith('c:') && customSounds.some(c => 'c:' + c.id === n);
+function addSoundOption(c){
+  const o = document.createElement('option'); o.value = 'c:' + c.id; o.textContent = '♪ ' + c.name; $('#soundPick').appendChild(o);
+}
+async function decodeSound(c){
+  try{
+    const buf = await ctx().decodeAudioData(await (await fetch(c.data)).arrayBuffer());
+    SOUNDS['c:' + c.id] = { len: Math.max(.4, buf.duration + .25), play: (tone, t) => tone({ at: t, buffer: buf }) };
+  }catch(e){ console.warn('Could not decode sound', c.name, e); }
+}
+customSounds.forEach(c => { addSoundOption(c); decodeSound(c); });
 let soundName = store.get('tt.sound', 'beep');
-if(!SOUNDS[soundName]) soundName = 'beep';
+if(!SOUNDS[soundName] && !isCustom(soundName)) soundName = 'beep';
 $('#soundPick').value = soundName;
+const showSoundDel = () => { $('#soundDel').hidden = !isCustom($('#soundPick').value); };
+showSoundDel();
+$('#soundAdd').onclick = () => $('#soundFile').click();
+$('#soundFile').onchange = e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  if(!/^audio\//.test(f.type)) return toast('That file isn\'t an audio file.');
+  if(f.size > 1024 * 1024) return toast('That sound is over 1 MB. Try a shorter clip.');
+  const r = new FileReader();
+  r.onload = async () => {
+    const c = { id: Date.now().toString(36), name: f.name.replace(/\.[^.]+$/, '').slice(0, 30) || 'Custom sound', data: r.result };
+    await decodeSound(c);
+    if(!SOUNDS['c:' + c.id]) return toast('Couldn\'t play that file. Try an MP3 or WAV.');
+    customSounds.push(c);
+    if(!store.set('tt.sounds', customSounds)){ customSounds.pop(); delete SOUNDS['c:' + c.id]; return toast('Browser storage is full, so the sound couldn\'t be saved.'); }
+    addSoundOption(c); $('#soundPick').value = 'c:' + c.id; $('#soundPick').onchange({ target: $('#soundPick') });
+    toast(`Added "${c.name}" and set it as your alarm sound.`);
+  };
+  r.readAsDataURL(f);
+};
+$('#soundDel').onclick = () => {
+  const v = $('#soundPick').value; if(!isCustom(v)) return;
+  customSounds = customSounds.filter(c => 'c:' + c.id !== v); store.set('tt.sounds', customSounds); delete SOUNDS[v];
+  $('#soundPick').querySelector(`option[value="${v}"]`).remove();
+  $('#soundPick').value = 'beep'; soundName = 'beep'; store.set('tt.sound', 'beep'); showSoundDel();
+};
 
 function ctx(){
   audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
@@ -1408,7 +1655,8 @@ function ctx(){
   return audioCtx;
 }
 let loopOut = null;   // while an alarm rings, its notes go through this node so they can be cut off instantly
-function tone({ at, freq, to, type, len, vol, out }){
+function tone({ at, freq, to, type, len, vol, out, buffer }){
+  if(buffer){ const a = ctx(), src = a.createBufferSource(); src.buffer = buffer; src.connect(out || a.destination); src.start(at); return; }   // custom sound file
   const a = ctx(), o = a.createOscillator(), g = a.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, at);
   if(to) o.frequency.linearRampToValueAtTime(to, at + len);
@@ -1443,7 +1691,7 @@ function stopLoop(){
   // cut off notes that were already scheduled ahead
   try{ if(loopOut){ loopOut.disconnect(); loopOut = null; } }catch(e){}
 }
-$('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.sound', soundName); beep(); };   // play the new sound once
+$('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.sound', soundName); showSoundDel(); beep(); };   // play the new sound once
 
 /* ---------- Clear all (click twice to confirm) ---------- */
 let clearTimer = null;
@@ -1520,7 +1768,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1546,11 +1794,11 @@ function refreshFromStore(){
     settings = normSettings(store.get('tt.settings', {}));
     alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
     lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
-    soundName = SOUNDS[store.get('tt.sound', 'beep')] ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName;
+    soundName = (SOUNDS[store.get('tt.sound', 'beep')] || isCustom(store.get('tt.sound', 'beep'))) ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName; showSoundDel();
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
-    plays = store.get('tt.history', []) || []; plSettings();
+    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl();
     tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }

@@ -23,13 +23,18 @@ Screenshots are read by Google Gemini (free tier).
 8. The tab at the top right of the chat shows today's P/L (matches starting today, reset to 0 at 12 AM) and either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
+9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
+   and shows today / this month / all time / win rate, with a **Calendar** (each day's P/L; click a day for its
+   matches) or a **Graph** (running total over 7, 30, 90 days or all time).
+10. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
+    and set the background picture's **blur** and **saturation**.
 
 Keep the tab open for alarms to ring.
 
 ## Where your data is kept
-- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, old-alarm removal time, Ladbrokes links, tags, match history, P/L tracker options and Gemini settings
+- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, old-alarm removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
-  Only you can read them. Whether the alarm list is open stays per device.
+  Only you can read them. Whether the alarm list is open, and any custom alarm sounds you add, stay on that device.
   Signing out removes your data from that browser. It stays in your account.
 - **Without an account:** everything stays in that browser's local storage, separate for every device and browser.
 
