@@ -143,6 +143,38 @@ body.has-bg #bgClear{display:inline-block}
 .railToggle{width:32px;height:32px;border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;flex:none}
 .railToggle:hover{color:var(--text);border-color:var(--line)}
 .railToggle svg{transition:transform .25s}
+.histBtn svg{transform:none !important}
+.histBtn[aria-pressed="true"]{color:var(--yellow);border-color:var(--line)}
+/* Cash / Chalk on finished alarms */
+.settle{display:flex;gap:6px;align-self:center}
+.settle button{font:700 13px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:6px 10px;border:1px solid currentColor;background:none}
+.settle .cash{color:var(--green)}
+.settle .cash:hover{background:color-mix(in srgb,var(--green) 16%,transparent)}
+.settle .chalk{color:var(--red)}
+.settle .chalk:hover{background:color-mix(in srgb,var(--red) 16%,transparent)}
+/* History cards: green = cash, red = chalk */
+.card.hit{border-left-color:var(--green);background:color-mix(in srgb,var(--green) 9%,var(--panel))}
+.card.miss{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 9%,var(--panel))}
+.card .result{font:700 13px/1 var(--cond);letter-spacing:.04em;align-self:center;text-align:right}
+.card.hit .result{color:var(--green)}
+.card.miss .result{color:var(--red)}
+.card .money{grid-column:1/-1;display:flex;gap:14px;font-size:13px;color:var(--muted);margin-top:4px}
+.card .money b{color:var(--text);font-weight:600}
+.card .money .pl{margin-left:auto;font:700 16px/1 var(--cond)}
+.card.hit .money .pl{color:var(--green)}
+.card.miss .money .pl{color:var(--red)}
+/* Settle popup */
+.settle-sheet{width:min(420px,100%)}
+.settle-sheet .field input{font-size:16px}
+.settle-sheet .profit{margin:4px 0 16px;font:700 22px/1.2 var(--cond)}
+.settle-sheet .profit.pos{color:var(--green)}
+.settle-sheet .profit.neg{color:var(--red)}
+.settle-sheet .resultpick{display:flex;gap:8px;margin-bottom:14px}
+.settle-sheet .resultpick button{flex:1;font:700 14px/1 var(--cond);letter-spacing:.04em;padding:9px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--muted)}
+.settle-sheet .resultpick button[aria-pressed="true"].cash{color:var(--green);border-color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.settle-sheet .resultpick button[aria-pressed="true"].chalk{color:var(--red);border-color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent)}
+.settle-sheet .actions{display:flex;gap:8px}
+.settle-sheet .actions .send{flex:1}
 /* Collapsed: alarms tuck into a thin strip on the right */
 .main{transition:grid-template-columns .25s}
 .main.rail-collapsed{grid-template-columns:1fr 48px}
@@ -158,7 +190,7 @@ body.has-bg #bgClear{display:inline-block}
 .card.over{border-left-color:var(--green)}
 .card.under{border-left-color:var(--red)}
 .card.ringing{animation:buzz 1.1s infinite;border-color:var(--yellow);background:var(--ringbg)}
-.card.fired{opacity:.55}
+.card.fired > :not(.settle){opacity:.55}
 @keyframes buzz{
   0%,46%,100%{transform:translate(0,0) rotate(0)}
   4%{transform:translate(-4px,0) rotate(-1deg)} 8%{transform:translate(4px,0) rotate(1deg)}
@@ -336,7 +368,10 @@ button.tag{cursor:pointer}
       <button class="railToggle" id="railToggle" aria-expanded="true" aria-label="Hide alarms" title="Hide alarms">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
-      <span class="label">Alarms</span> <small id="alarmCount"></small>
+      <button class="railToggle histBtn" id="histBtn" aria-pressed="false" aria-label="Show match history" title="Match history">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+      </button>
+      <span class="label" id="railLabel">Alarms</span> <small id="alarmCount"></small>
     </h2>
     <div class="list" id="list"></div>
   </aside>
@@ -412,6 +447,24 @@ button.tag{cursor:pointer}
 </div>
 
 <!-- Settings -->
+<!-- Cash / Chalk: record a finished match -->
+<div class="modal" id="settleModal" role="dialog" aria-modal="true" aria-labelledby="settleTitle">
+  <div class="sheet settle-sheet">
+    <header><h3 id="settleTitle"></h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="resultpick">
+      <button class="cash" id="pickCash" aria-pressed="true">CASH</button>
+      <button class="chalk" id="pickChalk" aria-pressed="false">CHALK</button>
+    </div>
+    <div class="field"><label for="settleOdds">Odds (decimal)</label><input id="settleOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"></div>
+    <div class="field"><label for="settleUnits">Units placed</label><input id="settleUnits" type="number" min="0.01" step="0.1" inputmode="decimal" placeholder="e.g. 1"></div>
+    <div class="profit" id="settleProfit"></div>
+    <div class="actions">
+      <button class="ghost danger" id="settleDelete" hidden>Delete</button>
+      <button class="send" id="settleSave">Save to history</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="sheet settings">
     <header><h3 id="setTitle">Gemini settings</h3><button class="close" data-close aria-label="Close">×</button></header>
@@ -492,6 +545,8 @@ const serverBase = () => settings.server.trim().replace(/\/+$/, '');
 let alarms = store.get('tt.alarms', []);
 let tags = store.get('tt.tags', []) || [];   // custom tags: [{ id, name, color }]; alarms keep a list of tag ids
 let lead = store.get('tt.lead', 5);
+let plays = store.get('tt.history', []) || [];   // settled matches: { id, name, league, start, side, line, ouPct, edge, tags, result:'cash'|'chalk', odds, units, settled }
+let railMode = store.get('tt.railMode', 'alarms');   // what the right-hand list shows: 'alarms' or 'history' (per device)
 let cleanupHours = store.get('tt.cleanupHours', 3);   // alarms are removed this many hours after their match starts (0 = never)
 const MAX_SHOTS = 10;
 let pendingImgs = [];    // data URLs waiting to be sent
@@ -910,6 +965,8 @@ $('#leadMin').onchange = e => { const msg = setLead(e.target.value); if(msg) add
 let sideArmed = null, sideTimer = null;   // OVER/UNDER switches only on a second press within 3 s
 function render(){
   if(!$('#clearAll').classList.contains('confirm')) $('#clearAll').disabled = !alarms.length;
+  if(railMode === 'history') return renderHistory();
+  $('#railLabel').textContent = 'Alarms';
   const list = $('#list'); list.innerHTML = '';
   const active = alarms.filter(a=>!a.fired).length;
   $('#alarmCount').textContent = alarms.length ? `${active} upcoming` : '';
@@ -922,7 +979,7 @@ function render(){
       <button class="names" title="Open on Ladbrokes"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
       <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before</div>
-      ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : `<div class="count" data-count="${a.id}">${a.fired ? 'done' : countdown(a.ring)}</div>`}
+      ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
       <div class="row">
         <button class="side ${a.side.toLowerCase()}" title="Switch over/under">${a.side}</button>
         <span class="tags"></span>
@@ -931,6 +988,10 @@ function render(){
       </div>
       <button class="del" aria-label="Delete alarm" title="Delete alarm">×</button>`;
     c.querySelector('.names').textContent = a.name;
+    if(c.querySelector('.settle')){
+      c.querySelector('.cash').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash' }); };
+      c.querySelector('.chalk').onclick = e => { e.stopPropagation(); settle(a, 'chalk', null, lastUnits()); };
+    }
     c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
     if(a.league) c.querySelector('.comp').textContent = a.league;
     c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
@@ -1082,13 +1143,104 @@ function toggleTag(alarmId, tagId, forceOn){
 }
 renderTagSettings();
 
+/* ---------- Match history (Cash / Chalk) ---------- */
+const fmtU = n => (Math.round(n * 100) / 100).toString();
+const playPL = p => p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
+const lastUnits = () => store.get('tt.lastUnits', 1);
+function savePlays(){ store.set('tt.history', plays); render(); }
+// Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
+function settle(a, result, odds, units){
+  plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
+                  edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, settled: Date.now() });
+  if(units) store.set('tt.lastUnits', units);
+  alarms = alarms.filter(x => x.id !== a.id); store.set('tt.alarms', alarms);
+  toast(result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (+${fmtU(playPL(plays[0]))}u)` : `Chalked: ${a.name} (−${fmtU(units || 0)}u)`);
+  savePlays();
+}
+// Popup: new cash from an alarm, or edit any history entry
+let settling = null;   // { alarm } for a new record, or { play } when editing
+function openSettle({ alarm, play, result }){
+  settling = { alarm, play, result: play ? play.result : result };
+  const src = play || alarm;
+  $('#settleTitle').textContent = src.name;
+  $('#settleOdds').value = play && play.odds ? play.odds : '';
+  $('#settleUnits').value = play ? play.units : lastUnits();
+  $('#settleDelete').hidden = !play;
+  $('#settleSave').textContent = play ? 'Save changes' : 'Save to history';
+  pickResult(settling.result); openModal('#settleModal');
+  setTimeout(() => (settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
+}
+function pickResult(r){
+  settling.result = r;
+  $('#pickCash').setAttribute('aria-pressed', r === 'cash'); $('#pickChalk').setAttribute('aria-pressed', r === 'chalk');
+  $('#settleOdds').closest('.field').style.opacity = r === 'cash' ? '' : '.5';
+  settleProfit();
+}
+function settleProfit(){
+  const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, el = $('#settleProfit');
+  if(settling.result === 'chalk'){ el.className = 'profit neg'; el.textContent = units > 0 ? `−${fmtU(units)}u` : ''; return; }
+  el.className = 'profit pos'; el.textContent = odds > 1 && units > 0 ? `+${fmtU(units * (odds - 1))}u profit` : '';
+}
+$('#pickCash').onclick = () => pickResult('cash');
+$('#pickChalk').onclick = () => pickResult('chalk');
+$('#settleOdds').oninput = settleProfit; $('#settleUnits').oninput = settleProfit;
+[$('#settleOdds'), $('#settleUnits')].forEach(i => i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('#settleSave').click(); } });
+$('#settleSave').onclick = () => {
+  const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, r = settling.result;
+  if(r === 'cash' && !(odds > 1)){ $('#settleOdds').focus(); return toast('Enter the decimal odds, e.g. 1.85'); }
+  if(!(units > 0)){ $('#settleUnits').focus(); return toast('Enter the units you placed'); }
+  closeModal($('#settleModal'));
+  if(settling.play){
+    Object.assign(settling.play, { result: r, odds: r === 'cash' ? odds : (odds > 1 ? odds : null), units });
+    store.set('tt.lastUnits', units); savePlays();
+  } else settle(settling.alarm, r, odds > 1 ? odds : null, units);
+};
+$('#settleDelete').onclick = () => {
+  if(!settling.play) return;
+  plays = plays.filter(p => p !== settling.play); closeModal($('#settleModal')); savePlays();
+};
+function renderHistory(){
+  const list = $('#list'); list.innerHTML = '';
+  const total = plays.reduce((t, p) => t + playPL(p), 0), wins = plays.filter(p => p.result === 'cash').length;
+  $('#railLabel').textContent = 'History';
+  $('#alarmCount').textContent = plays.length ? `${wins}/${plays.length} cashed · ${total >= 0 ? '+' : '−'}${fmtU(Math.abs(total))}u` : '';
+  if(!plays.length){ list.innerHTML = '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>'; return; }
+  for(const p of plays){
+    const c = document.createElement('div'), pl = playPL(p);
+    c.className = `card ${p.result === 'cash' ? 'hit' : 'miss'}`;
+    c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', `${p.name}, ${p.result}, edit`);
+    c.innerHTML = `
+      <div class="names"></div>
+      ${p.league ? '<div class="comp"></div>' : ''}
+      <div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div>
+      <div class="result">${p.result === 'cash' ? 'CASH' : 'CHALK'}</div>
+      <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="tags"></span><span class="line"></span></div>
+      <div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${pl >= 0 ? '+' : '−'}${fmtU(Math.abs(pl))}u</span></div>`;
+    c.querySelector('.names').textContent = p.name;
+    if(p.league) c.querySelector('.comp').textContent = p.league;
+    c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+    tags.filter(t => (p.tags || []).includes(t.id)).forEach(t => c.querySelector('.tags').appendChild(tagChip(t)));
+    c.onclick = () => openSettle({ play: p });
+    c.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openSettle({ play: p }); } };
+    list.appendChild(c);
+  }
+}
+function setRailMode(mode){
+  railMode = mode; store.set('tt.railMode', mode);
+  const b = $('#histBtn'); b.setAttribute('aria-pressed', mode === 'history');
+  b.title = mode === 'history' ? 'Back to alarms' : 'Match history'; b.setAttribute('aria-label', b.title);
+  render();
+}
+$('#histBtn').onclick = () => { if($('.main').classList.contains('rail-collapsed')) setRail(true); setRailMode(railMode === 'history' ? 'alarms' : 'history'); };
+setRailMode(railMode);
+
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(el){ el.classList.remove('show'); }
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
-document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal','#hud'].forEach(id=>closeModal($(id))); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') ['#viewer','#settingsModal','#hud','#settleModal'].forEach(id=>closeModal($(id))); });
 
 function openViewer(a){
   viewing = a.id; renderViewerTags();
@@ -1283,7 +1435,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1313,6 +1465,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
+    plays = store.get('tt.history', []) || [];
     tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }
