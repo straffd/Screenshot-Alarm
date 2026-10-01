@@ -131,11 +131,12 @@ body.has-bg #bgClear{display:inline-block}
 .composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 /* No API key yet: a button at the top middle of the chat (of the part not covered by panels) */
-.keycta{position:absolute;top:14px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
-  background:var(--yellow);color:#1a1a1a;font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
+.keycta{position:absolute;top:72px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
+  background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
 .keycta[hidden]{display:none}
+.chat:has(#keyCta:not([hidden])) .log{padding-top:128px !important}   /* room for it above the first message */
 @media (max-width:860px){.keycta{top:72px;left:50%} .chat:has(#keyCta:not([hidden])) .log{padding-top:124px !important}}
-.send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
+.send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
 .preview.show{display:flex}
@@ -229,7 +230,7 @@ body.has-bg #bgClear{display:inline-block}
   20%{transform:translate(-3px,0) rotate(-.6deg)} 24%{transform:translate(3px,0) rotate(.6deg)}
   28%{transform:translate(-3px,0) rotate(-.6deg)} 32%{transform:translate(3px,0) rotate(.6deg)}
   36%{transform:translate(-2px,0)} 40%{transform:translate(2px,0)}}
-.stop{font:700 13px/1 var(--cond);letter-spacing:.03em;background:var(--yellow);color:var(--onyellow);border:none;border-radius:5px;padding:6px 10px}
+.stop{font:700 13px/1 var(--cond);letter-spacing:.03em;background:var(--accent,var(--yellow));color:var(--on-accent,var(--onyellow));border:none;border-radius:5px;padding:6px 10px}
 .card .names{grid-column:1/-1;font:600 16px/1.25 var(--cond);padding-right:22px}
 .card .comp{grid-column:1/-1;justify-self:start;font:600 12px/1 var(--cond);letter-spacing:.03em;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:4px 7px;margin:2px 0 4px}
 .card .when{font-size:13px;color:var(--muted)}
@@ -311,7 +312,7 @@ button.tag{cursor:pointer}
 .landing-user .initial{display:grid;place-items:center;background:#25292e;font:600 24px var(--sans)}
 .landing-user .name{font-weight:600}
 .landing-user .email{font-size:13px;color:#8b9099;margin-bottom:14px}
-.openapp{width:100%;height:46px;border-radius:23px;border:none;background:var(--yellow);color:#1a1a1a;font:600 15px var(--sans)}
+.openapp{width:100%;height:46px;border-radius:23px;border:none;background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font:600 15px var(--sans)}
 .syncdot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
 .syncdot.busy{background:var(--yellow)}
 .syncdot.err{background:var(--red)}
@@ -428,6 +429,81 @@ button.tag{cursor:pointer}
   .lead{margin-left:0}
 }
 @media (prefers-reduced-motion:reduce){.card.ringing{animation:none}}
+
+/* ---------- Phones (html.phone: a phone, or a screen 860px wide or less) ----------
+   One row at the top: a compact top-left tab (logo, ⚙, ›) and the time | PNL tab beside it. The toolbar drops down as a
+   vertical menu. Panels fill the screen below that row, so the toolbar stays reachable; pop-ups open below it too.
+   Nothing may stick out sideways. */
+html.phone,html.phone body{overflow-x:clip}
+html.phone{--top-h:58px}
+html.phone .top{z-index:48;gap:8px;padding:9px 10px;height:var(--top-h);box-sizing:border-box}
+html.phone .brand{font-size:0;gap:0;padding:0 6px;margin:0}      /* just the ball: still the home button */
+html.phone .iconbtn{width:38px;height:38px}
+html.phone .toolbar{position:absolute;top:calc(100% + 6px);left:0;flex-direction:column;align-items:stretch;gap:6px;min-width:190px;
+  padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 12px 28px rgba(0,0,0,.5);animation:barDown .18s ease-out}
+html.phone .toolbar .ghost{justify-content:flex-start;padding:11px 14px;font-size:16px}
+@keyframes barDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+html.phone .pltab{top:0}
+html.phone .pltab.over{top:0}
+html.phone .main.pnl-open .pltab{transform:none}
+html.phone .pltab-in{height:var(--top-h);gap:8px;padding:0 12px 0 26px;clip-path:polygon(0 0,100% 0,100% 100%,16px 100%);font-size:16px}
+html.phone .pltab .sep{font-size:18px}
+html.phone .pltab .k{font-size:10.5px;margin-right:4px}
+html.phone .log{padding:calc(var(--top-h) + 14px) 14px 14px !important}
+html.phone .composer{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+html.phone .composer textarea{font-size:16px}   /* 16px stops iPhones zooming in on tap */
+html.phone .keycta{top:calc(var(--top-h) + 10px);left:50%;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
+html.phone .chat:has(#keyCta:not([hidden])) .log{padding-top:calc(var(--top-h) + 64px) !important}
+html.phone .pnl{position:fixed;top:var(--top-h);left:0;right:0 !important;bottom:0;width:auto !important;border-left:none;box-shadow:none}
+html.phone .pnl header{padding:12px 14px 8px}
+html.phone .pnl-body{padding:4px 14px calc(18px + env(safe-area-inset-bottom))}
+html.phone #bets .list{padding:4px 14px 18px}
+html.phone .ftabs{margin:0 14px 10px}
+html.phone .modal{z-index:45;align-items:flex-start;padding:calc(var(--top-h) + 8px) 10px 10px}
+html.phone .sheet{max-width:100%;width:100%;max-height:calc(100dvh - var(--top-h) - 18px);box-sizing:border-box;padding:14px}
+html.phone .sheet header{position:sticky;top:-14px;background:var(--panel);margin:-14px -14px 10px;padding:14px 14px 8px;z-index:1}
+html.phone select{max-width:100%}
+html.phone .hud-row{grid-template-columns:1fr;gap:6px}
+html.phone .hud .links label{grid-template-columns:1fr;gap:4px}
+html.phone .lead{flex-wrap:wrap}
+html.phone .settle-sheet .bet{grid-template-columns:1fr 1fr auto}
+html.phone .card{padding:11px 12px}
+html.phone .toast{max-width:calc(100vw - 24px);white-space:normal;text-align:center;bottom:calc(84px + env(safe-area-inset-bottom))}
+/* Phones: ☰ + drawer instead of the logo, ⚙ and toolbar */
+#drawerBtn,.drawer,.scrim{display:none}
+html.phone #drawerBtn{display:grid;border:none;background:none;border-radius:50%}   /* plain ☰, no outlined box */
+html.phone #drawerBtn:active{background:var(--panel-2)}
+html.phone #homeBtn,html.phone #menuBtn,html.phone #barBtn,html.phone #toolbar{display:none !important}
+html.phone .top{padding:9px 10px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
+html.phone .pltab{display:none}                                 /* no clock / PNL tab on phones (PNL is in the ☰ menu) */
+.me-chip{display:none}
+html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
+html.phone .me-chip:active{background:var(--panel-2)}
+.me-chip #meName{font:600 15px var(--cond);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-chip #meName.muted{color:var(--muted);font-weight:500}
+.me-chip .pfp{width:34px;height:34px;font-size:15px}
+html.phone .scrim{display:block;position:fixed;inset:0;z-index:54;background:rgba(0,0,0,.5);opacity:0;transition:opacity .22s}
+html.phone .scrim.show{opacity:1}
+html.phone .scrim[hidden]{display:none}
+html.phone .drawer{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:55;width:min(320px,84vw);overflow-y:auto;
+  background:var(--bg);border-right:1px solid var(--line);box-shadow:12px 0 32px rgba(0,0,0,.45);padding:0 10px calc(16px + env(safe-area-inset-bottom));
+  transform:translateX(-105%);visibility:hidden;transition:transform .25s ease,visibility 0s .25s}
+html.phone .drawer.open{transform:none;visibility:visible;transition:transform .25s ease,visibility 0s}
+.dr-brand{display:flex;align-items:center;gap:12px;background:none;border:none;color:var(--text);font:700 24px/1 var(--cond);padding:26px 14px 22px;text-align:left}
+.dr-brand .ball{width:18px;height:18px}
+.dr-sep{height:1px;background:var(--line);margin:4px -10px}
+.dr-label{font-size:13px;color:var(--muted);padding:16px 14px 6px}
+.dr-item{display:flex;align-items:center;gap:20px;width:100%;min-height:50px;padding:0 16px;margin:2px 0;border:none;border-radius:25px;background:none;color:var(--text);font-size:16px;text-align:left}
+.dr-item svg{flex:none;color:var(--text)}
+.dr-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-item em{font-style:normal;font-size:14px;color:var(--text);white-space:nowrap}
+.dr-item em.pill{font-weight:600;font-size:13px;color:#14161a;padding:3px 10px;border-radius:12px}
+.dr-item em.green{background:#7fd99a} .dr-item em.red{background:#f19a9a} .dr-item em.blue{background:#9cc2ff} .dr-item em.orange{background:#ffb27a}
+.dr-item:active{background:var(--panel-2)}
+.dr-item[aria-current="true"]{background:color-mix(in srgb,var(--blue) 30%,var(--panel-2))}
+html.phone #uiAlpha,html.phone #uiAlphaOut{display:none}   /* GUI colour is always fully opaque on phones */
+html.phone .alpha-note{display:inline}
+.alpha-note{display:none;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -464,6 +540,9 @@ button.tag{cursor:pointer}
 </div>
 
 <div class="top" id="top">
+  <button class="ghost iconbtn" id="drawerBtn" aria-controls="drawer" aria-expanded="false" aria-label="Menu" title="Menu">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
   <button class="brand" id="homeBtn" title="Back to the home page"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
   <button class="ghost iconbtn" id="menuBtn" aria-haspopup="dialog" aria-label="Settings" title="Settings">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -471,6 +550,7 @@ button.tag{cursor:pointer}
   <button class="ghost iconbtn" id="barBtn" aria-expanded="false" aria-controls="toolbar" aria-label="Show toolbar" title="Show toolbar">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
+  <button class="me-chip" id="meChip" title="Your profile"><span id="meName"></span><span id="mePfp"></span></button>
   <div class="toolbar" id="toolbar" hidden>
     <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false">Bets</button>
     <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
@@ -479,6 +559,24 @@ button.tag{cursor:pointer}
     <button class="ghost" id="lbBtn" aria-controls="lb" aria-expanded="false">Leaderboard</button>
   </div>
 </div>
+
+<!-- Phones: Gmail-style menu drawer (replaces the logo, ⚙ and toolbar) -->
+<div class="scrim" id="scrim" hidden></div>
+<nav class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
+  <button class="dr-brand" data-go="home"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
+  <div class="dr-sep"></div>
+  <button class="dr-item" data-go="chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Chat</span><em></em></button>
+  <div class="dr-sep"></div>
+  <button class="dr-item" data-go="bets"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg><span>Bets</span><em id="drBets"></em></button>
+  <button class="dr-item" data-go="hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>History</span><em id="drHist"></em></button>
+  <button class="dr-item" data-go="pnl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg><span>PNL</span><em id="drPnl"></em></button>
+  <button class="dr-item" data-go="lb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3a3 3 0 0 1-3 4M7 5H4a3 3 0 0 0 3 4"/></svg><span>Leaderboard</span><em></em></button>
+  <button class="dr-item" data-go="friends"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg><span>Friends</span><em id="drFriends"></em></button>
+  <div class="dr-label">Settings</div>
+  <button class="dr-item" data-go="settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span><em></em></button>
+  <button class="dr-item" data-go="gemini"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg><span>Gemini settings</span><em id="drKey"></em></button>
+  <button class="dr-item" data-go="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span id="drAcct">Home page</span><em></em></button>
+</nav>
 
 <div class="main">
   <section class="chat">
@@ -593,6 +691,7 @@ button.tag{cursor:pointer}
         <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
         <input type="range" id="uiAlpha" min="20" max="100" step="5" value="100" aria-label="UI opacity" title="UI opacity">
         <output id="uiAlphaOut" for="uiAlpha">100%</output>
+        <span class="alpha-note">Always 100% opaque on phones</span>
         <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
       </div></div>
     <div class="hud-row"><span class="lbl">Background</span>
@@ -758,6 +857,11 @@ const ringing = new Set();   // ids of alarms currently going off
 let audioCtx = null, beepTimer = null;
 
 const $ = s => document.querySelector(s);
+// Phones: a phone's browser, or any screen 860px wide or less. Sets html.phone for the phone layout.
+const isPhone = () => /Android|iPhone|iPod|Mobile|IEMobile|Opera Mini/i.test(navigator.userAgent) || innerWidth <= 860;
+function markPhone(){ const was = document.documentElement.classList.contains('phone'), now = isPhone();
+  document.documentElement.classList.toggle('phone', now); return was !== now; }
+markPhone();
 $('#leadMin').value = lead;
 
 /* ---------- Chat log ---------- */
@@ -780,8 +884,8 @@ function addMsg(who, text, opts={}){
   return d;
 }
 addMsg('bot', ready()
-  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under the ⚙ button at the top left.'
-  : 'Add your free Gemini API key under the ⚙ button (top left) → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
+  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under ' + (isPhone() ? 'the ☰ menu → Settings.' : 'the ⚙ button at the top left.')
+  : 'Add your free Gemini API key under ' + (isPhone() ? 'the ☰ menu (top left)' : 'the ⚙ button (top left)') + ' → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
 
 /* ---------- Image input (up to MAX_SHOTS) ---------- */
 let capWarned = false;
@@ -841,13 +945,20 @@ function shrink(dataUrl, maxW=1400){
 }
 
 /* ---------- UI colour and opacity ---------- */
-const UI_DEFAULT = { color:'#1e2125', alpha:100 };
+if(isPhone()) $('#text').placeholder = 'Screenshot or type a match';
+const UI_DEFAULT = { color:'#1e2125', alpha:40 };   // desktop default: 40% opacity (phones are always solid)
 function applyTheme(t){
   const root = document.documentElement.style;
   const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted','--scroll','--scroll-hover'];
-  if(!t || (t.color === UI_DEFAULT.color && t.alpha === UI_DEFAULT.alpha)){ names.forEach(n => root.removeProperty(n)); }
+  const th = t || UI_DEFAULT;
+  if(th.color === UI_DEFAULT.color && (th.alpha === 100 || isPhone())){ names.forEach(n => root.removeProperty(n)); }   // solid default grey: the stylesheet's own colours
+  else if(th.color === UI_DEFAULT.color){   // default grey, see-through: the stylesheet's greys with this opacity
+    const a = th.alpha / 100; names.forEach(n => root.removeProperty(n));
+    root.setProperty('--panel', `rgba(30,33,37,${a})`); root.setProperty('--panel-2', `rgba(37,41,46,${a})`);
+    root.setProperty('--glass-msg', `rgba(30,33,37,${+(.72*a).toFixed(3)})`); root.setProperty('--glass-input', `rgba(22,24,27,${+(.55*a).toFixed(3)})`);
+  }
   else {
-    const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = t.alpha/100;
+    const hex = th.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = isPhone() ? 1 : th.alpha/100;   // phones: always solid
     const mix = (to, k) => c.map(v => Math.round(v + (to - v)*k));        // k>0 toward white (to=255) or black (to=0)
     const rgba = (rgb, al) => `rgba(${rgb.join(',')},${+al.toFixed(3)})`;
     const light = (.2126*c[0] + .7152*c[1] + .0722*c[2]) / 255 > .55;
@@ -867,6 +978,7 @@ function applyTheme(t){
 }
 let uiTheme = store.get('tt.theme', null);
 applyTheme(uiTheme);
+addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); layoutSlides(); } });
 const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
 $('#uiColor').oninput = saveTheme;
 $('#uiAlpha').oninput = saveTheme;
@@ -890,6 +1002,52 @@ function applyBg(url){
   $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
   $('.chat').classList.toggle('has-bg', !!url);
   document.body.classList.toggle('has-bg', !!url);
+  // the main buttons (normally yellow) take the background picture's colour
+  const root = document.documentElement.style, token = applyBg.token = (applyBg.token || 0) + 1;
+  if(!url){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
+  mainColor(url).then(c => {
+    if(token !== applyBg.token) return;   // a newer picture was set meanwhile
+    if(!c){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
+    root.setProperty('--accent', `rgb(${c.rgb})`); root.setProperty('--on-accent', c.light ? '#1a1a1a' : '#fff');
+  });
+}
+/* Most common colourful shade in the picture, kept mid-bright so a button in it stands out on the dark UI */
+function mainColor(url){
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+      const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(im, 0, 0, N, N);
+      const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
+      for(let i = 0; i < d.length; i += 4){
+        if(d[i+3] < 128) continue;
+        const r = d[i], g = d[i+1], b = d[i+2], w = (Math.max(r,g,b) - Math.min(r,g,b)) / 255 + .05;   // favour colourful pixels over greys
+        const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5), e = bins.get(k) || { w:0, r:0, g:0, b:0 };
+        e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
+      }
+      let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
+      if(!best) return res(null);
+      let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
+      l = Math.min(.66, Math.max(.46, l)); sat = Math.max(sat, .35);
+      const rgb = fromHsl(h, sat, l), lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
+      res({ rgb: rgb.join(','), light: lum > .5 });
+    };
+    im.onerror = () => res(null);
+    im.src = url;
+  });
+}
+function toHsl(r, g, b){
+  r/=255; g/=255; b/=255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2;
+  if(mx === mn) return [0, 0, l];
+  const dd = mx - mn, s = l > .5 ? dd/(2-mx-mn) : dd/(mx+mn);
+  const h = mx === r ? (g-b)/dd + (g<b ? 6 : 0) : mx === g ? (b-r)/dd + 2 : (r-g)/dd + 4;
+  return [h/6, s, l];
+}
+function fromHsl(h, s, l){
+  const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
+  const f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < 1/2 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; };
+  return [f(h+1/3), f(h), f(h-1/3)].map(v => Math.round(v*255));
 }
 
 applyBg(store.get('tt.bg', null));
@@ -1338,6 +1496,9 @@ function setBar(open){
 }
 setBar(store.get('tt.toolbarOpen', false));
 $('#barBtn').onclick = () => { setBar($('#toolbar').hidden); pnlShift(); };
+$('#toolbar').addEventListener('click', e => { if(isPhone() && e.target.closest('button')) setBar(false); });   // phones: the menu closes once you pick
+document.addEventListener('click', e => { if(isPhone() && !$('#toolbar').hidden && !e.target.closest('.top')) setBar(false); });   // ...or tap elsewhere
+if(isPhone()) setBar(false);
 
 /* ---------- Remove old alarms ---------- */
 function cleanupPrefs(){ cleanupHours = store.get('tt.cleanupHours', 3); $('#cleanupHours').value = cleanupHours; $('#avgOdds').value = +store.get('tt.avgOdds', 0) > 1 ? +store.get('tt.avgOdds', 0) : '';
@@ -1721,7 +1882,7 @@ function setSlide(key, open){
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
-  const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
+  const desk = !isPhone(), tab = $('#plTab'), n = slideOrder.length;
   const chatR = innerWidth, topR = $('#top').getBoundingClientRect().right;
   const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
   // Never slide under the top-left toolbar: if the panels can't all fit (300px each), close the oldest one
@@ -2280,7 +2441,17 @@ function listen(){
   }));
 }
 
+// Phones: the top bar shows your picture and @name on the right
+function renderMeChip(){
+  const me = sync.user && social && social.me ? social.me : null, n = $('#meName');
+  n.textContent = me ? '@' + me.username : sync.user ? 'Set up profile' : 'Sign in'; n.className = me ? '' : 'muted';
+  $('#mePfp').replaceChildren(pfpEl(me || { username: sync.user ? '?' : '?' }));
+  $('#meChip').title = me ? 'Your profile' : sync.user ? 'Create your profile' : 'Sign in';
+}
+$('#meChip').onclick = () => { if(sync.user){ [...slideOrder].filter(k => k !== 'friends').forEach(k => setSlide(k, false)); openFriends('me'); } else showLanding(true); };
+renderMeChip();
 function renderAccount(){
+  renderMeChip();
   const box = $('#account'); box.innerHTML = '';
   if(!FIREBASE_CONFIG) return;
   if(!sync.user){
@@ -2312,6 +2483,43 @@ function renderLanding(){
 }
 const showLanding = on => { if(on) renderLanding(); $('#landing').hidden = !on; };
 $('#homeBtn').onclick = () => showLanding(true);
+
+/* ---------- Phones: Gmail-style drawer ---------- */
+function setDrawer(open){
+  const d = $('#drawer'), sc = $('#scrim');
+  if(open){ renderDrawer(); sc.hidden = false; requestAnimationFrame(() => sc.classList.add('show')); }
+  else { sc.classList.remove('show'); setTimeout(() => { if(!d.classList.contains('open')) sc.hidden = true; }, 230); }
+  d.classList.toggle('open', open); d.setAttribute('aria-hidden', !open); $('#drawerBtn').setAttribute('aria-expanded', open);
+  if(open) setTimeout(() => { const f = d.querySelector('[aria-current="true"]') || d.querySelector('.dr-item'); f && f.focus({ preventScroll:true }); }, 60);
+}
+function renderDrawer(){
+  const up = alarms.filter(a => !a.fired).length, ringingN = ringing.size;
+  const d0 = new Date(); d0.setHours(0,0,0,0); const today = plays.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + playPL(p), 0);
+  const reqs = social && social.uid ? social.friendships.filter(f => f.status === 'pending' && f.to === social.uid).length : 0;
+  const set = (id, text, pill) => { const e = $(id); e.textContent = text; e.className = pill ? 'pill ' + pill : ''; };
+  set('#drBets', ringingN ? `${ringingN} ringing` : up ? String(up) : '', ringingN ? 'orange' : '');
+  set('#drHist', plays.length ? String(plays.length) : '');
+  set('#drPnl', plays.some(p => p.start >= +d0) ? plText(today) : '', today > 1e-9 ? 'green' : today < -1e-9 ? 'red' : '');
+  set('#drFriends', reqs ? `${reqs} new` : '', reqs ? 'blue' : '');
+  set('#drKey', ready() ? '' : 'Add key', ready() ? '' : 'orange');
+  $('#drAcct').textContent = sync.user ? (social && social.me ? `@${social.me.username} · Home page` : 'Home page') : 'Home page · Sign in';
+  const cur = slideOrder.length ? slideOrder[slideOrder.length - 1] : 'chat';
+  $('#drawer').querySelectorAll('.dr-item').forEach(b => b.setAttribute('aria-current', b.dataset.go === cur || (cur === 'falarms' && b.dataset.go === 'friends')));
+}
+$('#drawerBtn').onclick = () => setDrawer(!$('#drawer').classList.contains('open'));
+$('#scrim').onclick = () => setDrawer(false);
+$('#drawer').onclick = e => {
+  const b = e.target.closest('[data-go]'); if(!b) return;
+  const go = b.dataset.go; setDrawer(false);
+  [...slideOrder].filter(k => k !== go).forEach(k => setSlide(k, false));   // phones show one page at a time
+  if(go === 'chat') return;
+  if(go === 'home') return showLanding(true);
+  if(go === 'settings') return openModal('#hud');
+  if(go === 'gemini'){ fillSettings(); return openModal('#settingsModal'); }
+  if(go === 'pnl'){ pnlFor = null; pnlSel = null; } if(go === 'hist') histFor = null;
+  if(!$(SLIDES[go].el).classList.contains('open')) setSlide(go, true); else SLIDES[go].onOpen();
+};
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && $('#drawer').classList.contains('open')){ e.stopImmediatePropagation(); setDrawer(false); } }, true);
 $('#openApp').onclick = () => showLanding(false);
 $('#landingLogout').onclick = () => signOut();
 async function signIn(){

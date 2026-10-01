@@ -40,7 +40,8 @@ Screenshots are read by Google Gemini (free tier).
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
-    and set the background picture's **blur** and **saturation**.
+    and set the background picture's **blur** and **saturation**. With a background picture, the main buttons (normally
+    yellow) take on its colour.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 13. **Friends** (toolbar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
@@ -53,6 +54,10 @@ Screenshots are read by Google Gemini (free tier).
     this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
     they next open the site.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
+
+**On a phone** the top is one bar: a **☰** menu on the left (Chat, Bets, History, PNL, Leaderboard, Friends, Settings,
+Gemini settings and the home page, with counts and today's P/L next to each) and your picture and @name on the right
+(tap it for your profile, or to sign in). The clock / PNL tab isn't shown on phones.
 
 Keep the tab open for alarms to ring.
 
