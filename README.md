@@ -37,7 +37,7 @@ Screenshots are read by Google Gemini (free tier).
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Alarms · Block · Unfriend**: PNL and
     History open those panels with their numbers (as net wins if they hide stakes), and Alarms slides out their
-    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Blocked
+    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
     Under My profile you choose whether friends see your upcoming plays and your stakes (odds, units, PNL; off by default).
 
