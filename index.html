@@ -1011,7 +1011,14 @@ setInterval(() => {
    Paste your Firebase web app config here (Firebase console → Project settings → Your apps).
    These values are not secret; the rules in firestore.rules keep each account's data private.
    Leave it as null and the site works as before, with everything saved on the device only. */
-const FIREBASE_CONFIG = null;   // e.g. { apiKey:'…', authDomain:'your-app.firebaseapp.com', projectId:'your-app', appId:'…' }
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDD5sUmtmA6qf5ofnWpz9tDt7furNhN_58',
+  authDomain: 'ttalert.firebaseapp.com',
+  projectId: 'ttalert',
+  storageBucket: 'ttalert.firebasestorage.app',
+  messagingSenderId: '565229627738',
+  appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
+};
 const FIREBASE_VERSION = '12.19.0';
 const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
