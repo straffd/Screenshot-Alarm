@@ -13,6 +13,7 @@
 <style>
 :root{
   --bg:#16181b; --panel:#1e2125; --panel-2:#25292e; --line:#30353b;
+  --glass-msg:rgba(30,33,37,.72); --glass-input:rgba(22,24,27,.55);
   --text:#ebe9e4; --muted:#8b9099; --green:#3ecf6e; --yellow:#f2c230; --red:#ef5a5a; --blue:#5aa7ef; --ringbg:#3a3218; --onyellow:#1a1a1a;
   --sans:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --cond:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
@@ -25,16 +26,17 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
 
 /* Top bar */
-.top{display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-.tools{display:flex;align-items:center;gap:18px;flex:1;flex-wrap:wrap}
+.top{display:flex;align-items:flex-start;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.tools{display:flex;align-items:center;gap:10px 14px;flex:1;flex-wrap:wrap}
 /* Collapsed: the bar shrinks to a tab holding just the logo and the settings button */
 .top.collapsed{position:absolute;top:0;left:0;z-index:5;border-right:1px solid var(--line);border-radius:0 0 14px 0;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .top.collapsed .tools{display:none}
 body.top-collapsed .log{padding-top:78px}
-.iconbtn{width:38px;height:38px;padding:0;display:grid;place-items:center}
+.ghost.iconbtn{width:38px;height:38px;padding:0;display:grid;place-items:center}
+.iconbtn svg{display:block}
 .iconbtn svg{transition:transform .25s}
 .top:not(.collapsed) #menuBtn svg{transform:rotate(90deg)}
-.brand{font:700 20px/1 var(--cond);letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+.brand{font:700 20px/1 var(--cond);letter-spacing:.01em;display:flex;align-items:center;gap:10px;min-height:38px}
 .ball{width:14px;height:14px;border-radius:50%;background:#f4f1e8;box-shadow:inset -3px -3px 0 rgba(0,0,0,.18)}
 .lead{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted)}
 .lead input{width:64px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:center;font-family:var(--cond);font-weight:600;font-size:16px}
@@ -44,6 +46,11 @@ body.top-collapsed .log{padding-top:78px}
 .danger:disabled{opacity:.4;cursor:default}
 .danger.confirm{background:var(--red);color:#fff}
 .sound{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.theme{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.theme input[type=color]{width:38px;height:32px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--bg);cursor:pointer}
+.theme input[type=range]{width:80px;accent-color:var(--yellow)}
+.theme output{min-width:38px;font-variant-numeric:tabular-nums;color:var(--text)}
+.theme .ghost{padding:5px 9px}
 .sound select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
 
 /* Main layout */
@@ -55,7 +62,7 @@ body.top-collapsed .log{padding-top:78px}
 .chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,11,13,.68),rgba(10,11,13,.8))}
 .chat.has-bg .chatbg{display:block}
 .chat .log,.chat .composer{position:relative;z-index:1}
-.chat.has-bg .msg.bot{background:rgba(30,33,37,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chat.has-bg .msg.bot{background:var(--glass-msg);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .bgpick{display:flex;align-items:center;gap:4px}
 .bgpick #bgClear{display:none;padding:7px 10px}
 body.has-bg #bgClear{display:inline-block}
@@ -71,8 +78,8 @@ body.has-bg #bgClear{display:inline-block}
 .composer{padding:14px 20px;background:transparent}
 .drop{display:flex;gap:10px;align-items:flex-end}
 .drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
-.composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:rgba(22,24,27,.55);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(22,24,27,.55);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--yellow);color:#1a1a1a;font-weight:600}
 .send:disabled{opacity:.5;cursor:default}
 .preview{display:none;align-items:center;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
@@ -191,6 +198,13 @@ body.has-bg #bgClear{display:inline-block}
     </select>
   </div>
   <button class="ghost" id="testSound">Test sound</button>
+  <div class="theme">
+    <label for="uiColor">Colour</label>
+    <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
+    <input type="range" id="uiAlpha" min="20" max="100" step="5" value="100" aria-label="UI opacity" title="UI opacity">
+    <output id="uiAlphaOut" for="uiAlpha">100%</output>
+    <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
+  </div>
   <div class="bgpick">
     <button class="ghost" id="bgPick">Background</button>
     <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
@@ -413,6 +427,36 @@ function shrink(dataUrl, maxW=1400){
     im.src = dataUrl;
   });
 }
+
+/* ---------- UI colour and opacity ---------- */
+const UI_DEFAULT = { color:'#1e2125', alpha:100 };
+function applyTheme(t){
+  const root = document.documentElement.style;
+  const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted'];
+  if(!t || (t.color === UI_DEFAULT.color && t.alpha === UI_DEFAULT.alpha)){ names.forEach(n => root.removeProperty(n)); }
+  else {
+    const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = t.alpha/100;
+    const mix = (to, k) => c.map(v => Math.round(v + (to - v)*k));        // k>0 toward white (to=255) or black (to=0)
+    const rgba = (rgb, al) => `rgba(${rgb.join(',')},${+al.toFixed(3)})`;
+    const light = (.2126*c[0] + .7152*c[1] + .0722*c[2]) / 255 > .55;
+    root.setProperty('--bg', `rgb(${mix(0, .28).join(',')})`);            // page base stays solid
+    root.setProperty('--panel', rgba(c, a));
+    root.setProperty('--panel-2', rgba(mix(light ? 0 : 255, .06), a));
+    root.setProperty('--line', `rgb(${mix(light ? 0 : 255, .14).join(',')})`);
+    root.setProperty('--glass-msg', rgba(c, .72*a));
+    root.setProperty('--glass-input', rgba(c, .55*a));
+    root.setProperty('--text', light ? '#1a1a1a' : '#ebe9e4');
+    root.setProperty('--muted', light ? '#4d535b' : '#8b9099');
+  }
+  const cur = t || UI_DEFAULT;
+  $('#uiColor').value = cur.color; $('#uiAlpha').value = cur.alpha; $('#uiAlphaOut').textContent = cur.alpha + '%';
+}
+let uiTheme = store.get('tt.theme', null);
+applyTheme(uiTheme);
+const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
+$('#uiColor').oninput = saveTheme;
+$('#uiAlpha').oninput = saveTheme;
+$('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); try{ localStorage.removeItem('tt.theme'); }catch(e){} };
 
 /* ---------- Chat background ---------- */
 function applyBg(url){
