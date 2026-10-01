@@ -16,20 +16,28 @@ Screenshots are read by Google Gemini (free tier).
    Tags show next to OVER/UNDER. You can also create a new tag straight from an alarm.
 6. Alarms are removed automatically a few hours after their match starts (3 by default). Change the number,
    or set 0 to keep them, in ⚙ Settings → Remove old alarms.
-7. When a match has started, its alarm shows **Cash** and **Chalk**. Cash asks for the decimal odds and units placed;
+7. When a match has started, its alarm shows **Cash** and **Chalk**. Screenshots of matches that already started
+   earlier today are added straight away as done, with Cash and Chalk ready. Cash asks for the decimal odds and units placed;
    Chalk records a loss with your last-used units. The match then moves to your history: press the ⟲ button next
    to the "Alarms" title on the right to switch to your history (green = cash, red = chalk) with your total won
    or lost, and press it again to go back. Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's P/L (matches starting today, reset to 0 at 12 AM) and either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
+9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
+   and shows today / this month / all time / win rate, with a **Calendar** (each day's P/L; click a day for its
+   matches) or a **Graph** (running total over 7, 30, 90 days or all time).
+10. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
+    and set the background picture's **blur** and **saturation**.
+11. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
+    Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 
 Keep the tab open for alarms to ring.
 
 ## Where your data is kept
-- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, old-alarm removal time, Ladbrokes links, tags, match history, P/L tracker options and Gemini settings
+- **Signed in with Google:** alarms (with their screenshots), background, UI colour, sound, lead time, old-alarm removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
-  Only you can read them. Whether the alarm list is open stays per device.
+  Only you can read them. Whether the alarm list is open, and any custom alarm sounds you add, stay on that device.
   Signing out removes your data from that browser. It stays in your account.
 - **Without an account:** everything stays in that browser's local storage, separate for every device and browser.
 
