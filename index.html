@@ -147,16 +147,14 @@ body.has-bg #bgClear{display:inline-block}
 .histBtn[aria-pressed="true"]{color:var(--yellow);border-color:var(--line)}
 .main:not(.rail-collapsed) .histBtn{display:none}   /* the history switch only lives on the folded bar */
 /* Daily P/L tracker: an angled tab hanging from the top-right of the chat area */
-.pltab{position:absolute;top:0;right:0;z-index:4;display:flex;height:50px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));pointer-events:none}
-.pltab[hidden],.pltab > [hidden],#unitValueBox[hidden]{display:none}
-.pltab > div{display:flex;flex-direction:column;justify-content:center;background:var(--panel);white-space:nowrap}
-.pltab .k{font:600 10.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-.pltab .v{font:700 19px/1 var(--cond);font-variant-numeric:tabular-nums}
-.pl-time{padding:0 34px 0 42px;clip-path:polygon(0 0,calc(100% - 28px) 0,100% 100%,28px 100%)}
-.pl-val{padding:0 22px 0 42px;margin-left:-25px;clip-path:polygon(0 0,100% 0,100% 100%,28px 100%);min-width:92px}
-.pltab > .solo{margin-left:0;padding-right:22px;clip-path:polygon(0 0,100% 0,100% 100%,28px 100%)}
-.pl-val.pos .v{color:var(--green)}
-.pl-val.neg .v{color:var(--red)}
+.pltab{position:absolute;top:0;right:0;z-index:4;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+.pltab-in{display:flex;align-items:center;gap:14px;height:48px;padding:0 22px 0 44px;background:var(--bg);white-space:nowrap;
+  clip-path:polygon(0 0,100% 0,100% 100%,30px 100%);font:700 19px/1 var(--cond);font-variant-numeric:tabular-nums}
+.pltab[hidden],.pltab-in > [hidden],#unitValueBox[hidden]{display:none}
+.pltab .sep{color:var(--line);font-weight:400;font-size:24px}
+.pltab .k{font:600 12px/1 var(--sans);letter-spacing:.06em;color:var(--muted);margin-right:7px}
+.pl-val.pos #plVal{color:var(--green)}
+.pl-val.neg #plVal{color:var(--red)}
 /* Cash / Chalk on finished alarms */
 .settle{display:flex;gap:6px;align-self:center}
 .settle button{font:700 13px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:6px 10px;border:1px solid currentColor;background:none}
@@ -362,10 +360,11 @@ button.tag{cursor:pointer}
 <div class="main">
   <section class="chat">
     <div class="chatbg" aria-hidden="true"></div>
-    <div class="pltab" id="plTab">
-      <div class="pl-time" id="plTimeBox"><span class="k" id="plTimeLabel"></span><span class="v" id="plTime"></span></div>
-      <div class="pl-val" id="plValBox"><span class="k">Today's P/L</span><span class="v" id="plVal"></span></div>
-    </div>
+    <div class="pltab" id="plTab"><div class="pltab-in">
+      <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
+      <span class="sep" id="plSep" aria-hidden="true">|</span>
+      <span class="pl-val" id="plValBox"><span class="k">P/L</span><span id="plVal"></span></span>
+    </div></div>
     <div class="log" id="log"></div>
     <div class="composer">
       <div class="preview" id="preview"><div id="thumbs" style="display:flex;gap:10px;flex-wrap:wrap"></div><span id="shotCount"></span><button class="clear" id="clearImg">Remove all</button></div>
@@ -1279,19 +1278,19 @@ function tickTracker(){
   const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
   $('#plTab').hidden = !showPL && !showTime;
   $('#plTimeBox').hidden = !showTime; $('#plValBox').hidden = !showPL;
-  $('#plTimeBox').classList.toggle('solo', !showPL); $('#plValBox').classList.toggle('solo', !showTime);
+  $('#plSep').hidden = !(showPL && showTime);
   const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
   const dayStart = midnight.getTime() - 864e5;
   if(showTime){
-    if(plPrefs.timeMode === 'clock'){ $('#plTimeLabel').textContent = 'Time'; $('#plTime').textContent = now.toLocaleTimeString([], { hour:'numeric', minute:'2-digit', second:'2-digit' }); }
+    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], { hour:'numeric', minute:'2-digit', second:'2-digit' }); }
     else {
       let s = Math.max(0, Math.floor((midnight - now) / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60;
-      $('#plTimeLabel').textContent = 'Resets in'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      $('#plTime').title = 'Time until P/L resets at 12 AM'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
   }
   if(showPL){
     const today = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()).reduce((t, p) => t + playPL(p), 0);
-    $('#plValBox').className = 'pl-val' + (!showTime ? ' solo' : '') + (today > 1e-9 ? ' pos' : today < -1e-9 ? ' neg' : '');
+    $('#plValBox').className = 'pl-val' + (today > 1e-9 ? ' pos' : today < -1e-9 ? ' neg' : '');
     $('#plVal').textContent = Math.abs(today) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(today);
   }
 }
