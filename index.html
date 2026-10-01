@@ -835,9 +835,10 @@ html.phone .alpha-note{display:inline}
 /* ---------- Storage ---------- */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ let ok = false; try{ localStorage.setItem(k, JSON.stringify(v)); ok = true; }catch(e){} store.onSet && store.onSet(k); return ok; },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); },
-  onSet: null   // set by Google account sync while signed in
+  set(k, v){ let ok = false; try{ localStorage.setItem(k, JSON.stringify(v)); ok = true; }catch(e){} store.onSet && store.onSet(k); store.watch.forEach(f => f(k)); return ok; },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} store.onSet && store.onSet(k); store.watch.forEach(f => f(k)); },
+  onSet: null,   // set by Google account sync while signed in
+  watch: []      // other listeners (e.g. locked-phone alarms)
 };
 // Everyone uses Gemini 3.5 Flash-Lite (free tier); 3.8 Flash is only tried when 3.5 Flash-Lite is busy or out of requests.
 const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
@@ -845,6 +846,9 @@ const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
 const SERVER_URL = '';
+// Locked-phone alarms: the address of your push service (push-worker/ in this repo, see its README), e.g.
+// 'https://tt-alarm-push.yourname.workers.dev'. Leave empty and alarms only ring while the app is open on screen.
+const PUSH_SERVER = '';
 
 // settings = { mode:'server'|'key', server, pass, model, backup, key }
 function normSettings(old){
@@ -876,7 +880,8 @@ const $ = s => document.querySelector(s);
 // notifications on Android, where pages can't show them directly.
 let swReg = null;
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-  navigator.serviceWorker.register('sw.js').then(r => { swReg = r; }).catch(() => {});
+  navigator.serviceWorker.register(PUSH_SERVER ? 'sw.js?push=' + encodeURIComponent(PUSH_SERVER.replace(/\/+$/, '')) : 'sw.js')
+    .then(r => { swReg = r; pushSoon(); }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', e => {   // a notification shown by the service worker was clicked or swiped away
     const d = e.data || {}; if(!d.id) return;
     if(ringing.has(d.id)) stopAlarm(d.id);
@@ -2287,7 +2292,37 @@ document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (w
 // Send, the Allow button and Test alarm (asking later, after reading a screenshot, is ignored there).
 function askNotify(){
   if('Notification' in window && Notification.permission === 'default')
-    try{ const r = Notification.requestPermission(renderNotifState); if(r && r.then) r.then(renderNotifState, renderNotifState); }catch(e){}
+    try{ const done = () => { renderNotifState(); pushSoon(); }; const r = Notification.requestPermission(done); if(r && r.then) r.then(done, done); }catch(e){}
+}
+/* ---------- Locked-phone alarms (Web Push through PUSH_SERVER) ----------
+   Once notifications are allowed, this phone subscribes to push and sends the push service its upcoming bets
+   (name, start, alarm time, Ladbrokes link) whenever they change. At alarm time the service wakes the phone. */
+let pushState = 'off', pushTimer = null;   // 'off' | 'on' | 'unsupported' | 'error'
+const pushBase = () => PUSH_SERVER.replace(/\/+$/, '');
+function pushSoon(){ clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 1500); }
+store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.lead') pushSoon(); });
+async function pushSubscription(){
+  if(!PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
+  let sub = await swReg.pushManager.getSubscription();
+  if(!sub){
+    const { key } = await (await fetch(pushBase() + '/vapid')).json();
+    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/')), bytes = Uint8Array.from(raw, c => c.charCodeAt(0));
+    sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+  }
+  return sub;
+}
+async function syncPush(){
+  if(!PUSH_SERVER){ pushState = 'off'; return renderNotifState(); }
+  if(!('PushManager' in window) || !('serviceWorker' in navigator)){ pushState = 'unsupported'; return renderNotifState(); }
+  try{
+    const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
+    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3).map(a => ({ id: a.id, ring: a.ring,
+      title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
+      url: a.test ? '' : ladbrokesUrl(a) })) : [];
+    const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list }) });
+    pushState = r.ok ? 'on' : 'error';
+  }catch(e){ console.warn('Locked-phone alarms unavailable', e); pushState = 'error'; }
+  renderNotifState();
 }
 function renderNotifState(){
   const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
@@ -2296,6 +2331,9 @@ function renderNotifState(){
   st.innerHTML = p === 'granted' ? 'Notifications: <span class="ok">on</span>'
     : p === 'denied' ? 'Notifications: <span class="bad">blocked</span>. Turn them on in your phone\'s settings for this app (or the site settings in your browser), then reload.'
     : p === 'default' ? 'Notifications: <b>off</b>' : 'Notifications aren\'t supported in this browser.';
+  if(PUSH_SERVER && p === 'granted') st.innerHTML += pushState === 'on' ? ' · Locked-phone alarms: <span class="ok">on</span>'
+    : pushState === 'unsupported' ? ' · Locked-phone alarms need the installed app (iPhone: Share → Add to Home Screen)'
+    : pushState === 'error' ? ' · Locked-phone alarms: <span class="bad">couldn\'t connect</span>' : '';
 }
 $('#notifAllow').onclick = askNotify;
 $('#testAlarm').onclick = () => {
@@ -2305,7 +2343,8 @@ $('#testAlarm').onclick = () => {
   alarms = alarms.filter(a => !a.test);
   alarms.push({ id:'test-' + t.toString(36), name:'Test alarm', start:t + 5 * 6e4, ring:t + 5000, lead:5, side:'', line:'', ouPct:'', edge:null, league:'', img:'', fired:false, added:t, tags:[], manual:true, test:true });
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
-  toast('Test alarm rings in 5 seconds. Stop it from its card or the notification.');
+  toast(pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
+    : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.');
 };
 renderNotifState();
 

@@ -72,6 +72,10 @@ apps. In ⚙ Settings → Alarms:
 - **Test alarm** rings in 5 seconds so you can check sound, notification and vibration.
 - **Keep the screen on while a bet is coming up** (on by default on phones) stops the phone pausing the app before an alarm.
 
+**Alarms on a locked phone** need the small push service in [`push-worker/`](push-worker/README.md) (free Cloudflare
+Worker). Once it's set up and its address is in `index.html` (`PUSH_SERVER`), alarms arrive as notifications even when
+the phone is locked or the app is closed; Settings → Alarms shows **Locked-phone alarms: on**.
+
 ## Where your data is kept
 - **Signed in with Google:** bets (with their screenshots), background, UI colour, sound, lead time, old-bet removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
