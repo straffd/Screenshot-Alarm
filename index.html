@@ -428,6 +428,49 @@ button.tag{cursor:pointer}
   .lead{margin-left:0}
 }
 @media (prefers-reduced-motion:reduce){.card.ringing{animation:none}}
+
+/* ---------- Phones (html.phone: a phone, or a screen 860px wide or less) ----------
+   One row at the top: a compact top-left tab (logo, ⚙, ›) and the time | PNL tab beside it. The toolbar drops down as a
+   vertical menu. Panels fill the screen below that row, so the toolbar stays reachable; pop-ups open below it too.
+   Nothing may stick out sideways. */
+html.phone,html.phone body{overflow-x:clip}
+html.phone{--top-h:58px}
+html.phone .top{z-index:48;gap:8px;padding:9px 10px;height:var(--top-h);box-sizing:border-box}
+html.phone .brand{font-size:0;gap:0;padding:0 6px;margin:0}      /* just the ball: still the home button */
+html.phone .iconbtn{width:38px;height:38px}
+html.phone .toolbar{position:absolute;top:calc(100% + 6px);left:0;flex-direction:column;align-items:stretch;gap:6px;min-width:190px;
+  padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 12px 28px rgba(0,0,0,.5);animation:barDown .18s ease-out}
+html.phone .toolbar .ghost{justify-content:flex-start;padding:11px 14px;font-size:16px}
+@keyframes barDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+html.phone .pltab{top:0}
+html.phone .pltab.over{top:0}
+html.phone .main.pnl-open .pltab{transform:none}
+html.phone .pltab-in{height:var(--top-h);gap:8px;padding:0 12px 0 26px;clip-path:polygon(0 0,100% 0,100% 100%,16px 100%);font-size:16px}
+html.phone .pltab .sep{font-size:18px}
+html.phone .pltab .k{font-size:10.5px;margin-right:4px}
+html.phone .log{padding:calc(var(--top-h) + 14px) 14px 14px !important}
+html.phone .composer{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+html.phone .composer textarea{font-size:16px}   /* 16px stops iPhones zooming in on tap */
+html.phone .keycta{top:calc(var(--top-h) + 10px);left:50%;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
+html.phone .chat:has(#keyCta:not([hidden])) .log{padding-top:calc(var(--top-h) + 64px) !important}
+html.phone .pnl{position:fixed;top:var(--top-h);left:0;right:0 !important;bottom:0;width:auto !important;border-left:none;box-shadow:none}
+html.phone .pnl header{padding:12px 14px 8px}
+html.phone .pnl-body{padding:4px 14px calc(18px + env(safe-area-inset-bottom))}
+html.phone #bets .list{padding:4px 14px 18px}
+html.phone .ftabs{margin:0 14px 10px}
+html.phone .modal{z-index:45;align-items:flex-start;padding:calc(var(--top-h) + 8px) 10px 10px}
+html.phone .sheet{max-width:100%;width:100%;max-height:calc(100dvh - var(--top-h) - 18px);box-sizing:border-box;padding:14px}
+html.phone .sheet header{position:sticky;top:-14px;background:var(--panel);margin:-14px -14px 10px;padding:14px 14px 8px;z-index:1}
+html.phone select{max-width:100%}
+html.phone .hud-row{grid-template-columns:1fr;gap:6px}
+html.phone .hud .links label{grid-template-columns:1fr;gap:4px}
+html.phone .lead{flex-wrap:wrap}
+html.phone .settle-sheet .bet{grid-template-columns:1fr 1fr auto}
+html.phone .card{padding:11px 12px}
+html.phone .toast{max-width:calc(100vw - 24px);white-space:normal;text-align:center;bottom:calc(84px + env(safe-area-inset-bottom))}
+html.phone #uiAlpha,html.phone #uiAlphaOut{display:none}   /* GUI colour is always fully opaque on phones */
+html.phone .alpha-note{display:inline}
+.alpha-note{display:none;font-size:12.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -593,6 +636,7 @@ button.tag{cursor:pointer}
         <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
         <input type="range" id="uiAlpha" min="20" max="100" step="5" value="100" aria-label="UI opacity" title="UI opacity">
         <output id="uiAlphaOut" for="uiAlpha">100%</output>
+        <span class="alpha-note">Always 100% opaque on phones</span>
         <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
       </div></div>
     <div class="hud-row"><span class="lbl">Background</span>
@@ -841,13 +885,19 @@ function shrink(dataUrl, maxW=1400){
 }
 
 /* ---------- UI colour and opacity ---------- */
+// Phones: a phone's browser, or any screen 860px wide or less. Sets html.phone for the phone layout.
+const isPhone = () => /Android|iPhone|iPod|Mobile|IEMobile|Opera Mini/i.test(navigator.userAgent) || innerWidth <= 860;
+function markPhone(){ const was = document.documentElement.classList.contains('phone'), now = isPhone();
+  document.documentElement.classList.toggle('phone', now); return was !== now; }
+markPhone();
+if(isPhone()) $('#text').placeholder = 'Screenshot or type a match';
 const UI_DEFAULT = { color:'#1e2125', alpha:100 };
 function applyTheme(t){
   const root = document.documentElement.style;
   const names = ['--bg','--panel','--panel-2','--line','--glass-msg','--glass-input','--text','--muted','--scroll','--scroll-hover'];
-  if(!t || (t.color === UI_DEFAULT.color && t.alpha === UI_DEFAULT.alpha)){ names.forEach(n => root.removeProperty(n)); }
+  if(!t || (t.color === UI_DEFAULT.color && (t.alpha === UI_DEFAULT.alpha || isPhone()))){ names.forEach(n => root.removeProperty(n)); }
   else {
-    const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = t.alpha/100;
+    const hex = t.color.replace('#',''), c = [0,2,4].map(i => parseInt(hex.slice(i,i+2), 16)), a = isPhone() ? 1 : t.alpha/100;   // phones: always solid
     const mix = (to, k) => c.map(v => Math.round(v + (to - v)*k));        // k>0 toward white (to=255) or black (to=0)
     const rgba = (rgb, al) => `rgba(${rgb.join(',')},${+al.toFixed(3)})`;
     const light = (.2126*c[0] + .7152*c[1] + .0722*c[2]) / 255 > .55;
@@ -867,6 +917,7 @@ function applyTheme(t){
 }
 let uiTheme = store.get('tt.theme', null);
 applyTheme(uiTheme);
+addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); layoutSlides(); } });
 const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
 $('#uiColor').oninput = saveTheme;
 $('#uiAlpha').oninput = saveTheme;
@@ -1338,6 +1389,9 @@ function setBar(open){
 }
 setBar(store.get('tt.toolbarOpen', false));
 $('#barBtn').onclick = () => { setBar($('#toolbar').hidden); pnlShift(); };
+$('#toolbar').addEventListener('click', e => { if(isPhone() && e.target.closest('button')) setBar(false); });   // phones: the menu closes once you pick
+document.addEventListener('click', e => { if(isPhone() && !$('#toolbar').hidden && !e.target.closest('.top')) setBar(false); });   // ...or tap elsewhere
+if(isPhone()) setBar(false);
 
 /* ---------- Remove old alarms ---------- */
 function cleanupPrefs(){ cleanupHours = store.get('tt.cleanupHours', 3); $('#cleanupHours').value = cleanupHours; $('#avgOdds').value = +store.get('tt.avgOdds', 0) > 1 ? +store.get('tt.avgOdds', 0) : '';
@@ -1721,7 +1775,7 @@ function setSlide(key, open){
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
-  const desk = innerWidth > 860, tab = $('#plTab'), n = slideOrder.length;
+  const desk = !isPhone(), tab = $('#plTab'), n = slideOrder.length;
   const chatR = innerWidth, topR = $('#top').getBoundingClientRect().right;
   const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
   // Never slide under the top-left toolbar: if the panels can't all fit (300px each), close the oldest one
