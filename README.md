@@ -18,13 +18,14 @@ Screenshots are read by Google Gemini (free tier).
    or set 0 to keep them, in ⚙ Settings → Remove old alarms.
 7. When a match has started, its alarm shows **Cash** and **Chalk**. Screenshots of matches that already started
    earlier today are added straight away as done, with Cash and Chalk ready. Cash asks for the decimal odds and units placed;
-   Chalk records a loss with your last-used units. The match then moves to your history: press the ⟲ button next
-   to the "Alarms" title on the right to switch to your history (green = cash, red = chalk) with your total won
-   or lost, and press it again to go back. Click a history entry to edit or delete it.
+   Chalk records a loss with your last-used units. The match then moves to your history: open the toolbar (› next
+   to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
+   Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's P/L (matches starting today, reset to 0 at 12 AM) and either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
 9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
+   (past History if that's open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this month / all time / win rate, with a **Calendar** (each day's P/L; click a day for its
    matches) or a **Graph** (running total over 7, 30, 90 days or all time).
 10. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
