@@ -46,6 +46,15 @@ service cloud.firestore {
       }
     }
 
+    // Blocks: blocks/{blocker}_{blocked}. Only the blocker can see, add or remove their own blocks.
+    match /blocks/{id} {
+      allow read: if signedIn() && resource.data.by == me();
+      allow create: if signedIn() && request.resource.data.by == me()
+        && request.resource.data.who is string && request.resource.data.who != me()
+        && id == me() + '_' + request.resource.data.who;
+      allow delete: if signedIn() && resource.data.by == me();
+    }
+
     // Friend requests / friendships. Only the person asked can accept; either person can remove.
     match /friendships/{id} {
       allow read: if signedIn() && me() in resource.data.members;
@@ -56,7 +65,9 @@ service cloud.firestore {
         && me() in request.resource.data.members
         && request.resource.data.to in request.resource.data.members
         && request.resource.data.to != me()
-        && id == pair(request.resource.data.members[0], request.resource.data.members[1]);
+        && id == pair(request.resource.data.members[0], request.resource.data.members[1])
+        // nobody can send a request to someone who has blocked them
+        && !exists(/databases/$(database)/documents/blocks/$(request.resource.data.to + '_' + me()));
       allow update: if signedIn()
         && resource.data.to == me()
         && resource.data.status == 'pending'

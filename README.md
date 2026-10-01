@@ -34,8 +34,10 @@ Screenshots are read by Google Gemini (free tier).
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 12. **Friends** (toolbar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
-    requests under Requests. Click a friend to slide out their profile: their record, upcoming plays and results.
-    Filter their upcoming plays to **Not in mine / In both / All** and press **Copy** to add one to your alarms.
+    requests under Requests. Click a friend's @ to drop down **PNL · History · Alarms · Block · Unfriend**: PNL and
+    History open those panels with their numbers (as net wins if they hide stakes), and Alarms slides out their
+    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your alarms. Blocked
+    people are listed under Blocked (click to Unblock) and can't send you requests.
     Under My profile you choose whether friends see your upcoming plays and your stakes (odds, units, PNL; off by default).
 
 Keep the tab open for alarms to ring.
