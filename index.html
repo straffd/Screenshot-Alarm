@@ -442,6 +442,10 @@ button.tag{cursor:pointer}
           <option value="countdown">Countdown to midnight (when P/L resets)</option>
           <option value="clock">Current time</option>
         </select></div>
+        <div class="ctl sound"><select id="hourFmt" aria-label="Clock format">
+          <option value="12">12-hour clock (AM/PM)</option>
+          <option value="24">24-hour clock</option>
+        </select></div>
         <div class="ctl sound"><select id="plMoney" aria-label="Show P/L in">
           <option value="units">Show P/L in units (u)</option>
           <option value="dollars">Show P/L in dollars ($)</option>
@@ -827,7 +831,8 @@ function matchStart(info){
   return when.getTime();
 }
 const clean = n => String(n||'').trim().replace(/\.+$/,'');
-const fmtTime = ms => new Date(ms).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+const clockOpts = () => plPrefs.hour24 ? { hour:'2-digit', minute:'2-digit', hourCycle:'h23' } : { hour:'numeric', minute:'2-digit', hour12:true };
+const fmtTime = ms => new Date(ms).toLocaleTimeString([], clockOpts());
 const fmtDay = ms => {
   const d = new Date(ms), t = new Date(); const tm = new Date(); tm.setDate(t.getDate()+1);
   if(d.toDateString()===t.toDateString()) return 'Today';
@@ -1263,17 +1268,17 @@ function renderHistory(){
 function plSettings(){
   plPrefs = store.get('tt.plPrefs', {}) || {};
   $('#plShow').checked = plPrefs.showPL !== false; $('#timeShow').checked = plPrefs.showTime !== false;
-  $('#timeMode').value = plPrefs.timeMode === 'clock' ? 'clock' : 'countdown';
+  $('#timeMode').value = plPrefs.timeMode === 'clock' ? 'clock' : 'countdown'; $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
   $('#timeMode').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
   tickTracker();
 }
 function savePlPrefs(){
-  plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value,
+  plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value, hour24: $('#hourFmt').value === '24',
               money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10) };
   store.set('tt.plPrefs', plPrefs); plSettings(); render();
 }
-['#plShow', '#timeShow', '#timeMode', '#plMoney', '#unitValue'].forEach(id => $(id).onchange = savePlPrefs);
+['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue'].forEach(id => $(id).onchange = savePlPrefs);
 function tickTracker(){
   const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
   $('#plTab').hidden = !showPL && !showTime;
@@ -1282,7 +1287,7 @@ function tickTracker(){
   const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
   const dayStart = midnight.getTime() - 864e5;
   if(showTime){
-    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], { hour:'numeric', minute:'2-digit', second:'2-digit' }); }
+    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], { ...clockOpts(), second:'2-digit' }); }
     else {
       let s = Math.max(0, Math.floor((midnight - now) / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60;
       $('#plTime').title = 'Time until P/L resets at 12 AM'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
