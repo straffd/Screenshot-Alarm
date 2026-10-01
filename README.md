@@ -24,14 +24,14 @@ Nothing is ever saved to this repository.
 Until this is done, the welcome page shows the Google button as unavailable and everyone uses the site without an account.
 
 1. Go to https://console.firebase.google.com, choose **Create a project**, and give it a name. You can turn Google Analytics off.
-2. In the left sidebar open **Security → Authentication** (older layouts: **Build → Authentication**) and click **Get started** if shown.
+2. In the left sidebar open **Authentication** (under *Project shortcuts* or **Security**) and click **Get started** if shown.
    Open the **Sign-in method** tab, click **Google**, turn on **Enable**, pick a support email, and **Save**.
    Ignore anything about SHA-1 keys or config files. Those are only for Android apps.
 3. **Authentication → Settings → Authorized domains → Add domain**: add your site's domain, e.g. `straffd.github.io`.
-4. Open **Firestore Database** in the left sidebar (under **Databases** or **Build**, depending on layout) and click **Create database**. Choose a location near you, and start in **production mode**.
+4. Open **Firestore** in the left sidebar (under *Project shortcuts* or **Databases & Storage**) and click **Create database**. Choose a location near you, and start in **production mode**.
 5. In **Firestore → Rules**, replace everything with the contents of [`firestore.rules`](firestore.rules) and **Publish**.
    These rules let each person read and write only their own data.
-6. **Project settings (gear icon) → Your apps → Web (`</>`)**. Register an app (no hosting needed) and copy the `firebaseConfig` object.
+6. In the left sidebar click **Settings** (⚙, just below Project Overview) → **Project settings**, then under **Your apps** click **Web (`</>`)**. Register an app (no hosting needed) and copy the `firebaseConfig` object.
 7. In `index.html`, find `const FIREBASE_CONFIG = null;` and replace `null` with the copied object, e.g.
    ```js
    const FIREBASE_CONFIG = { apiKey:'AIza…', authDomain:'your-app.firebaseapp.com', projectId:'your-app', appId:'1:…' };
