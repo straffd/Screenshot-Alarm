@@ -24,7 +24,7 @@ The page now uses **Built-in (no key needed)** by default. People can still pick
 ## Limits and abuse protection
 - Only requests from `ALLOWED_ORIGINS` are accepted. This stops other websites from using your proxy,
   but someone running a script can fake the origin, so the rate limit is the real protection.
-- Each visitor IP gets 10 requests per minute (`[[ratelimits]]` in `wrangler.toml`).
+- Each visitor IP gets 20 requests per minute (`[[ratelimits]]` in `wrangler.toml`).
 - Everyone shares your key's free Gemini quota. When it runs out, users see a message suggesting they add their own key.
 - The model is fixed by `GEMINI_MODEL`, so visitors can't switch to a costlier model.
 - To see usage or errors, run `npx wrangler tail` or open the Worker in the Cloudflare dashboard.

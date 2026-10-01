@@ -8,8 +8,8 @@ compatibility_date = "2025-09-01"
 ALLOWED_ORIGINS = ""
 GEMINI_MODEL = "gemini-2.5-flash"
 
-# Max 10 requests per 60 s per visitor IP.
+# Max 20 requests per 60 s per visitor IP.
 [[ratelimits]]
 name = "RATE_LIMITER"
 namespace_id = "1001"
-simple = { limit = 10, period = 60 }
+simple = { limit = 20, period = 60 }
