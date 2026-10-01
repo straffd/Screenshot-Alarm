@@ -145,6 +145,16 @@ body.has-bg #bgClear{display:inline-block}
 .railToggle svg{transition:transform .25s}
 .histBtn svg{transform:none !important}
 .histBtn[aria-pressed="true"]{color:var(--yellow);border-color:var(--line)}
+.main:not(.rail-collapsed) .histBtn{display:none}   /* the history switch only lives on the folded bar */
+/* Daily P/L tracker: an angled tab hanging from the top-right of the chat area */
+.pltab{position:absolute;top:0;right:0;z-index:4;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+.pltab-in{display:flex;align-items:center;gap:14px;height:48px;padding:0 22px 0 44px;background:var(--bg);white-space:nowrap;
+  clip-path:polygon(0 0,100% 0,100% 100%,30px 100%);font:700 19px/1 var(--cond);font-variant-numeric:tabular-nums}
+.pltab[hidden],.pltab-in > [hidden],#unitValueBox[hidden]{display:none}
+.pltab .sep{color:var(--line);font-weight:400;font-size:24px}
+.pltab .k{font:600 12px/1 var(--sans);letter-spacing:.06em;color:var(--muted);margin-right:7px}
+.pl-val.pos #plVal{color:var(--green)}
+.pl-val.neg #plVal{color:var(--red)}
 /* Cash / Chalk on finished alarms */
 .settle{display:flex;gap:6px;align-self:center}
 .settle button{font:700 13px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:6px 10px;border:1px solid currentColor;background:none}
@@ -350,6 +360,11 @@ button.tag{cursor:pointer}
 <div class="main">
   <section class="chat">
     <div class="chatbg" aria-hidden="true"></div>
+    <div class="pltab" id="plTab"><div class="pltab-in">
+      <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
+      <span class="sep" id="plSep" aria-hidden="true">|</span>
+      <span class="pl-val" id="plValBox"><span class="k">PNL</span><span id="plVal"></span></span>
+    </div></div>
     <div class="log" id="log"></div>
     <div class="composer">
       <div class="preview" id="preview"><div id="thumbs" style="display:flex;gap:10px;flex-wrap:wrap"></div><span id="shotCount"></span><button class="clear" id="clearImg">Remove all</button></div>
@@ -419,6 +434,25 @@ button.tag{cursor:pointer}
         </div>
       </div>
       <p class="note">Click the player names on an alarm to open its competition on Ladbrokes. Empty links open the main Ladbrokes table tennis page.</p></div>
+    <div class="hud-row"><span class="lbl">P/L tracker</span>
+      <div class="ctl" style="display:grid;gap:10px">
+        <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
+        <label class="switch"><input type="checkbox" role="switch" id="timeShow" checked> Show the time</label>
+        <div class="ctl sound"><select id="timeMode" aria-label="Time display">
+          <option value="countdown">Countdown to midnight (when P/L resets)</option>
+          <option value="clock">Current time</option>
+        </select></div>
+        <div class="ctl sound"><select id="hourFmt" aria-label="Clock format">
+          <option value="12">12-hour clock (AM/PM)</option>
+          <option value="24">24-hour clock</option>
+        </select></div>
+        <div class="ctl sound"><select id="plMoney" aria-label="Show P/L in">
+          <option value="units">Show P/L in units (u)</option>
+          <option value="dollars">Show P/L in dollars ($)</option>
+        </select>
+        <span class="lead" id="unitValueBox">1 unit = $<input id="unitValue" type="number" min="0.01" step="0.5" value="10" aria-label="Dollars per unit"></span></div>
+      </div>
+      <p class="note">The tracker adds up the matches you Cash or Chalk that start today, and resets to 0 at 12 AM.</p></div>
     <div class="hud-row"><span class="lbl">Tags</span>
       <div class="ctl" style="display:grid;gap:10px">
         <div class="taglist" id="tagList"></div>
@@ -546,7 +580,8 @@ let alarms = store.get('tt.alarms', []);
 let tags = store.get('tt.tags', []) || [];   // custom tags: [{ id, name, color }]; alarms keep a list of tag ids
 let lead = store.get('tt.lead', 5);
 let plays = store.get('tt.history', []) || [];   // settled matches: { id, name, league, start, side, line, ouPct, edge, tags, result:'cash'|'chalk', odds, units, settled }
-let railMode = store.get('tt.railMode', 'alarms');   // what the right-hand list shows: 'alarms' or 'history' (per device)
+let railMode = store.get('tt.railMode', 'alarms');
+let plPrefs = store.get('tt.plPrefs', {}) || {};   // { showPL, showTime, timeMode:'countdown'|'clock', money:'units'|'dollars', unitValue }   // what the right-hand list shows: 'alarms' or 'history' (per device)
 let cleanupHours = store.get('tt.cleanupHours', 3);   // alarms are removed this many hours after their match starts (0 = never)
 const MAX_SHOTS = 10;
 let pendingImgs = [];    // data URLs waiting to be sent
@@ -622,11 +657,10 @@ $('#menuBtn').onclick = () => openModal('#hud');
 function setRail(open){
   $('.main').classList.toggle('rail-collapsed', !open);
   const t = $('#railToggle'); t.setAttribute('aria-expanded', open);
-  t.title = open ? 'Hide alarms' : 'Show alarms'; t.setAttribute('aria-label', t.title);
+  t.title = open ? 'Hide the list' : 'Show alarms'; t.setAttribute('aria-label', t.title);
   store.set('tt.railOpen', open);
 }
 setRail(store.get('tt.railOpen', true));
-$('#railToggle').onclick = () => setRail($('.main').classList.contains('rail-collapsed'));
 
 /* Shrink screenshots before saving so localStorage doesn't fill up */
 function shrink(dataUrl, maxW=1400){
@@ -797,7 +831,8 @@ function matchStart(info){
   return when.getTime();
 }
 const clean = n => String(n||'').trim().replace(/\.+$/,'');
-const fmtTime = ms => new Date(ms).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+const clockOpts = () => plPrefs.hour24 ? { hour:'2-digit', minute:'2-digit', hourCycle:'h23' } : { hour:'numeric', minute:'2-digit', hour12:true };
+const fmtTime = ms => new Date(ms).toLocaleTimeString([], clockOpts());
 const fmtDay = ms => {
   const d = new Date(ms), t = new Date(); const tm = new Date(); tm.setDate(t.getDate()+1);
   if(d.toDateString()===t.toDateString()) return 'Today';
@@ -1145,16 +1180,20 @@ renderTagSettings();
 
 /* ---------- Match history (Cash / Chalk) ---------- */
 const fmtU = n => (Math.round(n * 100) / 100).toString();
+const inDollars = () => plPrefs.money === 'dollars';
+const unitValue = () => +plPrefs.unitValue > 0 ? +plPrefs.unitValue : 10;
+// Signed P/L in the chosen display: "+1.7u" or "+$17.00"
+const fmtPL = n => (n > 0 ? '+' : n < 0 ? '−' : '') + (inDollars() ? '$' + (Math.abs(n) * unitValue()).toFixed(2) : fmtU(Math.abs(n)) + 'u');
 const playPL = p => p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
 const lastUnits = () => store.get('tt.lastUnits', 1);
-function savePlays(){ store.set('tt.history', plays); render(); }
+function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); }
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
 function settle(a, result, odds, units){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
                   edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, settled: Date.now() });
   if(units) store.set('tt.lastUnits', units);
   alarms = alarms.filter(x => x.id !== a.id); store.set('tt.alarms', alarms);
-  toast(result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (+${fmtU(playPL(plays[0]))}u)` : `Chalked: ${a.name} (−${fmtU(units || 0)}u)`);
+  toast(result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (${fmtPL(playPL(plays[0]))})` : `Chalked: ${a.name} (${fmtPL(-(units || 0))})`);
   savePlays();
 }
 // Popup: new cash from an alarm, or edit any history entry
@@ -1178,8 +1217,8 @@ function pickResult(r){
 }
 function settleProfit(){
   const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, el = $('#settleProfit');
-  if(settling.result === 'chalk'){ el.className = 'profit neg'; el.textContent = units > 0 ? `−${fmtU(units)}u` : ''; return; }
-  el.className = 'profit pos'; el.textContent = odds > 1 && units > 0 ? `+${fmtU(units * (odds - 1))}u profit` : '';
+  if(settling.result === 'chalk'){ el.className = 'profit neg'; el.textContent = units > 0 ? fmtPL(-units) : ''; return; }
+  el.className = 'profit pos'; el.textContent = odds > 1 && units > 0 ? `${fmtPL(units * (odds - 1))} profit` : '';
 }
 $('#pickCash').onclick = () => pickResult('cash');
 $('#pickChalk').onclick = () => pickResult('chalk');
@@ -1203,7 +1242,7 @@ function renderHistory(){
   const list = $('#list'); list.innerHTML = '';
   const total = plays.reduce((t, p) => t + playPL(p), 0), wins = plays.filter(p => p.result === 'cash').length;
   $('#railLabel').textContent = 'History';
-  $('#alarmCount').textContent = plays.length ? `${wins}/${plays.length} cashed · ${total >= 0 ? '+' : '−'}${fmtU(Math.abs(total))}u` : '';
+  $('#alarmCount').textContent = plays.length ? `${wins}/${plays.length} cashed · ${fmtPL(total)}` : '';
   if(!plays.length){ list.innerHTML = '<div class="empty">No settled matches yet. When an alarm\'s match has started, press Cash or Chalk on it to record the result here.</div>'; return; }
   for(const p of plays){
     const c = document.createElement('div'), pl = playPL(p);
@@ -1215,7 +1254,7 @@ function renderHistory(){
       <div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div>
       <div class="result">${p.result === 'cash' ? 'CASH' : 'CHALK'}</div>
       <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="tags"></span><span class="line"></span></div>
-      <div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${pl >= 0 ? '+' : '−'}${fmtU(Math.abs(pl))}u</span></div>`;
+      <div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div>`;
     c.querySelector('.names').textContent = p.name;
     if(p.league) c.querySelector('.comp').textContent = p.league;
     c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
@@ -1225,13 +1264,51 @@ function renderHistory(){
     list.appendChild(c);
   }
 }
+/* ---------- Daily P/L tracker ---------- */
+function plSettings(){
+  plPrefs = store.get('tt.plPrefs', {}) || {};
+  $('#plShow').checked = plPrefs.showPL !== false; $('#timeShow').checked = plPrefs.showTime !== false;
+  $('#timeMode').value = plPrefs.timeMode === 'clock' ? 'clock' : 'countdown'; $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
+  $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
+  $('#timeMode').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
+  tickTracker();
+}
+function savePlPrefs(){
+  plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value, hour24: $('#hourFmt').value === '24',
+              money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10) };
+  store.set('tt.plPrefs', plPrefs); plSettings(); render();
+}
+['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue'].forEach(id => $(id).onchange = savePlPrefs);
+function tickTracker(){
+  const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
+  $('#plTab').hidden = !showPL && !showTime;
+  $('#plTimeBox').hidden = !showTime; $('#plValBox').hidden = !showPL;
+  $('#plSep').hidden = !(showPL && showTime);
+  const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
+  const dayStart = midnight.getTime() - 864e5;
+  if(showTime){
+    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], clockOpts()); }
+    else {
+      let s = Math.max(0, Math.floor((midnight - now) / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60;
+      $('#plTime').title = 'Time until P/L resets at 12 AM'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+  }
+  if(showPL){
+    const today = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()).reduce((t, p) => t + playPL(p), 0);
+    $('#plValBox').className = 'pl-val' + (today > 1e-9 ? ' pos' : today < -1e-9 ? ' neg' : '');
+    $('#plVal').textContent = Math.abs(today) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(today);
+  }
+}
+plSettings();
+
 function setRailMode(mode){
   railMode = mode; store.set('tt.railMode', mode);
   const b = $('#histBtn'); b.setAttribute('aria-pressed', mode === 'history');
-  b.title = mode === 'history' ? 'Back to alarms' : 'Match history'; b.setAttribute('aria-label', b.title);
   render();
 }
-$('#histBtn').onclick = () => { if($('.main').classList.contains('rail-collapsed')) setRail(true); setRailMode(railMode === 'history' ? 'alarms' : 'history'); };
+// Folded bar: the arrow opens the alarms, the ⟲ button under it opens the history
+$('#histBtn').onclick = () => { setRailMode('history'); setRail(true); };
+$('#railToggle').onclick = () => { if($('.main').classList.contains('rail-collapsed')){ setRailMode('alarms'); setRail(true); } else setRail(false); };
 setRailMode(railMode);
 
 /* ---------- Modals ---------- */
@@ -1415,6 +1492,7 @@ function stopAlarm(id){
 setInterval(() => {
   const now = Date.now();
   cleanupOld();
+  tickTracker();
   alarms.filter(a => !a.fired && a.ring <= now).forEach(fire);
   document.querySelectorAll('[data-count]').forEach(el => {
     const a = alarms.find(x=>x.id===el.dataset.count);
@@ -1435,7 +1513,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -1465,7 +1543,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
-    plays = store.get('tt.history', []) || [];
+    plays = store.get('tt.history', []) || []; plSettings();
     tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }
