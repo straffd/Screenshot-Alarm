@@ -6,7 +6,9 @@ Screenshots are read by Google Gemini (free tier).
 ## Use it
 1. Open the site. On the welcome page, **Sign in with Google** to keep everything on every device,
    or choose **Continue without an account** to keep everything on this device only.
-2. Click **Settings** in the top bar (phones: ☰ menu → Settings) → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
+   The first time, a short **tutorial** walks you through adding your Gemini key and checking your league links, then
+   shows you around (replay it any time: Settings → Help → Replay the tutorial).
+2. Click **Settings** in the top bar (phones: ☰ menu → Settings) → Gemini → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
    shown until a key is saved) and paste your free Gemini API key from https://aistudio.google.com/apikey.
 3. Paste (Ctrl+V), drop, or attach a match screenshot and press Enter. No screenshot? Type the match instead, e.g.
    `Will vs Zed 3:20pm` (add `over` or `under`, and any tag names such as `bot` or `strong`, if you like; one per line for several). It's added as a minimal bet with an
@@ -93,6 +95,10 @@ apps. In ⚙ Settings → Alarms:
 Worker). Once it's set up and its address is in `index.html` (`PUSH_SERVER`), alarms arrive as notifications even when
 the phone is locked or the app is closed; Settings → Alarms shows **Locked-phone alarms: on**.
 Signed in, stopping an alarm on one device (e.g. your PC) stops it on your others too, including a locked phone.
+
+Settings is grouped into **Account**, **Appearance** (colours, background, P/L tracker), **Alarms** (alarm switches,
+lead time, sound), **Betting** (old-bet removal, average/default odds, tags, League Links), **Gemini** and **Help**.
+**Clear all** (delete every bet) is in the Bets panel's header: press it twice to confirm.
 
 ## Where your data is kept
 - **Chat:** the chat log is kept on this device for 3 days (older messages are removed). Screenshots you send are kept with it, downsized, in the browser's own storage (IndexedDB), and go with their messages. The 🗑 at the right of the text bar clears it: press it twice (or double-click).
