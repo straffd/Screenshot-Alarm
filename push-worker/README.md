@@ -17,8 +17,10 @@ automatically. The encryption keys (VAPID) are created by the Worker the first t
    [`worker.js`](worker.js), and click **Deploy**.
 3. **Create the database.** **Storage & Databases** → **D1 SQL database** → **Create** → name it `tt-alarm-push` → **Create**.
    (No tables to make: the Worker creates them itself.)
-4. **Connect the database.** Back on the Worker → **Settings** → **Bindings** → **Add** → **D1 database** →
-   Variable name **`DB`** → pick `tt-alarm-push` → **Deploy**.
+4. **Connect the database.** Back on the Worker → **Settings** → **Bindings** → **Add binding** → **D1 database** →
+   Variable name **`DB`** → pick `tt-alarm-push` → **Add binding** (and **Deploy** if it asks).
+   If the Worker's address later shows *"No database connected"* or *"Cannot read properties of undefined (reading 'batch')"*,
+   this binding is missing: check it's listed under Bindings and deployed.
 5. **Run it every minute.** Worker → **Settings** → **Trigger events** (Triggers) → **Add** → **Cron Triggers** →
    enter `* * * * *` (every minute) → **Add**.
 6. **(Optional) Lock it to your site.** Worker → **Settings** → **Variables and Secrets** → **Add**:

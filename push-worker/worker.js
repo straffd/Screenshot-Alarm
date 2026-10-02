@@ -13,20 +13,35 @@
      POST /pending    { endpoint }                   alarms just sent to this phone (the service worker shows them)
    Pushes carry no payload, so nothing needs encrypting: the phone fetches the details from /pending. */
 
+const VERSION = '2026-10-02';  // shown on the health check, so you can tell which code is deployed
 const LOOKAHEAD = 20e3;          // send up to 20 s early (the cron runs once a minute)
 const SHOW_WINDOW = 15 * 60e3;   // /pending returns alarms sent in the last 15 min
 
+// The D1 database: the binding called DB, or else any D1 binding whatever it's called (the dashboard sometimes
+// names it after the database). Returns null if none is attached.
+function findDb(env){
+  if(env.DB && typeof env.DB.prepare === 'function') return env.DB;
+  return Object.values(env || {}).find(v => v && typeof v.prepare === 'function' && typeof v.batch === 'function') || null;
+}
+const NO_DB = 'No database connected. In the Cloudflare dashboard open this Worker → Settings → Bindings → Add binding → '
+  + 'D1 database, set the variable name to DB, pick your tt-alarm-push database, and deploy. Then reload this page.';
+
 export default {
   async fetch(req, env){
+    const db = findDb(env); if(db) env = { ...env, DB: db };
     const cors = { 'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                    'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' };
     const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
     if(req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    if(!db) return json({ ok: false, error: NO_DB, version: VERSION, bindingsSeen: Object.keys(env || {}).map(k => `${k} (${env[k] === null ? 'null' : typeof env[k]})`) }, 500);
     try{
       await setup(env);
       const path = new URL(req.url).pathname.replace(/\/+$/, '');
       if(req.method === 'GET' && path === '/vapid') return json({ key: (await vapid(env)).pub });
-      if(req.method === 'GET' && (path === '' || path === '/')) return json({ ok: true, service: 'TT Alarm Bot push' });
+      if(req.method === 'GET' && (path === '' || path === '/')){   // health check: shows the database works
+        const subs = await env.DB.prepare('SELECT count(*) AS n FROM subs').first(), waiting = await env.DB.prepare("SELECT count(*) AS n FROM alarms WHERE status = 'wait'").first();
+        return json({ ok: true, service: 'TT Alarm Bot push', version: VERSION, phones: subs.n, alarmsWaiting: waiting.n });
+      }
       if(req.method !== 'POST') return json({ error: 'not found' }, 404);
       const body = await req.json().catch(() => null);
       if(!body) return json({ error: 'bad json' }, 400);
@@ -63,6 +78,8 @@ export default {
 };
 
 export async function sendDue(env, now = Date.now()){
+  const db = findDb(env); if(!db){ console.error(NO_DB); return []; }
+  env = { ...env, DB: db };
   await setup(env);
   const { results } = await env.DB.prepare("SELECT DISTINCT h FROM alarms WHERE status = 'wait' AND ring <= ?1").bind(now + LOOKAHEAD).all();
   const keys = results.length ? await vapid(env) : null, out = [];
@@ -83,15 +100,16 @@ export async function sendDue(env, now = Date.now()){
   return out;
 }
 
+const ready = new WeakSet();   // databases whose tables we've already made
 async function setup(env){
-  if(setup.done) return;
+  if(ready.has(env.DB)) return;
   await env.DB.batch([
     env.DB.prepare('CREATE TABLE IF NOT EXISTS subs (h TEXT PRIMARY KEY, sub TEXT NOT NULL, updated INTEGER)'),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS alarms (h TEXT NOT NULL, id TEXT NOT NULL, ring INTEGER NOT NULL, title TEXT, body TEXT, url TEXT, status TEXT NOT NULL DEFAULT 'wait', sent_at INTEGER, PRIMARY KEY (h, id))"),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS alarms_due ON alarms (status, ring)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
   ]);
-  setup.done = true;
+  ready.add(env.DB);
 }
 
 // VAPID key pair: made once, stored in the database
