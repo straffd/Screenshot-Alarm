@@ -401,7 +401,8 @@ button.tag{cursor:pointer}
 .ftabs button{white-space:nowrap}
 .fmenu .bell{min-width:42px;font-size:0;line-height:1}
 .fmenu .bell::before{content:'';display:inline-block;width:18px;height:18px;vertical-align:middle;background:#fff;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a1.5 1.5 0 0 0-1.5 1.5v.7A6 6 0 0 0 6 10v4.6l-1.7 2.2A.75.75 0 0 0 4.9 18h14.2a.75.75 0 0 0 .6-1.2L18 14.6V10a6 6 0 0 0-4.5-5.8v-.7A1.5 1.5 0 0 0 12 2zm-2.5 17a2.5 2.5 0 0 0 5 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a1.5 1.5 0 0 0-1.5 1.5v.7A6 6 0 0 0 6 10v4.6l-1.7 2.2A.75.75 0 0 0 4.9 18h14.2a.75.75 0 0 0 .6-1.2L18 14.6V10a6 6 0 0 0-4.5-5.8v-.7A1.5 1.5 0 0 0 12 2zm-2.5 17a2.5 2.5 0 0 0 5 0z'/%3E%3C/svg%3E") center/contain no-repeat}   /* a white bell */
-.fmenu .ghost.bell[aria-pressed="true"]{box-shadow:inset 0 2px 5px rgba(0,0,0,.55);transform:translateY(1px);background:color-mix(in srgb,var(--yellow) 22%,var(--bg));border-color:var(--yellow)}   /* pushed in = on */
+.fmenu .ghost.bell[aria-pressed="true"]{box-shadow:inset 0 2px 5px rgba(0,0,0,.55);transform:translateY(1px);background:color-mix(in srgb,var(--accent) 22%,var(--bg));border-color:var(--accent)}   /* pushed in = on, in the background picture's colour */
+.fmenu .ghost.bell[aria-pressed="true"]::before{background:var(--accent)}
 #tagList button:disabled{opacity:.3;cursor:default}   /* SWEEP: built in, can't be deleted */
 #tagList input[readonly]{color:var(--muted)}
 .fa-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
