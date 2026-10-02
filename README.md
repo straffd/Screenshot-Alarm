@@ -67,8 +67,8 @@ Screenshots are read by Google Gemini (free tier).
     theirs, a **✓** (Cash) or **✕** (Chalk) appears above their picture, so you can see how it went before you press yours.
     Click the pictures to drop down the list of who is on the play, with how theirs went (and their side if it differs from yours).
     **Leaderboard** (top bar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
-    this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
-    they next open the site.
+    this **year**, with each person's wins and losses. Click a friend to open their PNL. It updates live while it's
+    open (and so do friends' PNL, History and Bets), so there's no need to refresh.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
 
 **On a phone** the top is one bar: a **☰** menu on the left (Chat, Bets, History, PNL, Leaderboard, Friends, Settings,
