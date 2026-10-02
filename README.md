@@ -6,7 +6,7 @@ Screenshots are read by Google Gemini (free tier).
 ## Use it
 1. Open the site. On the welcome page, **Sign in with Google** to keep everything on every device,
    or choose **Continue without an account** to keep everything on this device only.
-2. Click **Settings** in the top bar (phones: ☰ menu → Settings) → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
+2. Click **Settings** in the top bar (phones: ☰ menu → Settings) → **Gemini settings** (or the blue **Gemini settings** button at the top of the chat,
    shown until a key is saved) and paste your free Gemini API key from https://aistudio.google.com/apikey.
 3. Paste (Ctrl+V), drop, or attach a match screenshot and press Enter. No screenshot? Type the match instead, e.g.
    `Will vs Zed 3:20pm` (add `over` or `under`, and any tag names such as `bot` or `strong`, if you like; one per line for several). It's added as a minimal bet with an
@@ -50,7 +50,7 @@ Screenshots are read by Google Gemini (free tier).
     SWEEP is added if you write "sweep" with it, and your own tags stay.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
     and set the background picture's **blur** and **saturation**. With a background picture, the main buttons (normally
-    yellow) take on its colour.
+    blue) take on its colour.
     **Top bar colour** (⚙ Settings) gives the bar across the top (and the time | PNL tab under it) its own colour and
     opacity, separate from the chat's; ↺ makes it follow the chat again. On phones it's always solid.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
