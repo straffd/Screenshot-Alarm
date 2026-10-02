@@ -1070,12 +1070,28 @@ $('#leadMin').value = lead;
 /* Chat log: kept on this device (tt.chat) for 3 days. Screenshots aren't kept: a saved message shows how many there were.
    opts.temp: not saved (the "Reading…" message, the welcome). opts.bell: a friend's bet { uid, name, play } (shown with its card). */
 const CHAT_DAYS = 3;
-let chatLog = (store.get('tt.chat', []) || []).filter(m => m && m.t > Date.now() - CHAT_DAYS * 864e5);
+const chatSaved = store.get('tt.chat', []) || [];
+let chatLog = chatSaved.filter(m => m && m.t > Date.now() - CHAT_DAYS * 864e5);
+// Screenshots sent in the chat are kept (downsized) in this browser's IndexedDB, which has far more room than localStorage
+const chatImgs = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open('tt-chat', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('imgs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
+  const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('imgs', mode), q = fn(t.objectStore('imgs'));
+    t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  const safe = p => p.catch(() => null);   // private windows etc.: just don't keep them
+  return { put: (k, v) => safe(tx('readwrite', st => st.put(v, k))), get: k => safe(tx('readonly', st => st.get(k))),
+           del: k => safe(tx('readwrite', st => st.delete(k))), clear: () => safe(tx('readwrite', st => st.clear())) };
+})();
 function addMsg(who, text, opts={}){
   const m = { t: Date.now(), who, text: text || '', ...(opts.err ? { err:true } : {}), ...(opts.facts ? { facts: opts.facts } : {}),
               ...(opts.imgs && opts.imgs.length ? { n: opts.imgs.length } : {}), ...(opts.bell ? { bell: opts.bell } : {}) };
   const d = msgEl(m, opts.imgs);
-  if(!opts.temp){ chatLog.push(m); if(chatLog.length > 400) chatLog = chatLog.slice(-400); saveChat(); }
+  if(!opts.temp){
+    if(opts.imgs && opts.imgs.length){ m.img = m.t + '-' + Math.random().toString(36).slice(2, 7);
+      Promise.all(opts.imgs.map(src => shrink(src, 1000))).then(list => chatImgs.put(m.img, list)); }
+    chatLog.push(m); if(chatLog.length > 400){ chatLog.slice(0, chatLog.length - 400).forEach(x => x.img && chatImgs.del(x.img)); chatLog = chatLog.slice(-400); } saveChat();
+  }
   else d.dataset.temp = '1';
   $('#log').appendChild(d);
   $('#log').scrollTop = $('#log').scrollHeight; markLogScroll();
@@ -1089,7 +1105,14 @@ function msgEl(m, imgs){
     const g = document.createElement(imgs.length > 1 ? 'div' : 'span'); if(imgs.length > 1) g.className = 'shots';
     imgs.forEach((src, n) => { const i = document.createElement('img'); i.src = src; i.alt = 'Screenshot ' + (n+1); g.appendChild(i); });
     d.appendChild(g);
-  } else if(m.n) d.appendChild(el('div', 'shotnote', `📷 ${m.n} screenshot${m.n > 1 ? 's' : ''}`));   // restored: the pictures weren't kept
+  } else if(m.n){   // restored: the pictures come back from IndexedDB (older messages from before they were kept show a note)
+    const note = el('div', 'shotnote', `📷 ${m.n} screenshot${m.n > 1 ? 's' : ''}`); d.appendChild(note);
+    if(m.img) chatImgs.get(m.img).then(list => { if(!Array.isArray(list) || !list.length) return;
+      const g = document.createElement(list.length > 1 ? 'div' : 'span'); if(list.length > 1) g.className = 'shots';
+      list.forEach((src, n) => { const i = document.createElement('img'); i.src = src; i.alt = 'Screenshot ' + (n + 1); g.appendChild(i); });
+      const log = $('#log'), atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+      note.replaceWith(g); if(atEnd) g.querySelectorAll('img').forEach(i => i.addEventListener('load', () => { log.scrollTop = log.scrollHeight; }, { once:true })); });
+  }
   if(m.facts){
     const f = document.createElement('div'); f.className = 'facts';
     for(const [k,v] of m.facts){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('span'); b.textContent=v; f.append(a,b); }
@@ -1106,6 +1129,7 @@ function saveChat(){ if(!store.set('tt.chat', chatLog)){ chatLog = chatLog.slice
 // Drop messages older than 3 days (from the screen too)
 function pruneChat(){
   const cut = Date.now() - CHAT_DAYS * 864e5, before = chatLog.length;
+  chatLog.filter(m => m.t <= cut && m.img).forEach(m => chatImgs.del(m.img));
   chatLog = chatLog.filter(m => m.t > cut); if(chatLog.length !== before) saveChat();
   document.querySelectorAll('#log .msg[data-t]').forEach(d => { if(!d.dataset.temp && +d.dataset.t <= cut) d.remove(); });
 }
@@ -1120,6 +1144,7 @@ setTimeout(() => {
   chatLog.forEach(m => { try{ frag.appendChild(msgEl(m)); }catch(e){} });
   log.prepend(frag);
   if(!chatLog.length && !log.querySelector('.msg')) welcome();
+  chatSaved.filter(m => m && m.img && !chatLog.includes(m)).forEach(m => chatImgs.del(m.img));   // pictures of messages past 3 days
   log.scrollTop = log.scrollHeight; markLogScroll();
 }, 0);
 setInterval(pruneChat, 10 * 60e3);
@@ -1132,7 +1157,7 @@ $('#chatClear').onclick = () => {
     return;
   }
   clearTimeout(b._t); b.classList.remove('confirm'); b.title = 'Clear chat'; b.setAttribute('aria-label', 'Clear chat');
-  chatLog = []; store.set('tt.chat', chatLog);
+  chatLog = []; store.set('tt.chat', chatLog); chatImgs.clear();
   $('#log').innerHTML = ''; welcome(); toast('Chat cleared.');
 };
 
@@ -3141,6 +3166,7 @@ async function signOut(){
   sync.unsubs.forEach(u => u()); sync.unsubs = [];
   try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
   // Remove this account's data from the browser so the next person starts clean
+  await chatImgs.clear();   // the chat's screenshots too
   ['tt.alarms', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
   location.reload();
 }
