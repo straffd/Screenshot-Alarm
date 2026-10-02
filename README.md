@@ -31,9 +31,8 @@ Screenshots are read by Google Gemini (free tier).
    in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under, Sweep or **Overcommit**). On a Bot-tagged match, Sweep and Overcommit bets count as **Personal** P/L; its other bets count as Bot; the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: press **History** in the top bar to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
-   (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is either
-   a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
-   time style, show P/L in units or dollars (with your $ per unit), and set its **Size** (computers, 80–200%).
+   (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is
+   the current time. In ⚙ Settings → P/L tracker you can hide either half, pick a 12- or 24-hour clock, show P/L in units or dollars (with your $ per unit), and set its **Size** (computers, 80–200%) and **Position**: left or right (beside any open panels).
 9. Press **PNL** in the top bar for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this week / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
