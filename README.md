@@ -34,7 +34,7 @@ Screenshots are read by Google Gemini (free tier).
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
 9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
-   (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
+   (past Bets or History if they're open too; up to 4 panels by default, change it in ⚙ Settings → Panels, and opening one more closes the oldest; with the time | PNL tab always just left of the outermost panel)
    and shows today / this week / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
    **last bet** (click it to jump to that day), with a **Calendar** (each day's P/L; click a day for its
    matches) or a **Graph** (running total over 7, 30, 90 days or all time). Switch between **All**, **Personal** and **Bot** at the top:
