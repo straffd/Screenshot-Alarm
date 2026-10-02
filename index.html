@@ -135,6 +135,7 @@ body.has-bg #bgClear{display:inline-block}
   -webkit-mask-position:0 0,var(--fade-w,100%) 0;mask-position:0 0,var(--fade-w,100%) 0;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
+html:not(.phone) .log{--fade-top:34px;--fade-len:30px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
 .msg.user{background:#2a3440;align-self:flex-end}
@@ -582,6 +583,31 @@ html.phone #homeBtn,html.phone #menuBtn,html.phone #barBtn,html.phone #toolbar{d
 html.phone .top{padding:calc(9px + env(safe-area-inset-top)) 10px 9px;right:0;border-radius:0;border-width:0 0 1px 0}   /* one bar across: ☰ left, you on the right */
 html.phone .pltab{display:none}                                 /* no clock / PNL tab on phones (PNL is in the ☰ menu) */
 .me-chip{display:none}
+#menuBtn .lbl{display:none}
+/* Computers: one fixed bar across the top (same colour as the PNL tab), everything else sits below it.
+   Flat buttons with a mini icon; hover and the open panel get a filled rectangle. */
+html:not(.phone) .top{position:relative;flex:none;height:48px;box-sizing:border-box;gap:4px;padding:0 14px;background:var(--bg);color:var(--text);border:none;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none}
+html:not(.phone) .brand{font-size:17px;gap:9px;margin-right:14px;min-height:32px}
+html:not(.phone) #barBtn{display:none}
+html:not(.phone) .toolbar{display:flex !important;gap:2px;padding:0;border:none;animation:none}
+html:not(.phone) .toolbar .ghost,html:not(.phone) #menuBtn{display:inline-flex;align-items:center;gap:7px;width:auto;height:32px;padding:0 11px;border:none;border-radius:6px;background:none;color:var(--muted);font:500 14px var(--sans);white-space:nowrap;transition:background .12s,color .12s}
+html:not(.phone) .toolbar .ghost:hover,html:not(.phone) #menuBtn:hover{background:color-mix(in srgb,var(--text) 9%,transparent);color:var(--text)}
+html:not(.phone) .toolbar .ghost[aria-expanded="true"],html:not(.phone) #menuBtn[aria-expanded="true"]{background:color-mix(in srgb,var(--text) 13%,transparent);color:var(--text)}
+html:not(.phone) .toolbar .ti,html:not(.phone) #menuBtn svg{width:15px;height:15px;flex:none}
+html:not(.phone) #menuBtn{order:2}
+html:not(.phone) #menuBtn .lbl{display:inline}
+html:not(.phone) .me-chip{order:3;display:flex;align-items:center;gap:8px;margin-left:auto;height:36px;padding:0 4px 0 10px;border:none;border-radius:18px;background:none;color:var(--text);max-width:260px}
+html:not(.phone) .me-chip:hover{background:color-mix(in srgb,var(--text) 9%,transparent)}
+html:not(.phone) .me-chip #meName{font:500 14px var(--sans)}
+html:not(.phone) .me-chip .pfp{width:28px;height:28px;font-size:13px}
+html:not(.phone) .log{padding-top:72px !important}
+html:not(.phone) .keycta{top:62px}
+/* the time | PNL tab hangs from the bar at the top left of the chat */
+html:not(.phone) .pltab{left:0;right:auto;top:0 !important}
+html:not(.phone) .main.pnl-open .pltab{transform:none}
+html:not(.phone) .pltab-in{height:44px;padding:0 44px 0 20px;clip-path:polygon(0 0,100% 0,calc(100% - 30px) 100%,0 100%)}
+html:not(.phone) .pltab-in{font:600 15px/1 var(--sans);color:var(--text)}
+html:not(.phone) .chatbg{position:fixed}   /* the background picture runs under the top bar too, so a see-through bar shows it */   /* same font as the top bar */
 html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
 html.phone .me-chip:active{background:var(--panel-2)}
 .me-chip #meName{font:600 15px var(--cond);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -652,18 +678,18 @@ html.phone .alpha-note{display:inline}
   </button>
   <button class="brand" id="homeBtn" title="Back to the home page"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
   <button class="ghost iconbtn" id="menuBtn" aria-haspopup="dialog" aria-label="Settings" title="Settings">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span>
   </button>
   <button class="ghost iconbtn" id="barBtn" aria-expanded="false" aria-controls="toolbar" aria-label="Show toolbar" title="Show toolbar">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>
   <button class="me-chip" id="meChip" title="Your profile"><span id="meName"></span><span id="mePfp"></span></button>
   <div class="toolbar" id="toolbar" hidden>
-    <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false">Bets</button>
-    <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false">Friends<span class="badge" id="reqBadge" hidden></span></button>
-    <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false">History</button>
-    <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false">PNL</button>
-    <button class="ghost" id="lbBtn" aria-controls="lb" aria-expanded="false">Leaderboard</button>
+    <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg>Bets</button>
+    <button class="ghost" id="histOpen" aria-controls="hist" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>History</button>
+    <button class="ghost" id="pnlBtn" aria-controls="pnl" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>PNL</button>
+    <button class="ghost" id="lbBtn" aria-controls="lb" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3a3 3 0 0 1-3 4M7 5H4a3 3 0 0 0 3 4"/></svg>Leaderboard</button>
+    <button class="ghost" id="friendsBtn" aria-controls="friends" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Friends<span class="badge" id="reqBadge" hidden></span></button>
   </div>
 </div>
 
@@ -816,6 +842,14 @@ html.phone .alpha-note{display:inline}
         <output id="uiAlphaOut" for="uiAlpha">100%</output>
         <span class="alpha-note">Always 100% opaque on phones</span>
         <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
+      </div></div>
+    <div class="hud-row"><label class="lbl" for="topColor">Top bar colour</label>
+      <div class="ctl theme">
+        <input type="color" id="topColor" value="#16181b" title="Choose the top bar colour">
+        <input type="range" id="topAlpha" min="20" max="100" step="5" value="100" aria-label="Top bar opacity" title="Top bar opacity">
+        <output id="topAlphaOut" for="topAlpha">100%</output>
+        <span class="alpha-note" id="topColorNote">Same as the chat</span>
+        <button class="ghost" id="topReset" title="Back to the chat's colour" aria-label="Reset top bar colour">↺</button>
       </div></div>
     <div class="hud-row"><span class="lbl">Background</span>
       <div class="ctl bgpick">
@@ -991,8 +1025,9 @@ function markLogScroll(){
   const l = $('#log'); if(!l) return;
   l.classList.toggle('scrolled', l.scrollTop > 4);
   // how far the fade reaches: the toolbar's width (phones: the whole bar, so the full width)
-  const t = $('#top');
-  if(t) l.style.setProperty('--fade-w', document.documentElement.classList.contains('phone') ? '100%' : Math.ceil(t.getBoundingClientRect().right - l.getBoundingClientRect().left + 16) + 'px');
+  // computers: the time | PNL tab at the top left (the bar itself is above the chat, nothing to fade under)
+  const tab = $('#plTab'), tin = document.querySelector('.pltab-in');
+  l.style.setProperty('--fade-w', document.documentElement.classList.contains('phone') ? '100%' : tab && !tab.hidden && tin ? Math.ceil(tin.offsetWidth + 16) + 'px' : '0px');
 }
 addEventListener('resize', () => markLogScroll());
 document.addEventListener('scroll', e => { if(e.target && e.target.id === 'log') markLogScroll(); }, true);
@@ -1061,8 +1096,8 @@ function pruneChat(){
 }
 function welcome(){
   addMsg('bot', ready()
-    ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under ' + (isPhone() ? 'the ☰ menu → Settings.' : 'the ⚙ button at the top left.')
-    : 'Add your free Gemini API key under ' + (isPhone() ? 'the ☰ menu (top left)' : 'the ⚙ button (top left)') + ' → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.', { temp:true });
+    ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under ' + (isPhone() ? 'the ☰ menu → Settings.' : 'Settings in the top bar.')
+    : 'Add your free Gemini API key under ' + (isPhone() ? 'the ☰ menu (top left)' : 'Settings in the top bar') + ' → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.', { temp:true });
 }
 // Restore the saved chat once the page has loaded (bet cards need the rest of the page's code); a new chat starts with the welcome
 setTimeout(() => {
@@ -1177,11 +1212,36 @@ function applyTheme(t){
 }
 let uiTheme = store.get('tt.theme', null);
 applyTheme(uiTheme);
-addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); layoutSlides(); } });
+addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); if(typeof applyTopColor === 'function') applyTopColor(); layoutSlides(); } });
 const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
 $('#uiColor').oninput = saveTheme;
 $('#uiAlpha').oninput = saveTheme;
 $('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); store.del('tt.theme'); };
+// Top bar colour (Settings): its own colour for the bar across the top (and the time | PNL tab under it), separate from the chat's.
+// Empty = follow the chat's colours. Text switches to dark on light colours.
+function applyTopColor(){
+  const els = [$('#top'), document.querySelector('.pltab-in')];
+  let c = store.get('tt.topColor', null); const alpha = store.get('tt.topAlpha', 100);
+  const props = ['--bg', '--panel', '--panel-2', '--line', '--text', '--muted'];
+  els.forEach(e => e && props.forEach(p => e.style.removeProperty(p)));
+  $('#topColorNote').textContent = c ? (isPhone() ? 'Always 100% opaque on phones' : '') : 'Same as the chat';
+  $('#topAlpha').value = alpha; $('#topAlphaOut').textContent = alpha + '%';
+  const toHex = v => { const m = String(v).match(/\d+/g); return /^#[0-9a-f]{6}$/i.test(v) ? v : m && m.length >= 3 ? '#' + m.slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('') : '#16181b'; };
+  $('#topColor').value = c || toHex(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());   // unset: shows the chat's colour
+  if(!c && alpha >= 100) return;
+  c = c || $('#topColor').value;   // only the opacity changed: the chat's colour, see-through
+  const a = isPhone() ? 1 : alpha / 100;   // phones: always solid, like the rest of the app
+  const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), light = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255 > .55;
+  const mix = (to, k) => `rgb(${rgb.map(v => Math.round(v + (to - v) * k)).join(',')})`;
+  els.forEach(e => { if(!e) return;
+    const fill = `rgba(${rgb.join(',')},${a})`; e.style.setProperty('--bg', fill); e.style.setProperty('--panel', fill);
+    e.style.setProperty('--panel-2', mix(light ? 0 : 255, .08)); e.style.setProperty('--line', mix(light ? 0 : 255, .16));
+    e.style.setProperty('--text', light ? '#1a1a1a' : '#ebe9e4'); e.style.setProperty('--muted', light ? '#4d535b' : '#9aa0a8'); });
+}
+$('#topColor').oninput = () => { store.set('tt.topColor', $('#topColor').value); applyTopColor(); };
+$('#topAlpha').oninput = () => { store.set('tt.topAlpha', +$('#topAlpha').value); applyTopColor(); };
+$('#topReset').onclick = () => { store.del('tt.topColor'); store.del('tt.topAlpha'); applyTopColor(); };
+applyTopColor();
 
 /* ---------- Chat background ---------- */
 // Blur and saturation of the background picture (Settings → Background)
@@ -2167,15 +2227,17 @@ function setSlide(key, open){
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
   if(key !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
   if(key === 'bets') store.set('tt.railOpen', open);   // the Bets panel stays open or closed across visits (per device)
-  layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
+  layoutSlides(); barFills(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
   const desk = !isPhone(), tab = $('#plTab'), n = slideOrder.length;
-  const chatR = innerWidth, topR = $('#top').getBoundingClientRect().right;
+  // Computers: the bar runs across the top and the time | PNL tab sits at the chat's top left, so panels fill from the
+  // right up to that tab. Phones: the old top-left tab rule.
+  const chatR = innerWidth, topR = desk ? 0 : $('#top').getBoundingClientRect().right;
   const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
-  // Never slide under the top-left toolbar: if the panels can't all fit (300px each), close the oldest one
-  if(desk && n > 1 && n * 300 > room) return setSlide(slideOrder[0], false);
+  // Never cover the PNL tab: if the panels can't all fit (300px each), close the oldest one
+  if(desk && n > 1 && n * 300 > room - tabW) return setSlide(slideOrder[0], false);
   const w = Math.round(Math.max(300, Math.min(560, (room - tabW) / Math.max(n, 1), chatR / Math.max(n, 1))));
   Object.entries(SLIDES).forEach(([k, sl]) => {
     const el = $(sl.el), i = slideOrder.indexOf(k);
@@ -2439,8 +2501,14 @@ function renderGraph(view, days){
 }
 
 /* ---------- Modals ---------- */
-function openModal(id){ $(id).classList.add('show'); }
-function closeModal(el){ el.classList.remove('show'); }
+function openModal(id){ $(id).classList.add('show'); barFills(); }
+function closeModal(el){ el.classList.remove('show'); barFills(); }
+// Top bar (computers): a button stays filled while what it opens is open
+function barFills(){
+  const open = id => { const e = $(id); return !!e && (e.classList.contains('open') || e.classList.contains('show')); };
+  $('#menuBtn').setAttribute('aria-expanded', open('#hud') || open('#settingsModal'));
+  $('#friendsBtn').setAttribute('aria-expanded', open('#friends') || open('#falarms'));
+}
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
@@ -2803,7 +2871,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -2830,7 +2898,7 @@ function refreshFromStore(){
     alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
     lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
     soundName = (SOUNDS[store.get('tt.sound', 'beep')] || isCustom(store.get('tt.sound', 'beep'))) ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName; showSoundDel();
-    uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
+    uiTheme = store.get('tt.theme', null); applyTheme(uiTheme); applyTopColor();
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
     plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
