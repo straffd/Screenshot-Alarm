@@ -735,10 +735,13 @@ html.phone .alpha-note{display:inline}
       <div class="ctl lead"><input id="cleanupHours" type="number" min="0" max="168" value="3"><span>hours after the match starts (0 = never)</span></div></div>
     <div class="hud-row"><label class="lbl" for="avgOdds">Average odds</label>
       <div class="ctl" style="display:grid;gap:10px">
-        <label class="switch"><input type="checkbox" role="switch" id="avgOddsOn" checked> Use average odds for Cash</label>
+        <label class="switch"><input type="checkbox" role="switch" id="avgOddsOn"> Use average odds for Cash</label>
         <div class="lead"><input id="avgOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85" aria-label="Average odds"><span>used when you press Cash</span></div>
       </div>
       <p class="note">With the switch on and average odds set, Cash records the win straight away at these odds with your last-used units, just like Chalk. Turn it off (or leave the odds empty) to type the odds each time. Use + for several bets, or click the entry in History to change it.</p></div>
+    <div class="hud-row"><label class="lbl" for="defOdds">Default odds</label>
+      <div class="ctl lead"><input id="defOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>filled in when you press Cash</span></div>
+      <p class="note">The Cash popup (and each new slot for several bets) starts with these odds already filled in. You can change them before saving; nothing is recorded until you press Save. Leave empty to type them each time.</p></div>
     <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
       <div class="ctl sound"><select id="soundPick">
         <option value="beep">Beep</option>
@@ -1589,11 +1592,13 @@ if(isPhone()) setBar(false);
 
 /* ---------- Remove old alarms ---------- */
 function cleanupPrefs(){ cleanupHours = store.get('tt.cleanupHours', 3); $('#cleanupHours').value = cleanupHours; $('#avgOdds').value = +store.get('tt.avgOdds', 0) > 1 ? +store.get('tt.avgOdds', 0) : '';
-  $('#avgOddsOn').checked = store.get('tt.avgOddsOn', true) !== false; $('#avgOdds').disabled = !$('#avgOddsOn').checked; }
+  $('#avgOddsOn').checked = store.get('tt.avgOddsOn', false) === true; $('#defOdds').value = defOdds(); $('#avgOdds').disabled = !$('#avgOddsOn').checked; }
 // Average odds: when set, the single Cash button records at these odds without asking
 // 0 when the switch is off or no odds are set: Cash then asks for the odds
-const avgOdds = () => { const o = +store.get('tt.avgOdds', 0); return store.get('tt.avgOddsOn', true) !== false && o > 1 ? o : 0; };
+const avgOdds = () => { const o = +store.get('tt.avgOdds', 0); return store.get('tt.avgOddsOn', false) === true && o > 1 ? o : 0; };   // off unless switched on
 $('#avgOdds').onchange = e => { const o = +e.target.value; store.set('tt.avgOdds', o > 1 ? +o.toFixed(2) : 0); e.target.value = o > 1 ? +o.toFixed(2) : ''; };
+const defOdds = () => { const o = +store.get('tt.defOdds', 0); return o > 1 ? o : ''; };
+$('#defOdds').onchange = e => { const o = +e.target.value; store.set('tt.defOdds', o > 1 ? +o.toFixed(2) : 0); e.target.value = defOdds(); };
 $('#avgOddsOn').onchange = e => { store.set('tt.avgOddsOn', e.target.checked); $('#avgOdds').disabled = !e.target.checked; };
 $('#cleanupHours').onchange = e => {
   cleanupHours = Math.max(0, Math.min(168, Math.round(+e.target.value || 0)));
@@ -1753,12 +1758,12 @@ function openSettle({ alarm, play, result, multi }){
   const src = play || alarm;
   settling.side = ['OVER', 'UNDER', 'SWEEP'].includes(src.side) ? src.side : ''; showType();
   $('#settleTitle').textContent = src.name;
-  $('#settleOdds').value = play && play.odds ? play.odds : '';
+  $('#settleOdds').value = play ? (play.odds || '') : defOdds();   // a new result starts with your default odds
   $('#settleUnits').value = play ? play.units : lastUnits();
   $('#settleDelete').hidden = !play;
   $('#settleSave').textContent = play ? 'Save changes' : 'Save to history';
   if(play && Array.isArray(play.bets) && play.bets.length) settling.bets = play.bets.map(b => ({ ...b }));
-  else if(multi) settling.bets = [{ result:'cash', odds:'', units:lastUnits() }, { result:'cash', odds:'', units:lastUnits() }];
+  else if(multi) settling.bets = [{ result:'cash', odds:defOdds(), units:lastUnits() }, { result:'cash', odds:defOdds(), units:lastUnits() }];
   showBets(); pickResult(settling.result); openModal('#settleModal');
   setTimeout(() => (settling.bets ? $('#betRows input') : settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
 }
@@ -1794,7 +1799,7 @@ function showBets(){
 $('#addBet').onclick = () => {
   // from a single bet, keep what was typed as the first slot
   if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || lastUnits() }];
-  settling.bets.push({ result:'cash', odds:'', units: lastUnits() });
+  settling.bets.push({ result:'cash', odds: defOdds(), units: lastUnits() });
   showBets(); const ins = $('#betRows').querySelectorAll('.bet:last-child input'); if(ins[0]) ins[0].focus();
 };
 function pickResult(r){
@@ -2579,7 +2584,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 

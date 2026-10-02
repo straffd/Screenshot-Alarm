@@ -23,7 +23,8 @@ Screenshots are read by Google Gemini (free tier).
    or set 0 to keep them, in ⚙ Settings → Remove old bets.
 7. When a match has started, its bet shows **Cash** and **Chalk**. Screenshots of matches that already started
    earlier today are added straight away as done, with Cash and Chalk ready. Cash asks for the decimal odds and units placed;
-   Chalk records a loss with your last-used units. Set **Average odds** in ⚙ Settings (with its switch on) and Cash records the win in one
+   Chalk records a loss with your last-used units. Set **Default odds** in ⚙ Settings and the Cash popup opens with them
+   filled in (change them if needed, then Save). Or set **Average odds** and turn on its switch (off by default) and Cash records the win in one
    click too, at those odds with your last-used units (click the entry in History to change it). Placed more than one bet on the match? Press **+** to record each one
    in its own slot (odds, units, and Cash / Chalk / Void, where Void counts as 0); the match's P/L is the total. The match then moves to your history: open the toolbar (› next
    to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
