@@ -9,11 +9,15 @@
 
    Routes:
      GET  /vapid      → { key }                      public key the site subscribes with
-     POST /schedule   { sub, alarms:[{ id, ring, title, body, url }] }   replace this phone's upcoming alarms
-     POST /pending    { endpoint }                   alarms just sent to this phone (the service worker shows them)
+     POST /schedule   { sub, alarms:[{ id, ring, title, body, url }], user }   replace this phone's upcoming alarms
+                      (user: a one-way code for the signed-in account, so one person's devices are grouped)
+     POST /pending    { endpoint }                   alarms just sent to this phone (the service worker shows them),
+                                                     and alarms to close because they were stopped on another device
+     POST /stop       { user, id, skip }             an alarm was stopped on one device: the user's other phones don't
+                                                     ring it, or stop ringing it (skip = the stopping device's endpoint)
    Pushes carry no payload, so nothing needs encrypting: the phone fetches the details from /pending. */
 
-const VERSION = '2026-10-02';  // shown on the health check, so you can tell which code is deployed
+const VERSION = '2026-10-02b';  // shown on the health check, so you can tell which code is deployed
 const LOOKAHEAD = 20e3;          // send up to 20 s early (the cron runs once a minute)
 const SHOW_WINDOW = 15 * 60e3;   // /pending returns alarms sent in the last 15 min
 
@@ -52,8 +56,9 @@ export default {
         const h = await hash(sub.endpoint), now = Date.now();
         const list = (Array.isArray(body.alarms) ? body.alarms : []).slice(0, 200)
           .filter(a => a && typeof a.id === 'string' && Number.isFinite(a.ring) && a.ring > now - 60e3 && a.ring < now + 14 * 864e5);
+        const user = typeof body.user === 'string' && /^[0-9a-f]{16,64}$/.test(body.user) ? body.user : null;
         const stmts = [
-          env.DB.prepare('INSERT INTO subs (h, sub, updated) VALUES (?1, ?2, ?3) ON CONFLICT(h) DO UPDATE SET sub = ?2, updated = ?3').bind(h, JSON.stringify(sub), now),
+          env.DB.prepare('INSERT INTO subs (h, sub, updated, user) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(h) DO UPDATE SET sub = ?2, updated = ?3, user = ?4').bind(h, JSON.stringify(sub), now, user),
           env.DB.prepare("DELETE FROM alarms WHERE h = ?1 AND status = 'wait'").bind(h),
           ...list.map(a => env.DB.prepare("INSERT OR IGNORE INTO alarms (h, id, ring, title, body, url, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'wait')")
             .bind(h, a.id.slice(0, 64), Math.round(a.ring), String(a.title || 'Alarm').slice(0, 120), String(a.body || '').slice(0, 200), safeUrl(a.url)))
@@ -67,7 +72,25 @@ export default {
         const { results } = await env.DB.prepare("SELECT id, ring, title, body, url FROM alarms WHERE h = ?1 AND status = 'sent' AND sent_at > ?2 ORDER BY ring")
           .bind(h, now - SHOW_WINDOW).all();
         if(results.length) await env.DB.prepare("UPDATE alarms SET status = 'shown' WHERE h = ?1 AND status = 'sent'").bind(h).run();
-        return json({ alarms: results });
+        const close = (await env.DB.prepare("SELECT id FROM alarms WHERE h = ?1 AND status = 'close'").bind(h).all()).results.map(r => r.id);
+        if(close.length) await env.DB.prepare("UPDATE alarms SET status = 'closed' WHERE h = ?1 AND status = 'close'").bind(h).run();
+        return json({ alarms: results, close });
+      }
+      if(path === '/stop'){
+        if(typeof body.user !== 'string' || !/^[0-9a-f]{16,64}$/.test(body.user) || typeof body.id !== 'string') return json({ error: 'bad request' }, 400);
+        const skip = typeof body.skip === 'string' && body.skip ? await hash(body.skip) : '', id = body.id.slice(0, 64);
+        const { results } = await env.DB.prepare('SELECT h, sub FROM subs WHERE user = ?1').bind(body.user).all();
+        let keys = null, closed = 0;
+        for(const r of results){
+          if(r.h === skip) continue;
+          await env.DB.prepare("UPDATE alarms SET status = 'stopped' WHERE h = ?1 AND id = ?2 AND status = 'wait'").bind(r.h, id).run();   // not rung yet: never ring
+          const res = await env.DB.prepare("UPDATE alarms SET status = 'close' WHERE h = ?1 AND id = ?2 AND status IN ('sent', 'shown')").bind(r.h, id).run();
+          if(res.meta && res.meta.changes){   // ringing on that phone: wake it so it closes the alarm
+            keys = keys || await vapid(env);
+            try{ await push(JSON.parse(r.sub).endpoint, keys, env); closed++; }catch(e){}
+          }
+        }
+        return json({ ok: true, closed });
       }
       return json({ error: 'not found' }, 404);
     }catch(e){ return json({ error: String(e && e.message || e) }, 500); }
@@ -109,6 +132,7 @@ async function setup(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS alarms_due ON alarms (status, ring)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
   ]);
+  try{ await env.DB.prepare('ALTER TABLE subs ADD COLUMN user TEXT').run(); }catch(e){}   // older databases: add the account column (fails harmlessly if it's there)
   ready.add(env.DB);
 }
 
