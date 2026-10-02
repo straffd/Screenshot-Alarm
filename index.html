@@ -1317,7 +1317,8 @@ async function send(){
           if(info.error){ problems.push(tag + 'doesn\'t look like a match row (' + info.error + ')'); continue; }
           const list = Array.isArray(info.matches) ? info.matches : (info.player1 ? [info] : []);
           if(!list.length){ problems.push(tag + 'no complete match rows found'); continue; }
-          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1 }));
+          // SWEEP is only ever added by you: the word "sweep" in your own message tags these bets (never from the screenshot itself)
+          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1, sweep: /\bsweep\b/i.test(text) }));
         }catch(e){
           problems.push(tag + (e instanceof SyntaxError ? 'the model\'s answer wasn\'t readable' : e.message));
         }
@@ -1404,7 +1405,7 @@ const isBot = p => p.bot === true || (p.tags || []).includes('bot');
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
-async function createAlarm(info, img, cropIt){
+async function createAlarm(info, img, cropIt, sweep){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
@@ -1421,7 +1422,7 @@ async function createAlarm(info, img, cropIt){
     edge: isNaN(edgeNum) ? null : edgeNum,
     league: compName(info.league),
     img: await shrink(shot), fired: start <= Date.now(),   // already started: added as done, ready for Cash / Chalk
-    added: Date.now(), tags: bot ? ['bot'] : []
+    added: Date.now(), tags: [...(bot ? ['bot'] : []), ...(sweep ? ['sweep'] : [])]   // Bot from the yellow row; SWEEP only if you wrote it
   };
   alarms.push(a);
   return { ok:true, a };
@@ -1495,7 +1496,7 @@ function compName(v){
 
 async function createAlarms(entries, problems = []){
   const results = [];
-  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop));
+  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop, e.sweep));
   alarms.sort((x,y)=>x.ring-y.ring);
   if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new bets won\'t survive a reload. Delete a few old bets to free space.', { err:true });
   render();
