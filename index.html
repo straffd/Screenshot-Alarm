@@ -219,6 +219,7 @@ body.has-bg #bgClear{display:inline-block}
 .settle-sheet .bet input{width:100%;font-size:15px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
 .settle-sheet .bet .rm{align-self:center;margin-top:16px}
 .settle-sheet #addBet{width:100%;margin-bottom:12px}
+.settle-sheet .typepick{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font-size:13.5px;color:var(--muted)}
 .settle-sheet .actions{display:flex;gap:8px}
 .settle-sheet .actions .send{flex:1}
 .list{flex:1;overflow-y:auto;padding:0 14px 18px;display:flex;flex-direction:column;gap:10px}
@@ -264,6 +265,35 @@ button.tag{cursor:pointer}
 .side{font:700 14px/1 var(--cond);letter-spacing:.04em;padding:4px 8px;border-radius:4px;border:1px solid currentColor;background:none}
 .side.over{color:var(--green)}
 .side.under{color:var(--red)}
+.side.sweep{color:#b48cff}
+.card.sweep{border-left-color:#b48cff}
+#pnlTypes{margin-top:18px}
+#pnlTypes .trow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+#pnlTypes .trow.none{opacity:.55}
+#pnlTypes .trow.click{cursor:pointer}
+#pnlTypes .trow.click:hover{border-color:var(--muted)}
+#pnlTypes .trow[aria-expanded="true"]{border-color:var(--muted);border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;background:var(--panel-2)}
+#pnlTypes .tdetail{border:1px solid var(--muted);border-top:none;border-radius:0 0 8px 8px;background:var(--bg);padding:14px 14px 10px;margin-bottom:8px;animation:tdIn .18s ease-out}
+@keyframes tdIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+#pnlTypes .tdh{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+#pnlTypes .tdh b{font:700 30px/1 var(--cond);font-variant-numeric:tabular-nums}
+#pnlTypes .tdh b.up{color:var(--green)} #pnlTypes .tdh b.down{color:var(--red)}
+#pnlTypes .tdh span{color:var(--muted);font:600 15px var(--cond)}
+#pnlTypes .tdg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#pnlTypes .tdg div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+#pnlTypes .tdg small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+#pnlTypes .tdg b{font:700 17px/1 var(--cond);font-variant-numeric:tabular-nums}
+#pnlTypes .tdg b.up{color:var(--green)} #pnlTypes .tdg b.down{color:var(--red)}
+#pnlTypes .tdf{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
+#pnlTypes[hidden]{display:none}
+@container (max-width:380px){ #pnlTypes .tdg{grid-template-columns:1fr 1fr} }
+#pnlTypes .tl{display:flex;align-items:center;gap:10px;min-width:0}
+#pnlTypes .tl small,#pnlTypes .tr small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pnlTypes .tl .side{flex:none;font-size:12.5px;padding:3px 7px}
+#pnlTypes .side.none{color:var(--muted)}
+#pnlTypes .tr{text-align:right;flex:none}
+#pnlTypes .tr b{display:block;font:700 17px/1.1 var(--cond);font-variant-numeric:tabular-nums}
+#pnlTypes .tr b.up{color:var(--green)} #pnlTypes .tr b.down{color:var(--red)}
 .side.armed{color:var(--yellow);background:color-mix(in srgb,var(--yellow) 14%,transparent)}
 .line{color:var(--muted);font-size:13px}
 .edge{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--yellow);font:700 16px/1 var(--cond)}
@@ -397,8 +427,9 @@ button.tag{cursor:pointer}
 /* Totals: two columns in a narrow panel (and on phones); four in a wide one, with Last bet filling the row beside ROI */
 #pnl .pnl-body{container-type:inline-size}
 .pnl-stats{grid-template-columns:1fr 1fr}
+.pnl-stats .wide{grid-column:1 / -1}   /* narrow: Last bet gets its own row */
 .pnl-stats > div{min-width:0}
-@container (min-width:470px){ .pnl-stats{grid-template-columns:repeat(4,1fr)} .pnl-stats .wide{grid-column:span 3} }
+@container (min-width:470px){ .pnl-stats{grid-template-columns:repeat(4,1fr)} .pnl-stats .wide{grid-column:span 2} }
 .pnl-stats .sub{display:block;margin-top:5px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pnl-stats .sub + .sub{margin-top:2px}
 
@@ -670,6 +701,7 @@ html.phone .alpha-note{display:inline}
       <div class="pnl-stats" id="pnlStats"></div>
       <div class="seg pnl-viewsw" role="group" aria-label="View"><button id="pnlCal" aria-pressed="true">Calendar</button><button id="pnlGraph" aria-pressed="false">Graph</button></div>
       <div id="pnlView"></div>
+      <div id="pnlTypes"></div>
     </div>
   </section>
 </div>
@@ -791,6 +823,7 @@ html.phone .alpha-note{display:inline}
 <div class="modal" id="settleModal" role="dialog" aria-modal="true" aria-labelledby="settleTitle">
   <div class="sheet settle-sheet">
     <header><h3 id="settleTitle"></h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="typepick"><span>Play type</span><div class="seg" role="group" aria-label="Play type" id="settleType"><button data-s="OVER">Over</button><button data-s="UNDER">Under</button><button data-s="SWEEP">Sweep</button></div></div>
     <div id="settleOne">
       <div class="resultpick">
         <button class="cash" id="pickCash" aria-pressed="true">CASH</button>
@@ -1379,7 +1412,7 @@ function parseTypedBets(text){
     }
     line = (line.slice(0, tm.index) + ' ' + line.slice(tm.index + tm[0].length)).replace(/\s(?:at|@|on)\s*$/i, ' ');
     let side = '';
-    line = line.replace(/\b(over|under)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
+    line = line.replace(/\b(over|under|sweep)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
     // tag names written in the line ("bot", "#strong", "live bet") become tags; longest names first
     const tagIds = [], esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     [...tags.filter(t => t.id !== 'bot' && t.name.toLowerCase() !== 'bot'), BOT_TAG].sort((a, b) => b.name.length - a.name.length).forEach(t => {
@@ -1510,7 +1543,7 @@ function render(){
     c.onclick = act;
     c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } };
     c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
-    const sideBtn = c.querySelector('.side'), other = a.side==='OVER' ? 'UNDER' : 'OVER';
+    const sideBtn = c.querySelector('.side'), SIDES = ['OVER', 'UNDER', 'SWEEP'], other = SIDES[(SIDES.indexOf(a.side) + 1) % SIDES.length];   // OVER → UNDER → SWEEP → OVER
     if(sideArmed === a.id){ sideBtn.classList.add('armed'); sideBtn.textContent = `→ ${other}?`; sideBtn.title = `Press again to switch to ${other}`; }
     sideBtn.onclick = e => {
       e.stopPropagation(); clearTimeout(sideTimer);
@@ -1709,6 +1742,7 @@ let settling = null;   // { alarm } for a new record, or { play } when editing; 
 function openSettle({ alarm, play, result, multi }){
   settling = { alarm, play, result: play ? play.result : result, bets: null };
   const src = play || alarm;
+  settling.side = ['OVER', 'UNDER', 'SWEEP'].includes(src.side) ? src.side : ''; showType();
   $('#settleTitle').textContent = src.name;
   $('#settleOdds').value = play && play.odds ? play.odds : '';
   $('#settleUnits').value = play ? play.units : lastUnits();
@@ -1719,6 +1753,10 @@ function openSettle({ alarm, play, result, multi }){
   showBets(); pickResult(settling.result); openModal('#settleModal');
   setTimeout(() => (settling.bets ? $('#betRows input') : settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
 }
+function showType(){ [...$('#settleType').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.s === settling.side)); }
+$('#settleType').onclick = e => { const b = e.target.closest('button'); if(!b) return; settling.side = settling.side === b.dataset.s ? '' : b.dataset.s; showType(); };
+// the chosen play type goes onto the bet (new) or the history entry (editing) when it's saved
+const applyType = () => { const src = settling.play || settling.alarm; if(src) src.side = settling.side; };
 // Several bets: one slot each, with its own Cash / Chalk / Void, odds and units
 function showBets(){
   const multi = !!settling.bets, box = $('#betRows');
@@ -1770,6 +1808,7 @@ $('#pickChalk').onclick = () => pickResult('chalk');
 $('#settleOdds').oninput = settleProfit; $('#settleUnits').oninput = settleProfit;
 [$('#settleOdds'), $('#settleUnits')].forEach(i => i.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('#settleSave').click(); } });
 $('#settleSave').onclick = () => {
+  applyType();
   if(settling.bets) return saveBets();
   const odds = +$('#settleOdds').value, units = +$('#settleUnits').value, r = settling.result;
   if(r === 'cash' && !(odds > 1)){ $('#settleOdds').focus(); return toast('Enter the decimal odds, e.g. 1.85'); }
@@ -1972,23 +2011,24 @@ function renderPnl(){
   const days = dailyPL(S), now = new Date(), tk = dayKey(now);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const sum = f => S.plays.filter(f).reduce((t, p) => t + S.val(p), 0);
-  const today = (days.get(tk) || { pl:0 }).pl, month = sum(p => p.start >= monthStart), all = sum(() => true);
+  const weekStart = (() => { const w = new Date(now); w.setHours(0,0,0,0); w.setDate(w.getDate() - (w.getDay() + 6) % 7); return w.getTime(); })();   // Monday, like the calendar
+  const today = (days.get(tk) || { pl:0 }).pl, week = sum(p => p.start >= weekStart), month = sum(p => p.start >= monthStart), all = sum(() => true);
   const wins = S.plays.filter(p => p.result === 'cash').length;
   $('#pnlStats').innerHTML = '';
   // each total is combined; hovering it shows the Me (personal) / Bot split
   const part = (bot, f) => S.plays.filter(p => isBot(p) === bot && f(p)).reduce((t, p) => t + S.val(p), 0);
   const d0 = new Date(now); d0.setHours(0,0,0,0);
-  const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= monthStart, () => true];
-  [['Today', S.txt(today), plClass(today)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
+  const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= weekStart, p => p.start >= monthStart, () => true];
+  [['Today', S.txt(today), plClass(today)], ['This week', S.txt(week), plClass(week)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
    ['Win rate', S.plays.length ? Math.round(wins / S.plays.length * 100) + '%' : '—', '']].forEach(([k, v, c], i) => {
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
     if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
-    if(all_ && i === 3){   // Win rate: personal and bot separately
+    if(all_ && i === 4){   // Win rate: personal and bot separately
       const rate = bot => { const ps = S.plays.filter(p => isBot(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
       const me = rate(false), bot = rate(true); d.appendChild(splitEl(S, me, bot, v => v)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${me} · Bot ${bot}`; }
-    if(i === 1){   // This month: click to list every bet this month under the calendar
+    if(i === 2){   // This month: click to list every bet this month under the calendar
       d.classList.add('click'); d.setAttribute('role', 'button'); d.setAttribute('aria-pressed', pnlSel === 'month');
       d.title += ' · click to list this month\'s bets';
       d.onclick = () => { pnlSel = pnlSel === 'month' ? null : 'month'; pnlView = 'calendar'; pnlMonth = new Date(now.getFullYear(), now.getMonth(), 1); renderPnl();
@@ -2022,6 +2062,56 @@ function renderPnl(){
   $('#pnlStats').appendChild(ld);
   const view = $('#pnlView'); view.innerHTML = '';
   if(pnlView === 'calendar') renderCalendar(view, days, tk); else renderGraph(view, days);
+  renderTypes(S, staked, pct);
+}
+// P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot).
+// Click a type for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
+const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
+let typeOpen = null;   // the expanded type ('OVER', 'UNDER', 'SWEEP' or '' for No type)
+function renderTypes(S, staked, pct){
+  const box = $('#pnlTypes'); box.innerHTML = '';
+  box.hidden = !!pnlSel; if(pnlSel) return;
+  box.appendChild(el('div', 'fsec', 'Play types · all time'));
+  const kinds = [...PLAY_TYPES], other = S.plays.filter(p => !PLAY_TYPES.some(([k]) => String(p.side).toUpperCase() === k));
+  if(other.length) kinds.push(['', 'No type']);
+  kinds.forEach(([k, label]) => {
+    const ps = k ? S.plays.filter(p => String(p.side).toUpperCase() === k) : other;
+    const pl = ps.reduce((t, p) => t + S.val(p), 0), st = ps.reduce((t, p) => t + staked(p), 0), w = ps.filter(p => p.result === 'cash').length;
+    const row = el('div', 'trow' + (ps.length ? '' : ' none'));
+    const left = el('div', 'tl'); left.append(el('span', 'side ' + (k ? k.toLowerCase() : 'none'), label.toUpperCase()),
+      el('small', '', ps.length ? `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${w}W ${ps.length - w}L · ${Math.round(w / ps.length * 100)}%` : 'No bets'));
+    const right = el('div', 'tr'); right.append(el('b', plClass(pl), S.txt(pl)), el('small', '', ps.length ? 'ROI ' + pct(st > 0 ? pl / st * 100 : null) : ''));
+    row.append(left, right); box.appendChild(row);
+    const open = typeOpen === k;
+    row.classList.add('click'); row.tabIndex = 0; row.setAttribute('role', 'button'); row.setAttribute('aria-expanded', open);
+    row.onclick = () => { typeOpen = open ? null : k; renderTypes(S, staked, pct); };
+    row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
+    if(open) box.appendChild(typeDetail(S, k, ps, pl, st, w, pct));
+  });
+}
+// The expanded box for one play type
+function typeDetail(S, k, ps, pl, st, w, pct){
+  const d = el('div', 'tdetail');
+  // P/L in the chosen display, with the other one (units ⇄ dollars) beside it
+  const head = el('div', 'tdh'); head.append(el('b', plClass(pl), S.txt(pl)));
+  const alt = inDollars() ? (pl > 0 ? '+' : pl < 0 ? '−' : '') + fmtU(Math.abs(pl)) + 'u' : (pl > 0 ? '+' : pl < 0 ? '−' : '') + '$' + (Math.abs(pl) * unitValue()).toFixed(2);
+  head.append(el('span', '', alt)); d.appendChild(head);
+  const grid = el('div', 'tdg'), stat = (label, val, cls) => { const c = el('div'); c.append(el('small', '', label), el('b', cls || '', val)); grid.appendChild(c); };
+  const roi = st > 0 ? pl / st * 100 : null;
+  stat('ROI', pct(roi), roi == null ? '' : plClass(roi));
+  stat('Win rate', ps.length ? Math.round(w / ps.length * 100) + '%' : '—');
+  stat('Record', `${w}–${ps.length - w}`);
+  stat('Staked', fmtU(st) + 'u');
+  d.appendChild(grid);
+  // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
+  const match = x => (k ? String(x.side).toUpperCase() === k : !PLAY_TYPES.some(([t]) => String(x.side).toUpperCase() === t))
+    && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
+  const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
+    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
+  const odds = ps.flatMap(p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : []);
+  const avg = odds.length ? (odds.reduce((t, o) => t + o, 0) / odds.length).toFixed(2) : '—';
+  d.appendChild(el('p', 'tdf', `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${pending} pending · avg odds ${avg}`));
+  return d;
 }
 function renderCalendar(view, days, tk){
   const S = pnlSubject();
