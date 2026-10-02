@@ -63,6 +63,7 @@ Screenshots are read by Google Gemini (free tier).
     and a **Copy** button.
     Your bets show the pictures of friends who have the same bet (next to the start time). Once a friend records
     theirs, a **✓** (Cash) or **✕** (Chalk) appears above their picture, so you can see how it went before you press yours.
+    Click the pictures to drop down the list of who is on the play, with how theirs went (and their side if it differs from yours).
     **Leaderboard** (toolbar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
     this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
     they next open the site.
