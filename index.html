@@ -399,6 +399,15 @@ button.tag{cursor:pointer}
 .pnl h3.subj .subj-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnl h3.subj .subj-s{color:var(--muted);font-weight:500}
 .ftabs button{white-space:nowrap}
+.fmenu .bell{min-width:42px;font-size:15px;line-height:1}
+.fmenu .ghost.bell[aria-pressed="true"]{box-shadow:inset 0 2px 5px rgba(0,0,0,.55);transform:translateY(1px);background:color-mix(in srgb,var(--yellow) 22%,var(--bg));border-color:var(--yellow)}   /* pushed in = on */
+.fa-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.fa-bar .ranges{margin-bottom:0}
+.copyall{font:700 12.5px var(--cond);letter-spacing:.04em;border:1px solid var(--blue);color:var(--blue);background:none;border-radius:5px;padding:6px 12px;cursor:pointer}
+.copyall:hover{background:color-mix(in srgb,var(--blue) 14%,transparent)}
+.msg.bellmsg{display:grid;gap:8px;min-width:min(340px,100%)}
+.bellhead{display:flex;align-items:center;gap:8px;font-weight:600}
+.msg .card{max-width:380px}
 .fmenu .ghost[aria-pressed="true"]{background:color-mix(in srgb,var(--blue) 22%,transparent);border-color:var(--blue);color:var(--text)}
 .fmenu .confirm{background:var(--red);color:#fff;border-color:var(--red)}
 .fnote{color:var(--muted);font-size:13px;margin:4px 0 12px}
@@ -2595,7 +2604,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -2861,6 +2870,7 @@ async function startSocial(uid){
       $('#reqBadge').hidden = !incoming; $('#reqBadge').textContent = incoming;
       renderFriends();
       if(social.view && !friendOf(social.view)) stopViewing();   // unfriended or blocked while viewing
+      syncBells();
     }));
     social.unsubs.push(F.onSnapshot(F.query(F.collection(sync.fb.db, 'blocks'), F.where('by', '==', uid)), async snap => {
       social.blocked = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2980,6 +2990,7 @@ function fList(body){
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
     body.appendChild(row);
     if(open) body.appendChild(friendMenu([['PNL', () => friendAction(uid, 'pnl'), '', false, friendOn(uid, 'pnl')], ['History', () => friendAction(uid, 'hist'), '', false, friendOn(uid, 'hist')], ['Bets', () => friendAction(uid, 'alarms'), '', false, friendOn(uid, 'alarms')],
+      ['🔔', () => toggleBell(uid), 'bell', false, bellOn(uid)],
       ['Block', () => blockUser(uid), 'danger', true], ['Unfriend', () => { fdb().deleteDoc(fdoc('friendships', pairId(social.uid, uid))); social.open = null; }, 'danger', true]]));
   });
   if(social.blocked.length){
@@ -2995,11 +3006,46 @@ function fList(body){
   }
 }
 // The dropdown under a friend. Destructive items ask for a second click.
+/* ---------- Bells: the chat tells you when a friend places a bet ----------
+   tt.bells (synced): friends you've belled. For each, we watch their shared plays; a new upcoming play gets a chat
+   message with their @name, the bet card and Copy. tt.bellSeen (this device) remembers which plays were announced. */
+const bells = () => store.get('tt.bells', []) || [];
+const bellOn = uid => bells().includes(uid);
+function toggleBell(uid){
+  const on = !bellOn(uid), name = (social.cards.get(uid) || {}).username || 'them';
+  store.set('tt.bells', on ? [...bells(), uid] : bells().filter(x => x !== uid));
+  if(!on){ const seen = store.get('tt.bellSeen', {}) || {}; delete seen[uid]; store.set('tt.bellSeen', seen); }
+  syncBells(); renderFriends();
+  toast(on ? `🔔 On: the chat will tell you when @${name} places a bet.` : `Bell off for @${name}.`);
+}
+function syncBells(){
+  if(!social || !social.uid) return;
+  social.bellUnsubs = social.bellUnsubs || new Map();
+  const want = new Set(bells().filter(uid => friendOf(uid)));
+  social.bellUnsubs.forEach((u, uid) => { if(!want.has(uid)){ u(); social.bellUnsubs.delete(uid); } });
+  want.forEach(uid => { if(social.bellUnsubs.has(uid)) return;
+    const F = fdb(); social.bellUnsubs.set(uid, F.onSnapshot(F.collection(sync.fb.db, 'profiles', uid, 'plays'), snap => bellSnapshot(uid, snap.docs.map(d => ({ id: d.id, ...d.data() })))));
+  });
+}
+function bellSnapshot(uid, docs){
+  const seen = store.get('tt.bellSeen', {}) || {}, up = docs.filter(p => p.status === 'upcoming');
+  if(!seen[uid]){ seen[uid] = up.map(p => p.id); store.set('tt.bellSeen', seen); return; }   // just switched on: only bets from now on
+  const fresh = up.filter(p => !seen[uid].includes(p.id) && p.start > Date.now()).sort((a, b) => a.start - b.start);
+  seen[uid] = up.map(p => p.id); store.set('tt.bellSeen', seen);
+  const name = (social.cards.get(uid) || {}).username || 'friend';
+  fresh.slice(0, 5).forEach(p => {
+    const m = addMsg('bot', '', {}), head = el('div', 'bellhead');
+    head.append(pfpEl(social.cards.get(uid), 'small'), el('span', '', `@${name} placed a bet`)); m.classList.add('bellmsg');
+    m.append(head, friendPlayCard(p, name)); $('#log').scrollTop = $('#log').scrollHeight; markLogScroll();
+  });
+  if(fresh.length > 5) addMsg('bot', `…and ${fresh.length - 5} more from @${name}. Open their Bets to see them all.`);
+}
 function friendMenu(items){
   const m = el('div', 'fmenu');
   items.forEach(([label, fn, cls, confirm, on]) => {
     const b = el('button', 'ghost' + (cls ? ' ' + cls : ''), label); let armed = false;
     if(on != null) b.setAttribute('aria-pressed', on);
+    if(cls === 'bell'){ b.title = on ? 'Bell on: the chat tells you when they place a bet. Click to turn off.' : 'Tell me in the chat when they place a bet'; b.setAttribute('aria-label', b.title); }
     b.onclick = e => { e.stopPropagation();
       if(confirm && !armed){ armed = true; b.textContent = label + '?'; b.classList.add('confirm'); setTimeout(() => { armed = false; b.textContent = label; b.classList.remove('confirm'); }, 3000); return; }
       fn(); };
@@ -3131,6 +3177,23 @@ function friendOn(uid, what){
   if(what === 'hist') return $('#hist').classList.contains('open') && histFor === uid;
   return $('#falarms').classList.contains('open') && social.view === uid;
 }
+// A friend's upcoming play as a card, with a Copy button (used in their Bets panel and in bell messages in the chat)
+function friendPlayCard(p, username){
+  const have = alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
+  card.innerHTML = `<div class="names"></div>${p.league ? '<div class="comp"></div>' : ''}<div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div></div>
+    <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side || ''}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
+  card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
+  card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+  const started = p.start <= Date.now();   // too late to copy once the match has started
+  const cp = btn(have ? 'In your bets' : started ? 'Started' : p.manual ? 'Private' : 'Copy', 'copy', () => {
+    copyPlay(p, username); if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))){ cp.textContent = 'In your bets'; cp.disabled = true; } });
+  cp.disabled = have || started || !!p.manual;
+  if(started && !have) cp.title = 'This match has already started';
+  else if(p.manual && !have) cp.title = `@${username} typed this bet in, so it can't be copied`;
+  card.children[3].replaceWith(cp);
+  return card;
+}
+const canCopy = (p, mine) => p.status === 'upcoming' && p.start > Date.now() && !p.manual && !mine.has(playKey(p.name, p.start));
 function renderFAlarms(){
   if(!$('#falarms').classList.contains('open') || !social.view) return;
   const c = social.cards.get(social.view) || { username:'…' }, body = $('#faBody'); body.innerHTML = '';
@@ -3138,32 +3201,29 @@ function renderFAlarms(){
   const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming').sort((a, b) => a.start - b.start);
   const filt = el('div', 'seg ranges');
   [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', l); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderFAlarms(); }; filt.appendChild(b); });
-  body.appendChild(filt);
   const shown = up.filter(p => social.filter === 'all' || (social.filter === 'both') === mine.has(playKey(p.name, p.start)));
+  // Not in mine: copy every play you can still copy in one go
+  const copyable = social.filter === 'missing' ? shown.filter(p => canCopy(p, mine)) : [];
+  const bar = el('div', 'fa-bar'); bar.appendChild(filt);
+  if(copyable.length){ const all = btn(`Copy all (${copyable.length})`, 'copy copyall', () => {
+    copyable.forEach(p => copyPlay(p, c.username, true));
+    alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
+    toast(`Copied ${copyable.length} bet${copyable.length === 1 ? '' : 's'} from @${c.username} to your bets.`); });
+    all.title = 'Copy every play here that has not started yet'; bar.appendChild(all); }
+  body.appendChild(bar);
   if(!up.length) body.appendChild(el('p', 'fnote', c.shareUpcoming === false ? `@${c.username} doesn't share upcoming plays.` : `@${c.username} has no upcoming plays.`));
   else if(!shown.length) body.appendChild(el('p', 'fnote', social.filter === 'missing' ? 'You already have all of their plays.' : 'None of their plays are in your bets.'));
   const list = el('div', 'histlist'); body.appendChild(list);
-  shown.forEach(p => {
-    const have = mine.has(playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
-    card.innerHTML = `<div class="names"></div>${p.league ? '<div class="comp"></div>' : ''}<div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div></div>
-      <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
-    card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
-    card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
-    const started = p.start <= Date.now();   // too late to copy once the match has started
-    const cp = btn(have ? 'In your bets' : started ? 'Started' : p.manual ? 'Private' : 'Copy', 'copy', () => copyPlay(p, c.username)); cp.disabled = have || started || !!p.manual;
-    if(started && !have) cp.title = 'This match has already started';
-    else if(p.manual && !have) cp.title = `@${c.username} typed this bet in, so it can't be copied`;
-    card.children[3].replaceWith(cp);
-    list.appendChild(card);
-  });
+  shown.forEach(p => list.appendChild(friendPlayCard(p, c.username)));
 }
-function copyPlay(p, from){
+function copyPlay(p, from, quiet){   // quiet: part of Copy all (saving and the message happen once, after)
   if(p.start <= Date.now()) return toast('This match has already started.');
   if(p.manual) return toast('Typed bets can\'t be copied.');
   if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))) return toast('You already have this play.');
   const now = Date.now();
   alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
                 side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, league:p.league || '', img:'', fired:p.start <= now, added:now, from, tags:[] });
+  if(quiet) return;
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
   toast(`Copied ${p.name} to your bets.`);
 }
