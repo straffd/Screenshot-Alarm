@@ -2192,7 +2192,11 @@ function plSize(pct){
   try{ layoutSlides(); markLogScroll(); }catch(e){}   // at startup the panels aren't set up yet
 }
 $('#plSize').oninput = () => plSize(+$('#plSize').value);   // live while dragging; saved on release
+let tickDay = null;
 function tickTracker(){
+  const today = new Date().toDateString();   // a new day: today / this week / this month totals start over
+  if(tickDay && tickDay !== today){ tickDay = today; try{ renderPnl(); renderLeaderboard(); }catch(e){} }
+  tickDay = today;
   const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
   $('#plTab').hidden = !showPL && !showTime;
   $('#plTimeBox').hidden = !showTime; $('#plValBox').hidden = !showPL;
@@ -2944,7 +2948,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme); applyTopColor();
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
-    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
+    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs(); if(typeof renderLeaderboard === 'function') renderLeaderboard();   // results from your other devices
     tags = store.get('tt.tags', []) || []; ensureSweepTag(); renderTagSettings(); renderViewerTags();
     [...ringing].forEach(id => { const a = alarms.find(x => x.id === id); if(!a || a.stopped) stopAlarm(id, true); });   // stopped (or settled) on another device
     render();
@@ -3181,7 +3185,7 @@ async function startSocial(uid){
       $('#reqBadge').hidden = !incoming; $('#reqBadge').textContent = incoming;
       renderFriends();
       if(social.view && !friendOf(social.view)) stopViewing();   // unfriended or blocked while viewing
-      syncBells();
+      syncBells(); if($('#lb').classList.contains('open')) lbWatch(true);   // friends added or removed
     }));
     social.unsubs.push(F.onSnapshot(F.query(F.collection(sync.fb.db, 'blocks'), F.where('by', '==', uid)), async snap => {
       social.blocked = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -3233,22 +3237,28 @@ function lbPeriods(list, val){
   return out;
 }
 let lbPeriod = store.get('tt.lbPeriod', 'day');
-SLIDES.lb = { el:'#lb', btn:'#lbBtn', onOpen: () => renderLeaderboard(true) };
+SLIDES.lb = { el:'#lb', btn:'#lbBtn', onOpen: () => { lbWatch(true); renderLeaderboard(); }, onClose: () => lbWatch(false) };
 $('#lbBtn').onclick = () => setSlide('lb', !$('#lb').classList.contains('open'));
 $('#lbClose').onclick = () => setSlide('lb', false);
 $('#lbTabs').onclick = e => { const b = e.target.closest('button'); if(!b) return; lbPeriod = b.dataset.p; store.set('tt.lbPeriod', lbPeriod); renderLeaderboard(); };
-let lbCache = new Map();   // uid → their published periods (fetched when the panel opens)
+let lbCache = new Map();   // uid → their published periods (kept live while the panel is open)
+/* Live leaderboard: while the panel is open, each friend's published totals are watched (one small document each),
+   so their numbers change as soon as they record a result. Closing the panel stops watching. */
+let lbUnsubs = new Map(), lbTimer = null;
+const lbSoon = () => { clearTimeout(lbTimer); lbTimer = setTimeout(() => renderLeaderboard(), 150); };
+function lbWatch(on){
+  const want = on && social && social.uid && sync.fb ? new Set(social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid))) : new Set();
+  lbUnsubs.forEach((u, uid) => { if(!want.has(uid)){ u(); lbUnsubs.delete(uid); } });
+  want.forEach(uid => { if(lbUnsubs.has(uid)) return;
+    const F = fdb(); lbUnsubs.set(uid, F.onSnapshot(fdoc('profiles', uid, 'meta', 'stats'),
+      snap => { lbCache.set(uid, snap.exists() ? snap.data().periods || null : null); lbSoon(); },
+      () => { lbCache.set(uid, null); lbSoon(); })); });
+}
 async function renderLeaderboard(refetch){
   if(!$('#lb').classList.contains('open')) return;
   [...$('#lbTabs').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.p === lbPeriod));
   const body = $('#lbBody'), friends = social && social.uid ? social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid)) : [];
-  if(refetch && friends.length){
-    body.innerHTML = '<p class="fnote">Loading…</p>';
-    await Promise.all(friends.map(async uid => {
-      try{ const snap = await fdb().getDoc(fdoc('profiles', uid, 'meta', 'stats')); lbCache.set(uid, snap.exists() ? snap.data().periods || null : null); }catch(e){ lbCache.set(uid, null); }
-    }));
-    if(!$('#lb').classList.contains('open')) return;
-  }
+  if(friends.some(uid => !lbCache.has(uid))){ body.innerHTML = '<p class="fnote">Loading…</p>'; return; }   // the live watchers fill it in
   body.innerHTML = '';
   const now = Date.now(), cur = LB_KEYS[lbPeriod](now), empty = { pl:0, me:0, bot:0, n:0, w:0 };
   const pick = per => per && per[lbPeriod] && per[lbPeriod].key === cur ? per[lbPeriod] : empty;   // stale (earlier day/month/year) = 0
@@ -3272,7 +3282,7 @@ async function renderLeaderboard(refetch){
       row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } }; }
     body.appendChild(row);
   });
-  body.appendChild(el('p', 'fnote', 'Units won or lost on settled bets. Friends\' numbers update when they next open TT Alarm Bot. Click a friend to open their PNL.'));
+  body.appendChild(el('p', 'fnote', 'Units won or lost on settled bets. Updates live as you and your friends record results. Click a friend to open their PNL.'));
 }
 
 // ----- Friends panel -----
