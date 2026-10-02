@@ -681,12 +681,14 @@ html.phone .alpha-note{display:inline}
     <div class="hud-row"><span class="lbl">Alarms</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
+        <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> Notifications on this device</label>
         <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
         <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
       </div>
       <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
         <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
-        so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.</p></div>
+        so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
+        These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
     <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
       <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
     <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old bets</label>
@@ -724,7 +726,8 @@ html.phone .alpha-note{display:inline}
         <input type="file" id="bgFile" accept="image/*" hidden>
         <label class="fx">Blur<input type="range" id="bgBlur" min="0" max="20" step="1" value="3"><output id="bgBlurOut">3px</output></label>
         <label class="fx">Saturation<input type="range" id="bgSat" min="0" max="200" step="5" value="100"><output id="bgSatOut">100%</output></label>
-      </div></div>
+      </div>
+      <p class="note">The background is for this device only, so each phone or computer can have its own.</p></div>
     <div class="hud-row"><span class="lbl">Ladbrokes</span>
       <div class="ctl" style="display:grid;gap:12px">
         <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening Ladbrokes</label>
@@ -1518,6 +1521,7 @@ function render(){
 
 /* ---------- Alarms on / off ---------- */
 const alarmsOn = () => store.get('tt.alarmsOn', true) !== false;
+const notifOn = () => store.get('tt.notifOn', true) !== false;   // notifications on this device (page and locked-phone)
 function alarmsPrefs(){ $('#alarmsOn').checked = alarmsOn(); }
 $('#alarmsOn').onchange = e => {
   store.set('tt.alarmsOn', e.target.checked); alarmsPrefs();
@@ -2322,7 +2326,7 @@ document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (w
 // Android only shows the permission prompt when it's asked straight from a tap, so this is called from
 // Send, the Allow button and Test alarm (asking later, after reading a screenshot, is ignored there).
 function askNotify(){
-  if('Notification' in window && Notification.permission === 'default')
+  if(notifOn() && 'Notification' in window && Notification.permission === 'default')
     try{ const done = () => { renderNotifState(); pushSoon(); }; const r = Notification.requestPermission(done); if(r && r.then) r.then(done, done); }catch(e){}
 }
 /* ---------- Locked-phone alarms (Web Push through PUSH_SERVER) ----------
@@ -2331,9 +2335,9 @@ function askNotify(){
 let pushState = 'off', pushTimer = null;   // 'off' | 'on' | 'unsupported' | 'error'
 const pushBase = () => PUSH_SERVER.replace(/\/+$/, '');
 function pushSoon(){ clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 1500); }
-store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.lead') pushSoon(); });
+store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.notifOn' || k === 'tt.lead') pushSoon(); });
 async function pushSubscription(){
-  if(!PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
+  if(!notifOn() || !PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
   let sub = await swReg.pushManager.getSubscription();
   if(!sub){
     const { key } = await (await fetch(pushBase() + '/vapid')).json();
@@ -2346,6 +2350,14 @@ async function syncPush(){
   if(!PUSH_SERVER){ pushState = 'off'; return renderNotifState(); }
   if(!('PushManager' in window) || !('serviceWorker' in navigator)){ pushState = 'unsupported'; return renderNotifState(); }
   try{
+    if(!notifOn()){   // switched off on this device: clear its queued alarms on the push service and stop receiving pushes
+      const old = swReg && swReg.pushManager ? await swReg.pushManager.getSubscription() : null;
+      if(old){
+        await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: old.toJSON(), alarms: [] }) }).catch(() => {});
+        await old.unsubscribe().catch(() => {});
+      }
+      pushState = 'off'; return renderNotifState();
+    }
     const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
     const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3).map(a => ({ id: a.id, ring: a.ring,
       title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
@@ -2358,7 +2370,9 @@ async function syncPush(){
 function renderNotifState(){
   const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
   const p = 'Notification' in window ? Notification.permission : 'unsupported';
-  b.hidden = p !== 'default';
+  b.hidden = p !== 'default' || !notifOn();
+  $('#notifOn').checked = notifOn();
+  if(!notifOn()){ st.innerHTML = 'Notifications: <b>off on this device</b>'; return; }
   st.innerHTML = p === 'granted' ? 'Notifications: <span class="ok">on</span>'
     : p === 'denied' ? 'Notifications: <span class="bad">blocked</span>. Turn them on in your phone\'s settings for this app (or the site settings in your browser), then reload.'
     : p === 'default' ? 'Notifications: <b>off</b>' : 'Notifications aren\'t supported in this browser.';
@@ -2367,6 +2381,12 @@ function renderNotifState(){
     : pushState === 'error' ? ' · Locked-phone alarms: <span class="bad">couldn\'t connect</span>' : '';
 }
 $('#notifAllow').onclick = askNotify;
+$('#notifOn').onchange = e => {
+  store.set('tt.notifOn', e.target.checked);
+  if(e.target.checked) askNotify();   // turning them back on: ask for permission if it's never been given (this is a tap)
+  else notes.forEach((n, id) => { try{ n.close(); }catch(err){} });
+  renderNotifState(); pushSoon();
+};
 $('#testAlarm').onclick = () => {
   askNotify(); try{ navigator.vibrate && navigator.vibrate(1); }catch(e){}   // the tap also unlocks sound and vibration
   try{ ctx().resume && ctx().resume(); }catch(e){}
@@ -2387,7 +2407,7 @@ function fire(a){
   $('#landing').hidden = true;   // never ring behind the home page
   startLoop();
   startBuzz();   // phones: vibrate for as long as it rings
-  if('Notification' in window && Notification.permission==='granted'){
+  if(notifOn() && 'Notification' in window && Notification.permission==='granted'){
     try{
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
       notes.set(a.id, n);
@@ -2450,7 +2470,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.bgFx', 'tt.alarmsOn', 'tt.avgOdds', 'tt.avgOddsOn'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -2495,7 +2515,7 @@ function syncState(state, why){
 
 // Local change → push to Firestore (debounced)
 store.onSet = k => {
-  if(!sync.user || sync.applying || !(PREF_KEYS.includes(k) || k === 'tt.alarms' || k === 'tt.bg')) return;
+  if(!sync.user || sync.applying || !(PREF_KEYS.includes(k) || k === 'tt.alarms')) return;   // background and alarm switches stay on this device
   sync.pending.add(k); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500); syncState('busy');
 };
 async function flush(){
@@ -2509,12 +2529,6 @@ async function flush(){
       const data = { updated: Date.now() };
       prefs.forEach(k => data[k.slice(3)] = localStorage.getItem(k));   // raw JSON text (null = removed)
       await F.setDoc(uref, data, { merge:true });
-    }
-    if(keys.includes('tt.bg')){
-      const v = localStorage.getItem('tt.bg'), ref = F.doc(uref, 'blobs', 'bg');
-      if(!v) await F.deleteDoc(ref);
-      else if(v.length < MAX_DOC) await F.setDoc(ref, { v });
-      else addMsg('bot', 'This background is too large to save to your account, so it will only show on this device.', { err:true });
     }
     if(keys.includes('tt.alarms')){
       const list = store.get('tt.alarms', []), now = new Map();
@@ -2536,18 +2550,15 @@ async function startSync(user){
   sync.user = user; renderAccount(); syncState('busy');
   const { F } = sync.fb, uref = userRef();
   try{
-    const [usnap, asnap, bsnap] = await Promise.all([F.getDoc(uref), F.getDocs(F.collection(uref, 'alarms')), F.getDoc(F.doc(uref, 'blobs', 'bg'))]);
+    const [usnap, asnap] = await Promise.all([F.getDoc(uref), F.getDocs(F.collection(uref, 'alarms'))]);
     const sameAccount = store.get('tt.syncUid', null) === user.uid;   // this browser already mirrors this account
     const remote = new Map(asnap.docs.map(d => [d.id, d.data().v]));
     const push = new Set();
     if(usnap.exists()){
       const u = usnap.data();
       PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u) setRaw(k, u[f]); else if(localStorage.getItem(k) != null) push.add(k); });
-      if(bsnap.exists()) setRaw('tt.bg', bsnap.data().v);
-      else if(sameAccount) setRaw('tt.bg', null);
-      else if(localStorage.getItem('tt.bg')) push.add('tt.bg');
     } else {
-      PREF_KEYS.forEach(k => push.add(k)); push.add('tt.bg');            // brand-new account: upload this device's setup
+      PREF_KEYS.forEach(k => push.add(k));            // brand-new account: upload this device's setup
     }
     // Alarms: the account is the source of truth; alarms made here before signing in are added to it
     const merged = new Map(), local = store.get('tt.alarms', []);
@@ -2578,11 +2589,6 @@ function listen(){
     const same = remote.size === sync.lastAlarms.size && [...remote].every(([id, j]) => sync.lastAlarms.get(id) === j);
     if(same) return;
     sync.lastAlarms = remote; setRaw('tt.alarms', '[' + [...remote.values()].join(',') + ']'); refreshFromStore();
-  }));
-  sync.unsubs.push(F.onSnapshot(F.doc(uref, 'blobs', 'bg'), snap => {
-    if(skip(snap) || sync.pending.has('tt.bg')) return;
-    const v = snap.exists() ? snap.data().v : null;
-    if(localStorage.getItem('tt.bg') !== v){ setRaw('tt.bg', v); refreshFromStore(); }
   }));
 }
 
@@ -2690,7 +2696,7 @@ async function signOut(){
   sync.unsubs.forEach(u => u()); sync.unsubs = [];
   try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
   // Remove this account's data from the browser so the next person starts clean
-  ['tt.alarms', 'tt.bg', 'tt.syncUid', 'tt.mode', ...PREF_KEYS].forEach(k => setRaw(k, null));
+  ['tt.alarms', 'tt.syncUid', 'tt.mode', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
   location.reload();
 }
 
