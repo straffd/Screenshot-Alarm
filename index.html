@@ -231,7 +231,10 @@ html:not(.phone) .log{--fade-top:34px;--fade-len:30px}
 .settle-sheet .bet{display:grid;grid-template-columns:1fr 1fr auto;gap:6px 8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:8px}
 .settle-sheet .bet .resultpick{grid-column:1/-1;margin:0}
 .settle-sheet .bet .resultpick button{padding:6px;font-size:12px}
-.settle-sheet .bet .btype{grid-column:1/-1;display:flex}
+.settle-sheet .bet .btype,.settle-sheet .bet .bwho{grid-column:1/-1;display:flex}
+.settle-sheet .bet .bwho button{flex:1;padding:5px;font-size:12px}
+.settle-sheet .bet .bwho button[aria-pressed="true"].me{color:var(--blue);background:color-mix(in srgb,var(--blue) 15%,transparent)}
+.settle-sheet .bet .bwho button[aria-pressed="true"].bot{color:#d9b13b;background:color-mix(in srgb,#d9b13b 16%,transparent)}
 .settle-sheet .bet .btype button{flex:1;padding:5px;font-size:12px}
 .settle-sheet .bet .btype button[aria-pressed="true"]:nth-child(1){color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
 .settle-sheet .bet .btype button[aria-pressed="true"]:nth-child(2){color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent)}
@@ -1551,6 +1554,19 @@ function botRow(dataUrl, box){
 }
 const BOT_TAG = { id:'bot', name:'Bot', color:'#d9b13b' };
 const isBot = p => p.bot === true || (p.tags || []).includes('bot');
+// Personal / Bot split. A match recorded with several bets (+) on a Bot-tagged bet can mark each bet Personal or Bot
+// (bet.who = 'me' | 'bot'); otherwise the whole match follows its Bot tag.
+const hasWho = p => Array.isArray(p.bets) && p.bets.some(b => b.who);
+const betWho = (p, b) => b.type === 'SWEEP' ? 'me' : b.who || (isBot(p) ? 'bot' : 'me');   // a Sweep bet always counts as Personal
+// The part of a match on one side (bot = true / false): the match itself, just the bets on that side, or null
+function sidePart(p, bot){
+  if(!hasWho(p)) return isBot(p) === bot ? p : null;
+  const bs = p.bets.filter(b => (betWho(p, b) === 'bot') === bot); if(!bs.length) return null;
+  const t = (p.tags || []).filter(id => id !== 'bot');
+  return { ...p, bets: bs, result: betsResult(bs), units: betsUnits(bs), pl: +bs.reduce((s, b) => s + betPL({ result:b.result, odds:+b.odds, units:+b.units }), 0).toFixed(4),
+           bot, tags: bot ? [...t, 'bot'] : t };
+}
+const sidePlays = (list, bot) => list.flatMap(p => { const x = sidePart(p, bot); return x ? [x] : []; });
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
@@ -2014,7 +2030,8 @@ const applyType = () => {
 };
 // Several bets: one slot each, with its own Cash / Chalk / Void, odds and units
 function showBets(){
-  const multi = !!settling.bets, box = $('#betRows');
+  const multi = !!settling.bets, box = $('#betRows'), src = settling.play || settling.alarm;
+  const whoPick = !!src && (isBot(src) || hasWho(src));   // a Bot-tagged match: each bet can be Personal or Bot
   $('#settleOne').hidden = multi; box.hidden = !multi; box.innerHTML = '';
   $('#settleType').closest('.typepick').hidden = multi;   // several bets: each one picks its own type
   if(multi) settling.bets.forEach((b, i) => {
@@ -2027,6 +2044,16 @@ function showBets(){
     const tp = el('div', 'seg btype'); tp.setAttribute('role', 'group'); tp.setAttribute('aria-label', `Bet ${i + 1} play type`);
     PLAY_TYPES.forEach(([k, l]) => { const x = el('button', '', l); x.type = 'button'; x.setAttribute('aria-pressed', b.type === k);
       x.onclick = () => { b.type = b.type === k ? '' : k; showBets(); }; tp.appendChild(x); });
+    let wp = null;
+    if(whoPick && b.type === 'SWEEP'){ b.who = 'me'; b.swept = true; }   // a Sweep bet always counts as Personal: no choice to make
+    else if(whoPick){
+      if(b.swept){ b.who = 'bot'; delete b.swept; }   // switched away from Sweep: back to the default
+      b.who = b.who || 'bot';
+      wp = el('div', 'seg bwho'); wp.setAttribute('role', 'group'); wp.setAttribute('aria-label', `Bet ${i + 1}: personal or bot`);
+      [['me', 'Personal'], ['bot', 'Bot']].forEach(([k, l]) => { const x = el('button', k, l); x.type = 'button'; x.setAttribute('aria-pressed', b.who === k);
+        x.title = k === 'bot' ? 'Counts toward your Bot P/L' : 'Counts toward your Personal P/L';
+        x.onclick = () => { b.who = k; showBets(); }; wp.appendChild(x); });
+    }
     const field = (key, label, attrs) => { const w = el('div'), lab = el('label', '', label), inp = el('input');
       Object.assign(inp, { type:'number', inputMode:'decimal', value: b[key] || '' }, attrs);
       inp.oninput = () => { b[key] = inp.value; settleProfit(); };
@@ -2036,7 +2063,7 @@ function showBets(){
     if(b.result !== 'cash') odds.style.opacity = '.5';
     const rm = el('button', 'close rm', '×'); rm.title = 'Remove this bet'; rm.setAttribute('aria-label', `Remove bet ${i + 1}`);
     rm.onclick = () => { settling.bets.splice(i, 1); if(!settling.bets.length) settling.bets = null; showBets(); };
-    row.append(pick, tp, odds, field('units', 'Units', { min:'0.01', step:'0.1', placeholder:'e.g. 1' }), rm);
+    row.append(...[pick, tp, wp].filter(Boolean), odds, field('units', 'Units', { min:'0.01', step:'0.1', placeholder:'e.g. 1' }), rm);
     box.appendChild(row);
   });
   settleProfit();
@@ -2084,13 +2111,15 @@ function saveBets(){
     const b = settling.bets[i], odds = +b.odds, units = +b.units, [oi, ui] = rows[i].querySelectorAll('input');
     if(b.result === 'cash' && !(odds > 1)){ oi.focus(); return toast(`Enter the decimal odds for bet ${i + 1}, e.g. 1.85`); }
     if(!(units > 0)){ ui.focus(); return toast(`Enter the units for bet ${i + 1}`); }
-    bets.push({ result: b.result, odds: odds > 1 ? odds : null, units, type: b.type || '' });
+    bets.push({ result: b.result, odds: odds > 1 ? odds : null, units, type: b.type || '', ...(b.who ? { who: b.who } : {}) });
   }
   settling.side = bets[0].type; applyType();   // the match itself takes the first bet's type; each bet keeps its own
   closeModal($('#settleModal'));
   if(bets.length === 1){   // only one slot left: store it as a plain single bet
     const [b] = bets, r = b.result === 'void' ? 'chalk' : b.result;
     if(b.result !== 'void'){
+      const src = settling.play || settling.alarm;   // its Personal / Bot choice becomes the match's Bot tag
+      if(b.who && src){ const t = (src.tags || []).filter(id => id !== 'bot'); src.tags = b.who === 'bot' ? ['bot', ...t] : t; }
       if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; store.set('tt.lastUnits', b.units); return savePlays(); }   // one bet: its type is the match's
       return settle(settling.alarm, r, b.odds, b.units);
     }
@@ -2167,8 +2196,8 @@ function tickTracker(){
   }
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
-    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
-    const me = sum(p => !isBot(p)), bot = sum(isBot);
+    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = bot => sidePlays(td, bot).reduce((t, p) => t + playPL(p), 0);
+    const me = sum(false), bot = sum(true);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
 }
@@ -2180,7 +2209,7 @@ $('#plValBox').onclick = () => { if(matchMedia('(hover: none)').matches) $('#plV
 let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
 const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
-function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e[isBot(p) ? 'bot' : 'me'] = (e[isBot(p) ? 'bot' : 'me'] || 0) + S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
+function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); [false, true].forEach(b => { const x = sidePart(p, b); if(x) e[b ? 'bot' : 'me'] = (e[b ? 'bot' : 'me'] || 0) + S.val(x); }); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 // Whose numbers the PNL / History panels show: mine, or the friend picked from the Friends list.
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
@@ -2196,7 +2225,7 @@ function subject(forUid = pnlFor){
 // Personal and Bot show only those plays.
 let pnlKind = store.get('tt.pnlKind', 'all');
 const pnlSubject = () => { const S = subject(pnlFor);
-  return pnlKind === 'all' ? S : { ...S, plays: S.plays.filter(p => pnlKind === 'bot' ? isBot(p) : !isBot(p)) }; };
+  return pnlKind === 'all' ? S : { ...S, plays: sidePlays(S.plays, pnlKind === 'bot') }; };
 $('#pnlKind').onclick = e => { const b = e.target.closest('button'); if(!b) return; pnlKind = b.dataset.k; store.set('tt.pnlKind', pnlKind); pnlSel = null; renderPnl(); };
 // "Me +1u" and "Bot −2u" lines shown when you hover a combined total
 function splitEl(S, me, bot, fmt){   // fmt: show the values some other way (e.g. win rate), uncoloured
@@ -2278,7 +2307,7 @@ function renderPnl(){
   const wins = S.plays.filter(p => p.result === 'cash').length;
   $('#pnlStats').innerHTML = '';
   // each total is combined; hovering it shows the Me (personal) / Bot split
-  const part = (bot, f) => S.plays.filter(p => isBot(p) === bot && f(p)).reduce((t, p) => t + S.val(p), 0);
+  const part = (bot, f) => sidePlays(S.plays, bot).filter(f).reduce((t, p) => t + S.val(p), 0);
   const d0 = new Date(now); d0.setHours(0,0,0,0);
   const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= weekStart, p => p.start >= monthStart, () => true];
   [['Today', S.txt(today), plClass(today)], ['This week', S.txt(week), plClass(week)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
@@ -2287,7 +2316,7 @@ function renderPnl(){
     if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
     if(all_ && i === 4){   // Win rate: personal and bot separately
-      const rate = bot => { const ps = S.plays.filter(p => isBot(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
+      const rate = bot => { const ps = sidePlays(S.plays, bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
       const me = rate(false), bot = rate(true); d.appendChild(splitEl(S, me, bot, v => v)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${me} · Bot ${bot}`; }
     if(i === 2){   // This month: click to list every bet this month under the calendar
@@ -2305,7 +2334,7 @@ function renderPnl(){
   const pct = v => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
   const r = roi(S.plays), rd = document.createElement('div');
   rd.innerHTML = '<small>ROI</small><b></b>'; rd.querySelector('b').textContent = pct(r); rd.querySelector('b').className = r == null ? '' : plClass(r);
-  const rMe = roi(S.plays.filter(p => !isBot(p))), rBot = roi(S.plays.filter(isBot));
+  const rMe = roi(sidePlays(S.plays, false)), rBot = roi(sidePlays(S.plays, true));
   rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked`;
   if(all_){ rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0; rd.title += ` · Personal ${pct(rMe)} · Bot ${pct(rBot)}`; }
   $('#pnlStats').appendChild(rd);
@@ -3161,7 +3190,7 @@ async function publishPlays(){
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
     odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}),
-    ...(Array.isArray(p.bets) && p.bets.some(b => b.type != null) ? { bets: p.bets.map(b => ({ result:b.result, odds:b.odds ?? null, units:b.units || 0, type:b.type || '' })) } : {}),   // typed bets: friends' Play types split them too
+    ...(Array.isArray(p.bets) && p.bets.some(b => b.type != null || b.who) ? { bets: p.bets.map(b => ({ result:b.result, odds:b.odds ?? null, units:b.units || 0, type:b.type || '', ...(b.who ? { who:b.who } : {}) })) } : {}),   // typed bets: friends' Play types split them too
     ...(sharedTags(p).length ? { ptags:sharedTags(p) } : {}) }));   // unit gains are always public to friends
   const ops = [];
   want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
@@ -3185,7 +3214,7 @@ function lbPeriods(list, val){
   const now = Date.now(), out = {};
   Object.entries(LB_KEYS).forEach(([k, key]) => {
     const cur = key(now), ps = list.filter(p => key(p.start) === cur), sum = f => +ps.filter(f).reduce((t, p) => t + val(p), 0).toFixed(4);
-    out[k] = { key: cur, pl: sum(() => true), me: sum(p => !isBot(p)), bot: sum(isBot), n: ps.length, w: ps.filter(p => p.result === 'cash').length };
+    out[k] = { key: cur, pl: sum(() => true), me: +sidePlays(ps, false).reduce((t, p) => t + val(p), 0).toFixed(4), bot: +sidePlays(ps, true).reduce((t, p) => t + val(p), 0).toFixed(4), n: ps.length, w: ps.filter(p => p.result === 'cash').length };
   });
   return out;
 }
