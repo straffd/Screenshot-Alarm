@@ -592,7 +592,7 @@ html:not(.phone) #barBtn{display:none}
 html:not(.phone) .toolbar{display:flex !important;gap:2px;padding:0;border:none;animation:none}
 html:not(.phone) .toolbar .ghost,html:not(.phone) #menuBtn{display:inline-flex;align-items:center;gap:7px;width:auto;height:32px;padding:0 11px;border:none;border-radius:6px;background:none;color:var(--muted);font:500 14px var(--sans);white-space:nowrap;transition:background .12s,color .12s}
 html:not(.phone) .toolbar .ghost:hover,html:not(.phone) #menuBtn:hover{background:color-mix(in srgb,var(--text) 9%,transparent);color:var(--text)}
-html:not(.phone) .toolbar .ghost[aria-expanded="true"]{background:color-mix(in srgb,var(--text) 13%,transparent);color:var(--text)}
+html:not(.phone) .toolbar .ghost[aria-expanded="true"],html:not(.phone) #menuBtn[aria-expanded="true"]{background:color-mix(in srgb,var(--text) 13%,transparent);color:var(--text)}
 html:not(.phone) .toolbar .ti,html:not(.phone) #menuBtn svg{width:15px;height:15px;flex:none}
 html:not(.phone) #menuBtn{order:2}
 html:not(.phone) #menuBtn .lbl{display:inline}
@@ -2192,7 +2192,7 @@ function setSlide(key, open){
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
   if(key !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
   if(key === 'bets') store.set('tt.railOpen', open);   // the Bets panel stays open or closed across visits (per device)
-  layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
+  layoutSlides(); barFills(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
 function layoutSlides(){
@@ -2466,8 +2466,14 @@ function renderGraph(view, days){
 }
 
 /* ---------- Modals ---------- */
-function openModal(id){ $(id).classList.add('show'); }
-function closeModal(el){ el.classList.remove('show'); }
+function openModal(id){ $(id).classList.add('show'); barFills(); }
+function closeModal(el){ el.classList.remove('show'); barFills(); }
+// Top bar (computers): a button stays filled while what it opens is open
+function barFills(){
+  const open = id => { const e = $(id); return !!e && (e.classList.contains('open') || e.classList.contains('show')); };
+  $('#menuBtn').setAttribute('aria-expanded', open('#hud') || open('#settingsModal'));
+  $('#friendsBtn').setAttribute('aria-expanded', open('#friends') || open('#falarms'));
+}
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', e => { if(e.target===m || e.target.hasAttribute('data-close')) closeModal(m); });
 });
