@@ -34,7 +34,8 @@ Screenshots are read by Google Gemini (free tier).
    time style, and show P/L in units or dollars (with your $ per unit).
 9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
-   and shows today / this month / all time / win rate, with a **Calendar** (each day's P/L; click a day for its
+   and shows today / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
+   **last bet** (click it to jump to that day), with a **Calendar** (each day's P/L; click a day for its
    matches) or a **Graph** (running total over 7, 30, 90 days or all time). Totals and calendar days are combined;
    hover over one to split it into Me and Bot. Click a day, or the **This month** box, to list those bets.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
