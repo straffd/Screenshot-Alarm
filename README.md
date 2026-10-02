@@ -17,7 +17,9 @@ Screenshots are read by Google Gemini (free tier).
    so you can paste it into the Ladbrokes search. Clicking the desktop notification when an alarm rings does the
    same (and stops the alarm). TT Cup, TT Elite Series and Czech Liga Pro link to their ladbrokes.com.au pages by
    default; change the links or turn the copying off in ⚙ Settings.
-5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click a bet to tag it.
+5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click a bet to tag it. **SWEEP** is a built-in tag
+   (purple by default; change its colour but it can't be deleted) for sweep bets: the PNL's Play types counts them as Sweep,
+   and it and **Bot** are the only tags that come along when you copy a friend's bet, along with OVER/UNDER. Friends can see your other tags on your bets and in your History, but they stay yours and don't copy.
    Tags show next to OVER/UNDER. You can also create a new tag straight from a bet.
 6. Bets are removed automatically a few hours after their match starts (3 by default). Change the number,
    or set 0 to keep them, in ⚙ Settings → Remove old bets.
@@ -42,8 +44,8 @@ Screenshots are read by Google Gemini (free tier).
    only those plays. The **Calendar / Graph** switch sits just above the calendar or graph.
    Under it, **Play types** shows bets, W–L, win rate, P/L and ROI for Over, Under and Sweep (also split by All / Personal /
    Bot); click any types for a bigger breakdown, as many open as you like (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
-   odds). Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Set a bet's type with its OVER/UNDER button (press twice to switch: Over → Under → Sweep), by typing `sweep` in
-   a typed bet, or in the Cash / Chalk popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
+   odds). Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Mark a bet as Sweep with the **SWEEP** tag (click the bet, or type `sweep` in a typed bet), or in the Cash / Chalk
+   popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
@@ -55,8 +57,10 @@ Screenshots are read by Google Gemini (free tier).
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
-    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets. Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
+    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
+    The **🔔** in a friend's drop-down (pressed in = on) makes the chat tell you each time they place a bet, with the bet
+    and a **Copy** button.
     **Leaderboard** (toolbar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
     this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
     they next open the site.
