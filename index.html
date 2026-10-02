@@ -270,6 +270,23 @@ button.tag{cursor:pointer}
 #pnlTypes{margin-top:18px}
 #pnlTypes .trow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 #pnlTypes .trow.none{opacity:.55}
+#pnlTypes .trow.click{cursor:pointer}
+#pnlTypes .trow.click:hover{border-color:var(--muted)}
+#pnlTypes .trow[aria-expanded="true"]{border-color:var(--muted);border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;background:var(--panel-2)}
+#pnlTypes .tdetail{border:1px solid var(--muted);border-top:none;border-radius:0 0 8px 8px;background:var(--bg);padding:14px 14px 10px;margin-bottom:8px;animation:tdIn .18s ease-out}
+@keyframes tdIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+#pnlTypes .tdh{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+#pnlTypes .tdh b{font:700 30px/1 var(--cond);font-variant-numeric:tabular-nums}
+#pnlTypes .tdh b.up{color:var(--green)} #pnlTypes .tdh b.down{color:var(--red)}
+#pnlTypes .tdh span{color:var(--muted);font:600 15px var(--cond)}
+#pnlTypes .tdg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#pnlTypes .tdg div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+#pnlTypes .tdg small{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+#pnlTypes .tdg b{font:700 17px/1 var(--cond);font-variant-numeric:tabular-nums}
+#pnlTypes .tdg b.up{color:var(--green)} #pnlTypes .tdg b.down{color:var(--red)}
+#pnlTypes .tdf{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
+#pnlTypes[hidden]{display:none}
+@container (max-width:380px){ #pnlTypes .tdg{grid-template-columns:1fr 1fr} }
 #pnlTypes .tl{display:flex;align-items:center;gap:10px;min-width:0}
 #pnlTypes .tl small,#pnlTypes .tr small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #pnlTypes .tl .side{flex:none;font-size:12.5px;padding:3px 7px}
@@ -2047,10 +2064,13 @@ function renderPnl(){
   if(pnlView === 'calendar') renderCalendar(view, days, tk); else renderGraph(view, days);
   renderTypes(S, staked, pct);
 }
-// P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot)
+// P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot).
+// Click a type for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
 const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
+let typeOpen = null;   // the expanded type ('OVER', 'UNDER', 'SWEEP' or '' for No type)
 function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
+  box.hidden = !!pnlSel; if(pnlSel) return;
   box.appendChild(el('div', 'fsec', 'Play types · all time'));
   const kinds = [...PLAY_TYPES], other = S.plays.filter(p => !PLAY_TYPES.some(([k]) => String(p.side).toUpperCase() === k));
   if(other.length) kinds.push(['', 'No type']);
@@ -2062,7 +2082,36 @@ function renderTypes(S, staked, pct){
       el('small', '', ps.length ? `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${w}W ${ps.length - w}L · ${Math.round(w / ps.length * 100)}%` : 'No bets'));
     const right = el('div', 'tr'); right.append(el('b', plClass(pl), S.txt(pl)), el('small', '', ps.length ? 'ROI ' + pct(st > 0 ? pl / st * 100 : null) : ''));
     row.append(left, right); box.appendChild(row);
+    const open = typeOpen === k;
+    row.classList.add('click'); row.tabIndex = 0; row.setAttribute('role', 'button'); row.setAttribute('aria-expanded', open);
+    row.onclick = () => { typeOpen = open ? null : k; renderTypes(S, staked, pct); };
+    row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
+    if(open) box.appendChild(typeDetail(S, k, ps, pl, st, w, pct));
   });
+}
+// The expanded box for one play type
+function typeDetail(S, k, ps, pl, st, w, pct){
+  const d = el('div', 'tdetail');
+  // P/L in the chosen display, with the other one (units ⇄ dollars) beside it
+  const head = el('div', 'tdh'); head.append(el('b', plClass(pl), S.txt(pl)));
+  const alt = inDollars() ? (pl > 0 ? '+' : pl < 0 ? '−' : '') + fmtU(Math.abs(pl)) + 'u' : (pl > 0 ? '+' : pl < 0 ? '−' : '') + '$' + (Math.abs(pl) * unitValue()).toFixed(2);
+  head.append(el('span', '', alt)); d.appendChild(head);
+  const grid = el('div', 'tdg'), stat = (label, val, cls) => { const c = el('div'); c.append(el('small', '', label), el('b', cls || '', val)); grid.appendChild(c); };
+  const roi = st > 0 ? pl / st * 100 : null;
+  stat('ROI', pct(roi), roi == null ? '' : plClass(roi));
+  stat('Win rate', ps.length ? Math.round(w / ps.length * 100) + '%' : '—');
+  stat('Record', `${w}–${ps.length - w}`);
+  stat('Staked', fmtU(st) + 'u');
+  d.appendChild(grid);
+  // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
+  const match = x => (k ? String(x.side).toUpperCase() === k : !PLAY_TYPES.some(([t]) => String(x.side).toUpperCase() === t))
+    && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
+  const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
+    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
+  const odds = ps.flatMap(p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : []);
+  const avg = odds.length ? (odds.reduce((t, o) => t + o, 0) / odds.length).toFixed(2) : '—';
+  d.appendChild(el('p', 'tdf', `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${pending} pending · avg odds ${avg}`));
+  return d;
 }
 function renderCalendar(view, days, tk){
   const S = pnlSubject();
