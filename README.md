@@ -28,7 +28,7 @@ Screenshots are read by Google Gemini (free tier).
    Chalk records a loss with your last-used units. Set **Default odds** in ⚙ Settings and the Cash popup opens with them
    filled in (change them if needed, then Save). Or set **Average odds** and turn on its switch (off by default) and Cash records the win in one
    click too, at those odds with your last-used units (click the entry in History to change it). Placed more than one bet on the match? Press **+** to record each one
-   in its own slot (odds, units, and Cash / Chalk / Void, where Void counts as 0); the match's P/L is the total. The match then moves to your history: open the toolbar (› next
+   in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under or Sweep); the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: open the toolbar (› next
    to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
