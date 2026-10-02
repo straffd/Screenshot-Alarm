@@ -889,10 +889,6 @@ html.phone .alpha-note{display:inline}
           <option value="right">Position: right</option>
         </select></div>
         <label class="fx plsize">Size<input type="range" id="plSize" min="80" max="200" step="10" value="130" aria-label="P/L tracker size"><output id="plSizeOut">130%</output></label>
-        <div class="ctl sound"><select id="timeMode" aria-label="Time display">
-          <option value="countdown">Countdown to midnight (when P/L resets)</option>
-          <option value="clock">Current time</option>
-        </select></div>
         <div class="ctl sound"><select id="hourFmt" aria-label="Clock format">
           <option value="12">12-hour clock (AM/PM)</option>
           <option value="24">24-hour clock</option>
@@ -1027,7 +1023,7 @@ let alarms = store.get('tt.alarms', []);
 let tags = store.get('tt.tags', []) || [];   // custom tags: [{ id, name, color }]; alarms keep a list of tag ids
 let lead = store.get('tt.lead', 5);
 let plays = store.get('tt.history', []) || [];   // settled matches: { id, name, league, start, side, line, ouPct, edge, tags, result:'cash'|'chalk', odds, units, settled }
-let plPrefs = store.get('tt.plPrefs', {}) || {};   // { showPL, showTime, timeMode:'countdown'|'clock', money:'units'|'dollars', unitValue }   // what the right-hand list shows: 'alarms' or 'history' (per device)
+let plPrefs = store.get('tt.plPrefs', {}) || {};   // { showPL, showTime, hour24, money:'units'|'dollars', unitValue }   // what the right-hand list shows: 'alarms' or 'history' (per device)
 let cleanupHours = store.get('tt.cleanupHours', 3);   // alarms are removed this many hours after their match starts (0 = never)
 const MAX_SHOTS = 10;
 let pendingImgs = [];    // data URLs waiting to be sent
@@ -2174,9 +2170,9 @@ function renderHistory(){
 function plSettings(){
   plPrefs = store.get('tt.plPrefs', {}) || {};
   $('#plShow').checked = plPrefs.showPL !== false; $('#timeShow').checked = plPrefs.showTime !== false;
-  $('#timeMode').value = plPrefs.timeMode === 'clock' ? 'clock' : 'countdown'; $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
+  $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
-  $('#timeMode').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
+  $('#hourFmt').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
   plSize(plPrefs.size || 130);
   const pos = plPrefs.pos === 'right' ? 'right' : 'left'; $('#plPos').value = pos;
   $('#plTab').classList.toggle('pos-right', pos === 'right');
@@ -2184,11 +2180,11 @@ function plSettings(){
   tickTracker();
 }
 function savePlPrefs(){
-  plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value, hour24: $('#hourFmt').value === '24',
+  plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, hour24: $('#hourFmt').value === '24',
               money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130, pos: $('#plPos').value };
   store.set('tt.plPrefs', plPrefs); plSettings(); render();
 }
-['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue', '#plSize', '#plPos'].forEach(id => $(id).onchange = savePlPrefs);
+['#plShow', '#timeShow', '#hourFmt', '#plMoney', '#unitValue', '#plSize', '#plPos'].forEach(id => $(id).onchange = savePlPrefs);
 // Size of the time | PNL tab (computers), 80–200%: scales the tab and the space the chat leaves for it
 function plSize(pct){
   $('#plSize').value = pct; $('#plSizeOut').textContent = pct + '%';
@@ -2204,11 +2200,7 @@ function tickTracker(){
   const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
   const dayStart = midnight.getTime() - 864e5;
   if(showTime){
-    if(plPrefs.timeMode === 'clock'){ $('#plTime').title = ''; $('#plTime').textContent = now.toLocaleTimeString([], clockOpts()); }
-    else {
-      let s = Math.max(0, Math.floor((midnight - now) / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s %= 60;
-      $('#plTime').title = 'Time until P/L resets at 12 AM'; $('#plTime').textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
+    $('#plTime').textContent = now.toLocaleTimeString([], clockOpts());   // the current time
   }
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
