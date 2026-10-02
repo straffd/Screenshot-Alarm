@@ -148,6 +148,10 @@ html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
 .drop.over{outline:2px dashed var(--yellow);outline-offset:6px;border-radius:8px}
 .composer textarea{flex:1;resize:none;min-height:44px;max-height:140px;background:var(--glass-input);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .attach{width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--glass-input);display:grid;place-items:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chatclear{width:36px;color:var(--muted);flex:none;transition:color .15s,border-color .15s,background .15s}
+.chatclear:hover{color:var(--text)}
+.chatclear.confirm{color:var(--red);border-color:var(--red);background:color-mix(in srgb,var(--red) 16%,var(--glass-input))}
+.msg .shotnote{font-size:12px;color:var(--muted);margin-top:4px}
 /* No API key yet: a button at the top middle of the chat (of the part not covered by panels) */
 .keycta{position:absolute;top:72px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
   background:var(--accent,var(--yellow));color:var(--on-accent,#1a1a1a);font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
@@ -699,6 +703,9 @@ html.phone .alpha-note{display:inline}
         </button>
         <input type="file" id="file" accept="image/*" multiple hidden>
         <textarea id="text" rows="1" enterkeyhint="send" placeholder="Paste or attach up to 10 screenshots, then press Enter"></textarea>
+        <button class="attach chatclear" id="chatClear" aria-label="Clear chat" title="Clear chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+        </button>
       </div>
     </div>
   </section>
@@ -1010,27 +1017,74 @@ markPhone();
 $('#leadMin').value = lead;
 
 /* ---------- Chat log ---------- */
+/* Chat log: kept on this device (tt.chat) for 3 days. Screenshots aren't kept: a saved message shows how many there were.
+   opts.temp: not saved (the "Reading…" message, the welcome). opts.bell: a friend's bet { uid, name, play } (shown with its card). */
+const CHAT_DAYS = 3;
+let chatLog = (store.get('tt.chat', []) || []).filter(m => m && m.t > Date.now() - CHAT_DAYS * 864e5);
 function addMsg(who, text, opts={}){
-  const d = document.createElement('div');
-  d.className = 'msg ' + who + (opts.err ? ' err' : '');
-  if(text){ const t = document.createElement('div'); t.textContent = text; d.appendChild(t); }
-  if(opts.imgs && opts.imgs.length){
-    const g = document.createElement(opts.imgs.length > 1 ? 'div' : 'span'); if(opts.imgs.length > 1) g.className = 'shots';
-    opts.imgs.forEach((src, n) => { const i = document.createElement('img'); i.src = src; i.alt = 'Screenshot ' + (n+1); g.appendChild(i); });
-    d.appendChild(g);
-  }
-  if(opts.facts){
-    const f = document.createElement('div'); f.className = 'facts';
-    for(const [k,v] of opts.facts){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('span'); b.textContent=v; f.append(a,b); }
-    d.appendChild(f);
-  }
+  const m = { t: Date.now(), who, text: text || '', ...(opts.err ? { err:true } : {}), ...(opts.facts ? { facts: opts.facts } : {}),
+              ...(opts.imgs && opts.imgs.length ? { n: opts.imgs.length } : {}), ...(opts.bell ? { bell: opts.bell } : {}) };
+  const d = msgEl(m, opts.imgs);
+  if(!opts.temp){ chatLog.push(m); if(chatLog.length > 400) chatLog = chatLog.slice(-400); saveChat(); }
+  else d.dataset.temp = '1';
   $('#log').appendChild(d);
   $('#log').scrollTop = $('#log').scrollHeight; markLogScroll();
   return d;
 }
-addMsg('bot', ready()
-  ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under ' + (isPhone() ? 'the ☰ menu → Settings.' : 'the ⚙ button at the top left.')
-  : 'Add your free Gemini API key under ' + (isPhone() ? 'the ☰ menu (top left)' : 'the ⚙ button (top left)') + ' → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.');
+function msgEl(m, imgs){
+  const d = document.createElement('div');
+  d.className = 'msg ' + m.who + (m.err ? ' err' : ''); d.dataset.t = m.t;
+  if(m.text){ const t = document.createElement('div'); t.textContent = m.text; d.appendChild(t); }
+  if(imgs && imgs.length){
+    const g = document.createElement(imgs.length > 1 ? 'div' : 'span'); if(imgs.length > 1) g.className = 'shots';
+    imgs.forEach((src, n) => { const i = document.createElement('img'); i.src = src; i.alt = 'Screenshot ' + (n+1); g.appendChild(i); });
+    d.appendChild(g);
+  } else if(m.n) d.appendChild(el('div', 'shotnote', `📷 ${m.n} screenshot${m.n > 1 ? 's' : ''}`));   // restored: the pictures weren't kept
+  if(m.facts){
+    const f = document.createElement('div'); f.className = 'facts';
+    for(const [k,v] of m.facts){ const a=document.createElement('span'); a.textContent=k; const b=document.createElement('span'); b.textContent=v; f.append(a,b); }
+    d.appendChild(f);
+  }
+  if(m.bell){   // a friend placed a bet: their picture and name, then the bet card with Copy
+    const { uid, name, play } = m.bell, head = el('div', 'bellhead'), card = (social && social.cards.get(uid)) || { username: name };
+    head.append(pfpEl(card, 'small'), el('span', '', `@${name} placed a bet`)); d.classList.add('bellmsg');
+    d.append(head, friendPlayCard(play, name));
+  }
+  return d;
+}
+function saveChat(){ if(!store.set('tt.chat', chatLog)){ chatLog = chatLog.slice(-100); store.set('tt.chat', chatLog); } }
+// Drop messages older than 3 days (from the screen too)
+function pruneChat(){
+  const cut = Date.now() - CHAT_DAYS * 864e5, before = chatLog.length;
+  chatLog = chatLog.filter(m => m.t > cut); if(chatLog.length !== before) saveChat();
+  document.querySelectorAll('#log .msg[data-t]').forEach(d => { if(!d.dataset.temp && +d.dataset.t <= cut) d.remove(); });
+}
+function welcome(){
+  addMsg('bot', ready()
+    ? 'Send me a match screenshot and I\'ll set an alarm ' + lead + ' min before it starts. Change the lead time under ' + (isPhone() ? 'the ☰ menu → Settings.' : 'the ⚙ button at the top left.')
+    : 'Add your free Gemini API key under ' + (isPhone() ? 'the ☰ menu (top left)' : 'the ⚙ button (top left)') + ' → Gemini settings, then send me a match screenshot. I\'ll read the players, start time, over/under and edge, and set an alarm.', { temp:true });
+}
+// Restore the saved chat once the page has loaded (bet cards need the rest of the page's code); a new chat starts with the welcome
+setTimeout(() => {
+  const log = $('#log'), frag = document.createDocumentFragment();
+  chatLog.forEach(m => { try{ frag.appendChild(msgEl(m)); }catch(e){} });
+  log.prepend(frag);
+  if(!chatLog.length && !log.querySelector('.msg')) welcome();
+  log.scrollTop = log.scrollHeight; markLogScroll();
+}, 0);
+setInterval(pruneChat, 10 * 60e3);
+// 🗑 at the right of the text bar: press it twice (or double-click) to clear the chat
+$('#chatClear').onclick = () => {
+  const b = $('#chatClear');
+  if(!b.classList.contains('confirm')){
+    b.classList.add('confirm'); b.title = 'Press again to clear the chat'; b.setAttribute('aria-label', 'Press again to clear the chat');
+    clearTimeout(b._t); b._t = setTimeout(() => { b.classList.remove('confirm'); b.title = 'Clear chat'; b.setAttribute('aria-label', 'Clear chat'); }, 3000);
+    return;
+  }
+  clearTimeout(b._t); b.classList.remove('confirm'); b.title = 'Clear chat'; b.setAttribute('aria-label', 'Clear chat');
+  chatLog = []; store.set('tt.chat', chatLog);
+  $('#log').innerHTML = ''; welcome(); toast('Chat cleared.');
+};
 
 /* ---------- Image input (up to MAX_SHOTS) ---------- */
 let capWarned = false;
@@ -1338,7 +1392,7 @@ async function send(){
   $('#text').value=''; pendingImgs = []; renderPreview();
   sending = true;
   const many = imgs.length > 1;
-  const thinking = addMsg('bot', imgs.length ? (many ? `Reading screenshot 1 of ${imgs.length}…` : 'Reading the screenshot…') : '…');
+  const thinking = addMsg('bot', imgs.length ? (many ? `Reading screenshot 1 of ${imgs.length}…` : 'Reading the screenshot…') : '…', { temp:true });
   const status = t => { thinking.firstChild.textContent = t; };
   try{
     if(imgs.length){
@@ -2976,7 +3030,7 @@ async function signOut(){
   sync.unsubs.forEach(u => u()); sync.unsubs = [];
   try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
   // Remove this account's data from the browser so the next person starts clean
-  ['tt.alarms', 'tt.syncUid', 'tt.mode', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
+  ['tt.alarms', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
   location.reload();
 }
 
@@ -3236,9 +3290,7 @@ function bellSnapshot(uid, docs){
   seen[uid] = up.map(p => p.id); store.set('tt.bellSeen', seen);
   const name = (social.cards.get(uid) || {}).username || 'friend';
   fresh.slice(0, 5).forEach(p => {
-    const m = addMsg('bot', '', {}), head = el('div', 'bellhead');
-    head.append(pfpEl(social.cards.get(uid), 'small'), el('span', '', `@${name} placed a bet`)); m.classList.add('bellmsg');
-    m.append(head, friendPlayCard(p, name)); $('#log').scrollTop = $('#log').scrollHeight; markLogScroll();
+    addMsg('bot', '', { bell: { uid, name, play: p } });
   });
   if(fresh.length > 5) addMsg('bot', `…and ${fresh.length - 5} more from @${name}. Open their Bets to see them all.`);
 }

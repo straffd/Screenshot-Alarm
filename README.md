@@ -95,6 +95,7 @@ the phone is locked or the app is closed; Settings → Alarms shows **Locked-pho
 Signed in, stopping an alarm on one device (e.g. your PC) stops it on your others too, including a locked phone.
 
 ## Where your data is kept
+- **Chat:** the chat log is kept on this device for 3 days (older messages are removed; screenshots aren't kept, just how many you sent). The 🗑 at the right of the text bar clears it: press it twice (or double-click).
 - **Signed in with Google:** bets (with their screenshots), UI colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
   Only you can read them. Some things stay on each device instead: the background picture (and its blur/saturation),
