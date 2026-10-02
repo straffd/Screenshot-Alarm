@@ -1551,8 +1551,9 @@ function botRow(dataUrl, box){
 }
 const BOT_TAG = { id:'bot', name:'Bot', color:'#d9b13b' };
 const isBot = p => p.bot === true || (p.tags || []).includes('bot');
-// P/L side: bot picks count as Bot, except SWEEP bets, which always count as your own (Personal) even with the Bot tag
-const botPL = p => isBot(p) && !hasSweep(p);
+// P/L side: bot picks count as Bot, except SWEEP plays, which always count as your own (Personal) even with the Bot tag.
+// A match with several bets (+) counts as SWEEP if any of its bets is a Sweep, so its Over / Under bets go to Personal too.
+const botPL = p => isBot(p) && !hasSweep(p) && !(Array.isArray(p.bets) && p.bets.some(b => b.type === 'SWEEP'));
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
@@ -2317,7 +2318,7 @@ function renderPnl(){
   if(last){
     const v = S.val(last); ld.querySelector('b').textContent = S.txt(v); ld.querySelector('b').className = plClass(v);
     const [l1, l2] = ld.querySelectorAll('.sub'); l1.textContent = last.name; l1.title = last.name;
-    l2.textContent = `${last.result === 'cash' ? 'Cash' : 'Chalk'}${isBot(last) ? ' · Bot' : ''} · ${fmtDay(last.start)}, ${fmtTime(last.start)}`;
+    l2.textContent = `${last.result === 'cash' ? 'Cash' : 'Chalk'}${botPL(last) ? ' · Bot' : ''} · ${fmtDay(last.start)}, ${fmtTime(last.start)}`;
     ld.classList.add('click'); ld.setAttribute('role', 'button'); ld.tabIndex = 0; ld.title = 'Show that day in the calendar';
     ld.onclick = () => { const d = new Date(last.start); pnlView = 'calendar'; pnlMonth = new Date(d.getFullYear(), d.getMonth(), 1); pnlSel = dayKey(last.start); renderPnl();
       setTimeout(() => { const l = $('#pnlView .daylist'); if(l) l.scrollIntoView({ behavior:'smooth', block:'nearest' }); }, 50); };
@@ -2431,7 +2432,7 @@ function renderCalendar(view, days, tk){
       const it = document.createElement('div'), pl = S.val(p); it.className = 'it';
       it.innerHTML = `<span class="r ${p.result === 'cash' ? 'up' : 'down'}">${p.result === 'cash' ? 'CASH' : 'CHALK'}</span><span class="nm"></span><span class="pl ${plClass(pl)}"></span>`;
       it.querySelector('.nm').textContent = `${whole ? new Date(p.start).toLocaleDateString([], { day:'numeric', month:'short' }) + ', ' : ''}${fmtTime(p.start)} · ${p.name}`; it.querySelector('.pl').textContent = S.txt(pl);
-      if(isBot(p)) it.querySelector('.nm').appendChild(el('span', 'bot', 'BOT'));
+      if(botPL(p)) it.querySelector('.nm').appendChild(el('span', 'bot', 'BOT'));
       list.appendChild(it);
     });
     view.appendChild(list);
