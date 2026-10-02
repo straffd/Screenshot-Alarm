@@ -1436,7 +1436,17 @@ async function createAlarm(info, img, cropIt, sweep){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
-  if(alarms.some(x => x.name === name && x.start === start)) return { ok:false, name, why:'already in your bets' };
+  const have = alarms.find(x => x.name === name && x.start === start);
+  if(have){   // already placed: redo its tags from this photo (Bot from the yellow row; SWEEP only if you wrote it). Your own tags stay.
+    const bot = await botRow(img, cropIt ? info.box_2d : null); if(bot) ensureBotTag();
+    const before = new Set(have.tags || []), t = (have.tags || []).filter(id => id !== 'bot');
+    if(bot) t.unshift('bot'); if(sweep && !t.includes('sweep')) t.push('sweep');
+    have.tags = t;
+    const added = t.filter(id => !before.has(id)), gone = [...before].filter(id => !t.includes(id));
+    const nm = id => (tags.find(x => x.id === id) || { name:id }).name;
+    const what = [...added.map(id => nm(id) + ' added'), ...gone.map(id => nm(id) + ' removed')].join(', ');
+    return { ok:false, retag:true, name, why: what ? `tags updated from this photo (${what})` : 'tags already match this photo' };
+  }
   const side = ouSide(info);
   const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
   const shot = (cropIt && await cropRow(img, info.box_2d)) || img;
@@ -1540,12 +1550,12 @@ async function createAlarms(entries, problems = []){
     });
   } else {
     const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}${isBot(a) ? ' · Bot' : ''}${a.fired ? ' · done, mark Cash or Chalk' : ''}`]);
-    skipped.forEach(r => facts.push(['Skipped', `${r.name}: ${r.why}`]));
+    skipped.forEach(r => facts.push([r.retag ? 'Already in' : 'Skipped', `${r.name}: ${r.why}`]));
     problems.forEach(pr => facts.push(['Not read', pr]));
     const n = entries.length;
     const done = made.filter(a => a.fired).length, set = made.length - done;
     addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
-                              : `Found ${n} match${n>1?'es':''}, but they were all already in your bets.`, { facts });
+                              : `Found ${n} match${n>1?'es':''}, already in your bets.` + (skipped.some(r => r.retag) ? ' I redid their tags from this photo.' : ''), { facts });
   }
   if(made.some(a => !a.fired)) askNotify();
 }
