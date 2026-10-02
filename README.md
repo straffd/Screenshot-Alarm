@@ -69,6 +69,7 @@ alarm and opens the match's competition on Ladbrokes.
 
 Keep the tab (or the app) open **on screen** for alarms to ring: phones pause web apps when the screen locks or you switch
 apps. In ⚙ Settings → Alarms:
+- **Notifications on this device** turns this device's notifications (including locked-phone alarms) on or off.
 - **Allow notifications** turns notifications on (Android only asks when you tap something, so tap this once).
 - **Test alarm** rings in 5 seconds so you can check sound, notification and vibration.
 - **Keep the screen on while a bet is coming up** (on by default on phones) stops the phone pausing the app before an alarm.
@@ -78,10 +79,12 @@ Worker). Once it's set up and its address is in `index.html` (`PUSH_SERVER`), al
 the phone is locked or the app is closed; Settings → Alarms shows **Locked-phone alarms: on**.
 
 ## Where your data is kept
-- **Signed in with Google:** bets (with their screenshots), background, UI colour, sound, lead time, old-bet removal time, Ladbrokes links, tags, match history, P/L tracker options, background blur/saturation and Gemini settings
+- **Signed in with Google:** bets (with their screenshots), UI colour, sound, lead time, old-bet removal time, Ladbrokes links, tags, match history, P/L tracker options and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
-  Only you can read them. Whether the Bets panel is open, and any custom alarm sounds you add, stay on that device.
-  Signing out removes your data from that browser. It stays in your account.
+  Only you can read them. Some things stay on each device instead: the background picture (and its blur/saturation),
+  the alarm switches (Ring alarms, Notifications on this device, Keep the screen on), whether the Bets panel is open, and
+  any custom alarm sounds you add. Signing out removes your account data from that browser (it stays in your account);
+  these device settings stay.
 - **Friends:** your @username and picture can be seen by anyone signed in who looks you up by exact username.
   Your plays, results and stats (including odds, units and PNL) are visible only to accepted friends.
   Your private data (screenshots, settings, Gemini key) is never shared.
