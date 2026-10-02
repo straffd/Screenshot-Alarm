@@ -1551,6 +1551,8 @@ function botRow(dataUrl, box){
 }
 const BOT_TAG = { id:'bot', name:'Bot', color:'#d9b13b' };
 const isBot = p => p.bot === true || (p.tags || []).includes('bot');
+// P/L side: bot picks count as Bot, except SWEEP bets, which always count as your own (Personal) even with the Bot tag
+const botPL = p => isBot(p) && !hasSweep(p);
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
@@ -2168,7 +2170,7 @@ function tickTracker(){
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
     const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
-    const me = sum(p => !isBot(p)), bot = sum(isBot);
+    const me = sum(p => !botPL(p)), bot = sum(botPL);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
 }
@@ -2180,7 +2182,7 @@ $('#plValBox').onclick = () => { if(matchMedia('(hover: none)').matches) $('#plV
 let pnlView = store.get('tt.pnlView', 'calendar'), pnlMonth = null, pnlSel = null, pnlRange = store.get('tt.pnlRange', 30);
 const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
-function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e[isBot(p) ? 'bot' : 'me'] = (e[isBot(p) ? 'bot' : 'me'] || 0) + S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
+function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); e[botPL(p) ? 'bot' : 'me'] = (e[botPL(p) ? 'bot' : 'me'] || 0) + S.val(p); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 // Whose numbers the PNL / History panels show: mine, or the friend picked from the Friends list.
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
@@ -2196,7 +2198,7 @@ function subject(forUid = pnlFor){
 // Personal and Bot show only those plays.
 let pnlKind = store.get('tt.pnlKind', 'all');
 const pnlSubject = () => { const S = subject(pnlFor);
-  return pnlKind === 'all' ? S : { ...S, plays: S.plays.filter(p => pnlKind === 'bot' ? isBot(p) : !isBot(p)) }; };
+  return pnlKind === 'all' ? S : { ...S, plays: S.plays.filter(p => pnlKind === 'bot' ? botPL(p) : !botPL(p)) }; };
 $('#pnlKind').onclick = e => { const b = e.target.closest('button'); if(!b) return; pnlKind = b.dataset.k; store.set('tt.pnlKind', pnlKind); pnlSel = null; renderPnl(); };
 // "Me +1u" and "Bot −2u" lines shown when you hover a combined total
 function splitEl(S, me, bot, fmt){   // fmt: show the values some other way (e.g. win rate), uncoloured
@@ -2278,7 +2280,7 @@ function renderPnl(){
   const wins = S.plays.filter(p => p.result === 'cash').length;
   $('#pnlStats').innerHTML = '';
   // each total is combined; hovering it shows the Me (personal) / Bot split
-  const part = (bot, f) => S.plays.filter(p => isBot(p) === bot && f(p)).reduce((t, p) => t + S.val(p), 0);
+  const part = (bot, f) => S.plays.filter(p => botPL(p) === bot && f(p)).reduce((t, p) => t + S.val(p), 0);
   const d0 = new Date(now); d0.setHours(0,0,0,0);
   const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= weekStart, p => p.start >= monthStart, () => true];
   [['Today', S.txt(today), plClass(today)], ['This week', S.txt(week), plClass(week)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
@@ -2287,7 +2289,7 @@ function renderPnl(){
     if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
     if(all_ && i === 4){   // Win rate: personal and bot separately
-      const rate = bot => { const ps = S.plays.filter(p => isBot(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
+      const rate = bot => { const ps = S.plays.filter(p => botPL(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
       const me = rate(false), bot = rate(true); d.appendChild(splitEl(S, me, bot, v => v)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${me} · Bot ${bot}`; }
     if(i === 2){   // This month: click to list every bet this month under the calendar
@@ -2305,7 +2307,7 @@ function renderPnl(){
   const pct = v => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
   const r = roi(S.plays), rd = document.createElement('div');
   rd.innerHTML = '<small>ROI</small><b></b>'; rd.querySelector('b').textContent = pct(r); rd.querySelector('b').className = r == null ? '' : plClass(r);
-  const rMe = roi(S.plays.filter(p => !isBot(p))), rBot = roi(S.plays.filter(isBot));
+  const rMe = roi(S.plays.filter(p => !botPL(p))), rBot = roi(S.plays.filter(botPL));
   rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked`;
   if(all_){ rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0; rd.title += ` · Personal ${pct(rMe)} · Bot ${pct(rBot)}`; }
   $('#pnlStats').appendChild(rd);
@@ -2380,7 +2382,7 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   d.appendChild(grid);
   // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
   const match = x => (k ? playType(x) === k : !playType(x))
-    && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
+    && (pnlKind === 'all' || (pnlKind === 'bot') === botPL(x));
   const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
     : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
   const odds = ps.flatMap(e => e.odds);
@@ -3185,7 +3187,7 @@ function lbPeriods(list, val){
   const now = Date.now(), out = {};
   Object.entries(LB_KEYS).forEach(([k, key]) => {
     const cur = key(now), ps = list.filter(p => key(p.start) === cur), sum = f => +ps.filter(f).reduce((t, p) => t + val(p), 0).toFixed(4);
-    out[k] = { key: cur, pl: sum(() => true), me: sum(p => !isBot(p)), bot: sum(isBot), n: ps.length, w: ps.filter(p => p.result === 'cash').length };
+    out[k] = { key: cur, pl: sum(() => true), me: sum(p => !botPL(p)), bot: sum(botPL), n: ps.length, w: ps.filter(p => p.result === 'cash').length };
   });
   return out;
 }

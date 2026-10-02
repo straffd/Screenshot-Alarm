@@ -47,6 +47,7 @@ Screenshots are read by Google Gemini (free tier).
    popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
+    Bets tagged **SWEEP** always count as **Personal** in P/L (PNL, tracker, leaderboard), even if they're also tagged Bot.
     Sending a screenshot of a bet you already have redoes its tags from the new photo: Bot is added or removed to match,
     SWEEP is added if you write "sweep" with it, and your own tags stay.
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
