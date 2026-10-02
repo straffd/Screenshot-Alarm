@@ -124,6 +124,12 @@ html,body{overflow-x:hidden}
 .bgpick #bgClear{display:none;padding:7px 10px}
 body.has-bg #bgClear{display:inline-block}
 .log{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+/* Once the chat is scrolled, messages fade out as they pass under the top bar and the clock tab,
+   so they never show through a see-through toolbar */
+.log{--fade-top:62px;--fade-len:44px}
+.log.scrolled{-webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len)));
+  mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len)))}
+html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
 .msg.user{background:#2a3440;align-self:flex-end}
@@ -922,6 +928,9 @@ const ringing = new Set();   // ids of alarms currently going off
 let audioCtx = null, beepTimer = null;
 
 const $ = s => document.querySelector(s);
+// Chat: fade the top edge only once messages have scrolled up under the top bar
+function markLogScroll(){ const l = $('#log'); if(l) l.classList.toggle('scrolled', l.scrollTop > 4); }
+document.addEventListener('scroll', e => { if(e.target && e.target.id === 'log') markLogScroll(); }, true);
 // Service worker: makes the site installable as an app (full screen, no address bar) and shows alarm
 // notifications on Android, where pages can't show them directly.
 let swReg = null;
@@ -956,7 +965,7 @@ function addMsg(who, text, opts={}){
     d.appendChild(f);
   }
   $('#log').appendChild(d);
-  $('#log').scrollTop = $('#log').scrollHeight;
+  $('#log').scrollTop = $('#log').scrollHeight; markLogScroll();
   return d;
 }
 addMsg('bot', ready()
