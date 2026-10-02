@@ -92,6 +92,7 @@ apps. In ⚙ Settings → Alarms:
 **Alarms on a locked phone** need the small push service in [`push-worker/`](push-worker/README.md) (free Cloudflare
 Worker). Once it's set up and its address is in `index.html` (`PUSH_SERVER`), alarms arrive as notifications even when
 the phone is locked or the app is closed; Settings → Alarms shows **Locked-phone alarms: on**.
+Signed in, stopping an alarm on one device (e.g. your PC) stops it on your others too, including a locked phone.
 
 ## Where your data is kept
 - **Signed in with Google:** bets (with their screenshots), UI colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings

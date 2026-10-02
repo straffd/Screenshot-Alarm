@@ -996,7 +996,9 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   navigator.serviceWorker.register(PUSH_SERVER ? 'sw.js?push=' + encodeURIComponent(PUSH_SERVER.replace(/\/+$/, '')) : 'sw.js')
     .then(r => { swReg = r; pushSoon(); }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', e => {   // a notification shown by the service worker was clicked or swiped away
-    const d = e.data || {}; if(!d.id) return;
+    const d = e.data || {};
+    if(d.type === 'remote-stop') return (d.ids || []).forEach(id => ringing.has(id) && stopAlarm(id, true));   // stopped on another device
+    if(!d.id) return;
     if(ringing.has(d.id)) stopAlarm(d.id);
   });
 }
@@ -2616,13 +2618,28 @@ async function syncPush(){
       pushState = 'off'; return renderNotifState();
     }
     const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
-    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3 && leagueShown(a)).map(a => ({ id: a.id, ring: a.ring,
+    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && !a.stopped && a.ring > now - 30e3 && leagueShown(a)).map(a => ({ id: a.id, ring: a.ring,
       title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
       url: a.test ? '' : ladbrokesUrl(a) })) : [];
-    const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list }) });
+    const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list, user: await userKey() }) });
     pushState = r.ok ? 'on' : 'error';
   }catch(e){ console.warn('Locked-phone alarms unavailable', e); pushState = 'error'; }
   renderNotifState();
+}
+// Your devices are grouped on the push service by a one-way code made from your account id (not the id itself)
+async function userKey(){
+  if(!sync.user) return '';
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tt-alarm-user:' + sync.user.uid)));
+  return [...d].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+// Tell the push service an alarm was stopped here, so a locked phone stops ringing (or never starts) too
+async function stopElsewhere(id){
+  if(!PUSH_SERVER || !sync.user) return;
+  try{
+    const own = swReg && swReg.pushManager ? await swReg.pushManager.getSubscription() : null;
+    await fetch(pushBase() + '/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: await userKey(), id, skip: own ? own.endpoint : '' }) });
+  }catch(e){}
 }
 function renderNotifState(){
   const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
@@ -2682,8 +2699,11 @@ function fire(a){
   const card = document.querySelector('.card.ringing');
   if(card) card.scrollIntoView({ block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
-function stopAlarm(id){
+function stopAlarm(id, remote){
   ringing.delete(id);
+  // Stopped here: mark it so your other devices stop too (they get it through sync, and a locked phone through the push service)
+  const st = alarms.find(a => a.id === id);
+  if(st && !st.test && !remote && !st.stopped){ st.stopped = Date.now(); store.set('tt.alarms', alarms); stopElsewhere(id); }
   if(alarms.some(a => a.id === id && a.test)){ alarms = alarms.filter(a => a.id !== id); store.set('tt.alarms', alarms); }   // the test alarm goes away once stopped
   const n = notes.get(id); notes.delete(id); if(n) try{ n.close(); }catch(e){}   // stopping here also closes the popup
   if(swReg && swReg.getNotifications) swReg.getNotifications({ tag: id }).then(l => l.forEach(x => x.close())).catch(() => {});
@@ -2761,6 +2781,7 @@ function refreshFromStore(){
     linkPrefs(); cleanupPrefs();
     plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
     tags = store.get('tt.tags', []) || []; ensureSweepTag(); renderTagSettings(); renderViewerTags();
+    [...ringing].forEach(id => { const a = alarms.find(x => x.id === id); if(!a || a.stopped) stopAlarm(id, true); });   // stopped (or settled) on another device
     render();
   } finally { sync.applying = false; }
 }

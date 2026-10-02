@@ -44,3 +44,10 @@ Open the installed app → ☰ → **Settings** → **Alarms** → **Allow notif
 
 Workers: 100,000 requests a day. D1: 5 million rows read and 100,000 written a day. The every-minute check
 is one small query, and each bet change is one request, so normal use is far below these.
+
+## Updating
+
+When `worker.js` changes, open the Worker → **Edit code**, replace everything with the new `worker.js`, and **Deploy**.
+The database keeps its data; any new columns are added automatically. Open the Worker's address afterwards: the
+health check shows the `version`, so you can tell the new code is live (`2026-10-02b` adds **stop on all devices**: an
+alarm stopped on one of your devices stops ringing on your locked phone too).

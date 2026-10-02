@@ -11,14 +11,20 @@ const VIBRATE = [700, 250, 700, 250, 700];
 // Locked-phone alarms: the push service wakes the phone at alarm time (an empty push), and we ask it what's due
 self.addEventListener('push', e => {
   e.waitUntil((async () => {
-    let due = [];
+    let due = [], close = [];
     try{
       const sub = await self.registration.pushManager.getSubscription();
       if(PUSH && sub){
         const r = await fetch(PUSH + '/pending', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
-        due = (await r.json()).alarms || [];
+        const j = await r.json(); due = j.alarms || []; close = j.close || [];
       }
     }catch(err){}
+    if(close.length){   // stopped on another device: take the ringing alarm away, and tell an open app to stop its sound
+      for(const id of close) (await self.registration.getNotifications({ tag: id })).forEach(n => n.close());
+      await tell({ type: 'remote-stop', ids: close });
+      if(!due.length)   // a push must always show something: a quiet note in place of the alarm
+        return self.registration.showNotification('Alarm stopped', { body: 'Stopped on your other device', tag: 'tt-stopped', silent: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: '', url: '' } });
+    }
     if(!due.length) due = [{ id: 'tt-alarm', title: 'A bet is about to start', body: 'Open TT Alarm Bot', url: '' }];   // a push must always show something
     await Promise.all(due.map(a => self.registration.showNotification(a.title, { body: a.body || '', tag: a.id, renotify: true, requireInteraction: true,
       silent: false, vibrate: VIBRATE, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: a.id, url: a.url || '' } })));
