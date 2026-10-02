@@ -128,11 +128,11 @@ body.has-bg #bgClear{display:inline-block}
 /* Once the chat is scrolled, messages fade out as they pass under the top bar and the clock tab,
    so they never show through a see-through toolbar */
 .log{--fade-top:62px;--fade-len:44px}
-.log.scrolled{   /* only the part under the toolbar fades (--fade-w = its width); the rest of the top edge stays clear */
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
-  mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
-  -webkit-mask-size:var(--fade-w,100%) 100%,100% 100%;mask-size:var(--fade-w,100%) 100%,100% 100%;
-  -webkit-mask-position:0 0,var(--fade-w,100%) 0;mask-position:0 0,var(--fade-w,100%) 0;
+.log.scrolled{   /* only the part under the toolbar / PNL tab fades (from --fade-x, --fade-w wide); the rest of the top edge stays clear */
+  -webkit-mask-image:linear-gradient(#000,#000),linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
+  mask-image:linear-gradient(#000,#000),linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
+  -webkit-mask-size:var(--fade-x,0px) 100%,var(--fade-w,100%) 100%,100% 100%;mask-size:var(--fade-x,0px) 100%,var(--fade-w,100%) 100%,100% 100%;
+  -webkit-mask-position:0 0,var(--fade-x,0px) 0,calc(var(--fade-x,0px) + var(--fade-w,100%)) 0;mask-position:0 0,var(--fade-x,0px) 0,calc(var(--fade-x,0px) + var(--fade-w,100%)) 0;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
 html:not(.phone) .log{--fade-top:calc(34px * var(--pls, 1));--fade-len:30px}
@@ -613,6 +613,12 @@ html:not(.phone) .pltab-in{height:calc(44px * var(--pls, 1));gap:calc(14px * var
 html:not(.phone) .pltab .sep{font-size:calc(24px * var(--pls, 1))}
 html:not(.phone) .pltab .k{font-size:calc(12px * var(--pls, 1));margin-right:calc(7px * var(--pls, 1))}
 html:not(.phone) .pltab .who{font-size:calc(11px * var(--pls, 1))}
+/* Position (Settings → P/L tracker): left (default), middle (a symmetrical tab centred over the chat) or right (beside any open panels) */
+html:not(.phone) .pltab.pos-mid{left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%) !important;transition:left .25s ease}
+html:not(.phone) .pltab.pos-mid .pltab-in{padding:0 calc(44px * var(--pls, 1));clip-path:polygon(0 0,100% 0,calc(100% - 30px * var(--pls, 1)) 100%,calc(30px * var(--pls, 1)) 100%)}
+html:not(.phone) .pltab.pos-right{left:auto;right:0}
+html:not(.phone) .main.pnl-open .pltab.pos-right{transform:translateX(calc(-1 * var(--pnl-w, 0px)))}
+html:not(.phone) .pltab.pos-right .pltab-in{padding:0 calc(20px * var(--pls, 1)) 0 calc(44px * var(--pls, 1));clip-path:polygon(0 0,100% 0,100% 100%,calc(30px * var(--pls, 1)) 100%)}
 html:not(.phone) .chatbg{position:fixed}   /* the background picture runs under the top bar too, so a see-through bar shows it */   /* same font as the top bar */
 html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
 html.phone .me-chip:active{background:var(--panel-2)}
@@ -880,6 +886,11 @@ html.phone .alpha-note{display:inline}
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
         <label class="switch"><input type="checkbox" role="switch" id="timeShow" checked> Show the time</label>
+        <div class="ctl sound"><select id="plPos" aria-label="P/L tracker position">
+          <option value="left">Position: left</option>
+          <option value="mid">Position: middle</option>
+          <option value="right">Position: right</option>
+        </select></div>
         <label class="fx plsize">Size<input type="range" id="plSize" min="80" max="200" step="10" value="130" aria-label="P/L tracker size"><output id="plSizeOut">130%</output></label>
         <div class="ctl sound"><select id="timeMode" aria-label="Time display">
           <option value="countdown">Countdown to midnight (when P/L resets)</option>
@@ -1033,8 +1044,10 @@ function markLogScroll(){
   l.classList.toggle('scrolled', l.scrollTop > 4);
   // how far the fade reaches: the toolbar's width (phones: the whole bar, so the full width)
   // computers: the time | PNL tab at the top left (the bar itself is above the chat, nothing to fade under)
-  const tab = $('#plTab'), tin = document.querySelector('.pltab-in');
-  l.style.setProperty('--fade-w', document.documentElement.classList.contains('phone') ? '100%' : tab && !tab.hidden && tin ? Math.ceil(tin.offsetWidth + 16) + 'px' : '0px');
+  const tab = $('#plTab'), tin = document.querySelector('.pltab-in'), phone = document.documentElement.classList.contains('phone');
+  const shown = !phone && tab && !tab.hidden && tin, r = shown ? tin.getBoundingClientRect() : null, lr = l.getBoundingClientRect();
+  l.style.setProperty('--fade-x', shown ? Math.max(0, Math.floor(r.left - lr.left - 8)) + 'px' : '0px');   // left, middle or right
+  l.style.setProperty('--fade-w', phone ? '100%' : shown ? Math.ceil(r.width + 16) + 'px' : '0px');
 }
 addEventListener('resize', () => markLogScroll());
 document.addEventListener('scroll', e => { if(e.target && e.target.id === 'log') markLogScroll(); }, true);
@@ -2166,14 +2179,17 @@ function plSettings(){
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
   $('#timeMode').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
   plSize(plPrefs.size || 130);
+  const pos = ['mid', 'right'].includes(plPrefs.pos) ? plPrefs.pos : 'left'; $('#plPos').value = pos;
+  $('#plTab').classList.toggle('pos-mid', pos === 'mid'); $('#plTab').classList.toggle('pos-right', pos === 'right');
+  setTimeout(() => { try{ layoutSlides(); markLogScroll(); }catch(e){} }, 300);   // after it moves
   tickTracker();
 }
 function savePlPrefs(){
   plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value, hour24: $('#hourFmt').value === '24',
-              money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130 };
+              money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130, pos: $('#plPos').value };
   store.set('tt.plPrefs', plPrefs); plSettings(); render();
 }
-['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue', '#plSize'].forEach(id => $(id).onchange = savePlPrefs);
+['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue', '#plSize', '#plPos'].forEach(id => $(id).onchange = savePlPrefs);
 // Size of the time | PNL tab (computers), 80–200%: scales the tab and the space the chat leaves for it
 function plSize(pct){
   $('#plSize').value = pct; $('#plSizeOut').textContent = pct + '%';
@@ -2260,6 +2276,7 @@ function setSlide(key, open){
   layoutSlides(); barFills(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
+let fadeTimer = null;
 function layoutSlides(){
   const desk = !isPhone(), tab = $('#plTab'), n = slideOrder.length;
   // Computers: the bar runs across the top and the time | PNL tab sits at the chat's top left, so panels fill from the
@@ -2281,6 +2298,7 @@ function layoutSlides(){
   const off = desk ? n * w : 0;
   $('.main').classList.toggle('pnl-open', off > 0); $('.main').style.setProperty('--pnl-w', off + 'px');
   tab.classList.toggle('over', off > 0 && !tab.hidden && chatR - off - tabW < topR);
+  clearTimeout(fadeTimer); fadeTimer = setTimeout(markLogScroll, 330);   // the tab may have slid (middle / right): move the fade with it
 }
 const pnlShift = layoutSlides;
 addEventListener('resize', layoutSlides);
