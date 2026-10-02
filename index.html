@@ -226,6 +226,12 @@ html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
 .settle-sheet .bet{display:grid;grid-template-columns:1fr 1fr auto;gap:6px 8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:8px}
 .settle-sheet .bet .resultpick{grid-column:1/-1;margin:0}
 .settle-sheet .bet .resultpick button{padding:6px;font-size:12px}
+.settle-sheet .bet .btype{grid-column:1/-1;display:flex}
+.settle-sheet .bet .btype button{flex:1;padding:5px;font-size:12px}
+.settle-sheet .bet .btype button[aria-pressed="true"]:nth-child(1){color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.settle-sheet .bet .btype button[aria-pressed="true"]:nth-child(2){color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent)}
+.settle-sheet .bet .btype button[aria-pressed="true"]:nth-child(3){color:#b48cff;background:color-mix(in srgb,#b48cff 16%,transparent)}
+.settle-sheet .typepick[hidden]{display:none}
 .settle-sheet .bet label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
 .settle-sheet .bet input{width:100%;font-size:15px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
 .settle-sheet .bet .rm{align-self:center;margin-top:16px}
@@ -1876,8 +1882,8 @@ function openSettle({ alarm, play, result, multi }){
   $('#settleUnits').value = play ? play.units : lastUnits();
   $('#settleDelete').hidden = !play;
   $('#settleSave').textContent = play ? 'Save changes' : 'Save to history';
-  if(play && Array.isArray(play.bets) && play.bets.length) settling.bets = play.bets.map(b => ({ ...b }));
-  else if(multi) settling.bets = [{ result:'cash', odds:defOdds(), units:lastUnits() }, { result:'cash', odds:defOdds(), units:lastUnits() }];
+  if(play && Array.isArray(play.bets) && play.bets.length) settling.bets = play.bets.map(b => ({ ...b, type: b.type ?? settling.side }));
+  else if(multi) settling.bets = [{ result:'cash', odds:defOdds(), units:lastUnits(), type:settling.side }, { result:'cash', odds:defOdds(), units:lastUnits(), type:settling.side }];
   showBets(); pickResult(settling.result); openModal('#settleModal');
   setTimeout(() => (settling.bets ? $('#betRows input') : settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
 }
@@ -1894,6 +1900,7 @@ const applyType = () => {
 function showBets(){
   const multi = !!settling.bets, box = $('#betRows');
   $('#settleOne').hidden = multi; box.hidden = !multi; box.innerHTML = '';
+  $('#settleType').closest('.typepick').hidden = multi;   // several bets: each one picks its own type
   if(multi) settling.bets.forEach((b, i) => {
     const row = el('div', 'bet'), pick = el('div', 'resultpick');
     [['cash', 'CASH'], ['chalk', 'CHALK'], ['void', 'VOID']].forEach(([r, l]) => {
@@ -1901,6 +1908,9 @@ function showBets(){
       if(r === 'void') x.title = 'Refunded or not settled: counts as 0';
       x.onclick = () => { b.result = r; showBets(); }; pick.appendChild(x);
     });
+    const tp = el('div', 'seg btype'); tp.setAttribute('role', 'group'); tp.setAttribute('aria-label', `Bet ${i + 1} play type`);
+    PLAY_TYPES.forEach(([k, l]) => { const x = el('button', '', l); x.type = 'button'; x.setAttribute('aria-pressed', b.type === k);
+      x.onclick = () => { b.type = b.type === k ? '' : k; showBets(); }; tp.appendChild(x); });
     const field = (key, label, attrs) => { const w = el('div'), lab = el('label', '', label), inp = el('input');
       Object.assign(inp, { type:'number', inputMode:'decimal', value: b[key] || '' }, attrs);
       inp.oninput = () => { b[key] = inp.value; settleProfit(); };
@@ -1910,15 +1920,15 @@ function showBets(){
     if(b.result !== 'cash') odds.style.opacity = '.5';
     const rm = el('button', 'close rm', '×'); rm.title = 'Remove this bet'; rm.setAttribute('aria-label', `Remove bet ${i + 1}`);
     rm.onclick = () => { settling.bets.splice(i, 1); if(!settling.bets.length) settling.bets = null; showBets(); };
-    row.append(pick, odds, field('units', 'Units', { min:'0.01', step:'0.1', placeholder:'e.g. 1' }), rm);
+    row.append(pick, tp, odds, field('units', 'Units', { min:'0.01', step:'0.1', placeholder:'e.g. 1' }), rm);
     box.appendChild(row);
   });
   settleProfit();
 }
 $('#addBet').onclick = () => {
   // from a single bet, keep what was typed as the first slot
-  if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || lastUnits() }];
-  settling.bets.push({ result:'cash', odds: defOdds(), units: lastUnits() });
+  if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || lastUnits(), type: settling.side }];
+  settling.bets.push({ result:'cash', odds: defOdds(), units: lastUnits(), type: settling.side });
   showBets(); const ins = $('#betRows').querySelectorAll('.bet:last-child input'); if(ins[0]) ins[0].focus();
 };
 function pickResult(r){
@@ -1958,13 +1968,14 @@ function saveBets(){
     const b = settling.bets[i], odds = +b.odds, units = +b.units, [oi, ui] = rows[i].querySelectorAll('input');
     if(b.result === 'cash' && !(odds > 1)){ oi.focus(); return toast(`Enter the decimal odds for bet ${i + 1}, e.g. 1.85`); }
     if(!(units > 0)){ ui.focus(); return toast(`Enter the units for bet ${i + 1}`); }
-    bets.push({ result: b.result, odds: odds > 1 ? odds : null, units });
+    bets.push({ result: b.result, odds: odds > 1 ? odds : null, units, type: b.type || '' });
   }
+  settling.side = bets[0].type; applyType();   // the match itself takes the first bet's type; each bet keeps its own
   closeModal($('#settleModal'));
   if(bets.length === 1){   // only one slot left: store it as a plain single bet
     const [b] = bets, r = b.result === 'void' ? 'chalk' : b.result;
     if(b.result !== 'void'){
-      if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; store.set('tt.lastUnits', b.units); return savePlays(); }
+      if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; store.set('tt.lastUnits', b.units); return savePlays(); }   // one bet: its type is the match's
       return settle(settling.alarm, r, b.odds, b.units);
     }
   }
@@ -1997,7 +2008,7 @@ function renderHistory(){
         : showMoney ? `<div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div>` : ''}`;
     // each bet: "Cash 2u @1.9 · Chalk 1u · Void 1u"
     if(c.querySelector('.betline')) p.bets.forEach((b, i) => { if(i) c.querySelector('.betline').append(' · ');
-      c.querySelector('.betline').appendChild(el('span', b.result, `${b.result[0].toUpperCase() + b.result.slice(1)} ${fmtU(b.units || 0)}u${b.odds ? ' @' + b.odds : ''}`)); });
+      c.querySelector('.betline').appendChild(el('span', b.result, `${b.type ? b.type[0] + b.type.slice(1).toLowerCase() + ' ' : ''}${b.result[0].toUpperCase() + b.result.slice(1)} ${fmtU(b.units || 0)}u${b.odds ? ' @' + b.odds : ''}`)); });
     c.querySelector('.names').textContent = p.name;
     if(p.league) c.querySelector('.comp').textContent = p.league;
     c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
@@ -2202,15 +2213,27 @@ function renderPnl(){
 const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
 const playType = p => hasSweep(p) ? 'SWEEP' : ['OVER', 'UNDER'].includes(String(p.side).toUpperCase()) ? String(p.side).toUpperCase() : '';   // the SWEEP tag wins
 const typeOpen = new Set();   // expanded types ('OVER', 'UNDER', 'SWEEP', '' for No type): any number can be open
+// Each match counts once under its type, except a match with several bets of their own types (from + in the Cash popup):
+// then each bet counts under its own type (void bets were refunded, so they're left out).
+function typeEntries(S, staked){
+  const out = [];
+  S.plays.forEach(p => {
+    if(Array.isArray(p.bets) && p.bets.length && p.bets.some(b => b.type != null))
+      p.bets.forEach(b => { if(b.result !== 'void') out.push({ p, type: b.type ?? playType(p), pl: betPL({ result:b.result, odds:+b.odds, units:+b.units }), st: +b.units || 0, win: b.result === 'cash', odds: +b.odds > 1 ? [+b.odds] : [] }); });
+    else out.push({ p, type: playType(p), pl: S.val(p), st: staked(p), win: p.result === 'cash',
+      odds: Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : [] });
+  });
+  return out;
+}
 function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
   box.hidden = !!pnlSel; if(pnlSel) return;
   box.appendChild(el('div', 'fsec', 'Play types · all time'));
-  const kinds = [...PLAY_TYPES], other = S.plays.filter(p => !playType(p));
+  const all = typeEntries(S, staked), kinds = [...PLAY_TYPES], other = all.filter(e => !e.type);
   if(other.length) kinds.push(['', 'No type']);
   kinds.forEach(([k, label]) => {
-    const ps = k ? S.plays.filter(p => playType(p) === k) : other;
-    const pl = ps.reduce((t, p) => t + S.val(p), 0), st = ps.reduce((t, p) => t + staked(p), 0), w = ps.filter(p => p.result === 'cash').length;
+    const ps = k ? all.filter(e => e.type === k) : other;
+    const pl = ps.reduce((t, e) => t + e.pl, 0), st = ps.reduce((t, e) => t + e.st, 0), w = ps.filter(e => e.win).length;
     const row = el('div', 'trow' + (ps.length ? '' : ' none'));
     const left = el('div', 'tl'); left.append(el('span', 'side ' + (k ? k.toLowerCase() : 'none'), label.toUpperCase()),
       el('small', '', ps.length ? `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${w}W ${ps.length - w}L · ${Math.round(w / ps.length * 100)}%` : 'No bets'));
@@ -2242,7 +2265,7 @@ function typeDetail(S, k, ps, pl, st, w, pct){
     && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
   const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
     : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
-  const odds = ps.flatMap(p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : []);
+  const odds = ps.flatMap(e => e.odds);
   const avg = odds.length ? (odds.reduce((t, o) => t + o, 0) / odds.length).toFixed(2) : '—';
   d.appendChild(el('p', 'tdf', `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${pending} pending · avg odds ${avg}`));
   return d;
@@ -2994,7 +3017,9 @@ async function publishPlays(){
   if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}), ...(isBot(a) ? { bot:true } : {}), ...(hasSweep(a) ? { sweep:true } : {}), ...(sharedTags(a).length ? { ptags:sharedTags(a) } : {}) }));   // typed bets: friends see them but can't copy
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
-    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}), ...(sharedTags(p).length ? { ptags:sharedTags(p) } : {}) }));   // unit gains are always public to friends
+    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}),
+    ...(Array.isArray(p.bets) && p.bets.some(b => b.type != null) ? { bets: p.bets.map(b => ({ result:b.result, odds:b.odds ?? null, units:b.units || 0, type:b.type || '' })) } : {}),   // typed bets: friends' Play types split them too
+    ...(sharedTags(p).length ? { ptags:sharedTags(p) } : {}) }));   // unit gains are always public to friends
   const ops = [];
   want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
   social.lastPub.forEach((j, id) => { if(!want.has(id)) ops.push(b => b.delete(fdoc('profiles', uid, 'plays', id))); });
