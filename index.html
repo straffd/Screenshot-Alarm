@@ -2235,10 +2235,12 @@ function layoutSlides(){
   // Computers: the bar runs across the top and the time | PNL tab sits at the chat's top left, so panels fill from the
   // right up to that tab. Phones: the old top-left tab rule.
   const chatR = innerWidth, topR = desk ? 0 : $('#top').getBoundingClientRect().right;
-  const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
-  // Never cover the PNL tab: if the panels can't all fit (300px each), close the oldest one
-  if(desk && n > 1 && n * 300 > room - tabW) return setSlide(slideOrder[0], false);
-  const w = Math.round(Math.max(300, Math.min(560, (room - tabW) / Math.max(n, 1), chatR / Math.max(n, 1))));
+  const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth;
+  // Computers: open panels reach at most a bit past the middle of the page (58% of its width from the right edge),
+  // so the chat always keeps the left part. If they can't all fit at 300px each, the oldest one closes.
+  const room = desk ? Math.round(chatR * 0.58) : chatR - topR - 12 - tabW;
+  if(desk && n > 1 && n * 300 > room) return setSlide(slideOrder[0], false);
+  const w = Math.round(Math.max(300, Math.min(560, room / Math.max(n, 1), chatR / Math.max(n, 1))));
   Object.entries(SLIDES).forEach(([k, sl]) => {
     const el = $(sl.el), i = slideOrder.indexOf(k);
     if(!desk){ el.style.right = el.style.width = ''; el.style.zIndex = i < 0 ? '' : 30 + i; return; }   // phones: full screen, newest on top
