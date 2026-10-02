@@ -401,6 +401,8 @@ button.tag{cursor:pointer}
 .ftabs button{white-space:nowrap}
 .fmenu .bell{min-width:42px;font-size:15px;line-height:1}
 .fmenu .ghost.bell[aria-pressed="true"]{box-shadow:inset 0 2px 5px rgba(0,0,0,.55);transform:translateY(1px);background:color-mix(in srgb,var(--yellow) 22%,var(--bg));border-color:var(--yellow)}   /* pushed in = on */
+#tagList button:disabled{opacity:.3;cursor:default}   /* SWEEP: built in, can't be deleted */
+#tagList input[readonly]{color:var(--muted)}
 .fa-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .fa-bar .ranges{margin-bottom:0}
 .copyall{font:700 12.5px var(--cond);letter-spacing:.04em;border:1px solid var(--blue);color:var(--blue);background:none;border-radius:5px;padding:6px 12px;cursor:pointer}
@@ -1444,7 +1446,7 @@ function parseTypedBets(text){
     }
     line = (line.slice(0, tm.index) + ' ' + line.slice(tm.index + tm[0].length)).replace(/\s(?:at|@|on)\s*$/i, ' ');
     let side = '';
-    line = line.replace(/\b(over|under|sweep)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
+    line = line.replace(/\b(over|under)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
     // tag names written in the line ("bot", "#strong", "live bet") become tags; longest names first
     const tagIds = [], esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     [...tags.filter(t => t.id !== 'bot' && t.name.toLowerCase() !== 'bot'), BOT_TAG].sort((a, b) => b.name.length - a.name.length).forEach(t => {
@@ -1575,7 +1577,7 @@ function render(){
     c.onclick = act;
     c.onkeydown = e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } };
     c.querySelector('.del').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); alarms = alarms.filter(x=>x.id!==a.id); store.set('tt.alarms', alarms); render(); };
-    const sideBtn = c.querySelector('.side'), SIDES = ['OVER', 'UNDER', 'SWEEP'], other = SIDES[(SIDES.indexOf(a.side) + 1) % SIDES.length];   // OVER → UNDER → SWEEP → OVER
+    const sideBtn = c.querySelector('.side'), other = a.side === 'OVER' ? 'UNDER' : 'OVER';   // sweep is a tag (SWEEP), not a side
     if(sideArmed === a.id){ sideBtn.classList.add('armed'); sideBtn.textContent = `→ ${other}?`; sideBtn.title = `Press again to switch to ${other}`; }
     sideBtn.onclick = e => {
       e.stopPropagation(); clearTimeout(sideTimer);
@@ -1690,6 +1692,32 @@ function newTag(name, color){
   tags.push(t); return t;
 }
 function saveTags(){ store.set('tt.tags', tags); renderTagSettings(); renderViewerTags(); render(); }
+/* SWEEP is a built-in tag (purple, can't be deleted): it marks a sweep bet, which the Play types breakdown counts as
+   Sweep, and it's the only tag that comes along when you copy a friend's bet (other tags are personal).
+   ensureSweepTag() runs on load and after syncing: a tag already called "sweep" in any capitals becomes SWEEP (keeping
+   its colour, merged if there are several), and bets marked Sweep the old way (as their over/under side) get the tag. */
+const SWEEP_TAG = { id:'sweep', name:'SWEEP', color:'#b48cff' };
+const hasSweep = p => !!p && ((p.tags || []).includes('sweep') || p.sweep === true || String(p.side).toUpperCase() === 'SWEEP');
+function ensureSweepTag(){
+  let changed = false;
+  const old = tags.filter(t => t.id === 'sweep' || String(t.name).trim().toLowerCase() === 'sweep');
+  const keep = { ...SWEEP_TAG, color: old.length ? old[0].color : SWEEP_TAG.color }, oldIds = old.map(t => t.id).filter(id => id !== 'sweep');
+  if(old.length !== 1 || old[0].id !== 'sweep' || old[0].name !== 'SWEEP'){
+    const at = old.length ? tags.indexOf(old[0]) : 0;
+    tags = tags.filter(t => !old.includes(t)); tags.splice(Math.min(at, tags.length), 0, keep); changed = true;
+  }
+  const fix = list => { let touched = false;
+    list.forEach(x => {
+      let t = x.tags || [];
+      if(oldIds.length && t.some(id => oldIds.includes(id))){ t = [...new Set(t.map(id => oldIds.includes(id) ? 'sweep' : id))]; touched = true; }
+      if(String(x.side).toUpperCase() === 'SWEEP'){ x.side = ''; if(!t.includes('sweep')) t = [...t, 'sweep']; touched = true; }   // old Sweep side → tag
+      x.tags = t;
+    });
+    return touched; };
+  if(fix(alarms)) store.set('tt.alarms', alarms);
+  if(fix(plays)) store.set('tt.history', plays);
+  if(changed) store.set('tt.tags', tags);
+}
 function renderTagSettings(){
   const box = $('#tagList'); box.innerHTML = '';
   if(!tags.length){ box.innerHTML = '<div class="empty">No tags yet. Add one below, e.g. "Strong", "Live bet" or "Watch".</div>'; }
@@ -1698,6 +1726,7 @@ function renderTagSettings(){
     const col = document.createElement('input'); col.type = 'color'; col.value = t.color; col.title = 'Tag colour'; col.setAttribute('aria-label', `Colour of ${t.name}`);
     col.oninput = () => { t.color = col.value; render(); }; col.onchange = saveTags;
     const nm = document.createElement('input'); nm.type = 'text'; nm.value = t.name; nm.maxLength = 24; nm.setAttribute('aria-label', 'Tag name');
+    if(t.id === 'sweep'){ nm.readOnly = true; nm.title = 'Built-in tag for sweep bets'; }
     nm.onchange = () => { const v = nm.value.trim().replace(/\s+/g, ' '); if(v) t.name = v; else nm.value = t.name; saveTags(); };
     const del = document.createElement('button'); del.className = 'ghost'; del.textContent = '×'; del.title = `Delete "${t.name}"`; del.setAttribute('aria-label', `Delete tag ${t.name}`);
     del.onclick = () => {
@@ -1707,6 +1736,7 @@ function renderTagSettings(){
       if(touched) store.set('tt.alarms', alarms);
       saveTags();
     };
+    if(t.id === 'sweep'){ del.disabled = true; del.title = 'SWEEP is built in, so it can\'t be deleted (you can change its colour)'; del.setAttribute('aria-label', del.title); }
     row.append(col, nm, del); box.appendChild(row);
   });
   $('#tagNewColor').value = TAG_COLOURS[tags.length % TAG_COLOURS.length];
@@ -1744,7 +1774,7 @@ function toggleTag(alarmId, tagId, forceOn){
   if(forceOn || !list.has(tagId)) list.add(tagId); else list.delete(tagId);
   a.tags = [...list]; store.set('tt.alarms', alarms); render(); renderViewerTags();
 }
-renderTagSettings();
+ensureSweepTag(); renderTagSettings();
 
 /* ---------- Match history (Cash / Chalk) ---------- */
 const fmtU = n => (Math.round(n * 100) / 100).toString();
@@ -1776,7 +1806,7 @@ let settling = null;   // { alarm } for a new record, or { play } when editing; 
 function openSettle({ alarm, play, result, multi }){
   settling = { alarm, play, result: play ? play.result : result, bets: null };
   const src = play || alarm;
-  settling.side = ['OVER', 'UNDER', 'SWEEP'].includes(src.side) ? src.side : ''; showType();
+  settling.side = playType(src); showType();
   $('#settleTitle').textContent = src.name;
   $('#settleOdds').value = play ? (play.odds || '') : defOdds();   // a new result starts with your default odds
   $('#settleUnits').value = play ? play.units : lastUnits();
@@ -1790,7 +1820,12 @@ function openSettle({ alarm, play, result, multi }){
 function showType(){ [...$('#settleType').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.s === settling.side)); }
 $('#settleType').onclick = e => { const b = e.target.closest('button'); if(!b) return; settling.side = settling.side === b.dataset.s ? '' : b.dataset.s; showType(); };
 // the chosen play type goes onto the bet (new) or the history entry (editing) when it's saved
-const applyType = () => { const src = settling.play || settling.alarm; if(src) src.side = settling.side; };
+const applyType = () => {
+  const src = settling.play || settling.alarm; if(!src) return;
+  const t = (src.tags || []).filter(id => id !== 'sweep');
+  if(settling.side === 'SWEEP') src.tags = [...t, 'sweep'];
+  else { src.tags = t; if(settling.side) src.side = settling.side; }
+};
 // Several bets: one slot each, with its own Cash / Chalk / Void, odds and units
 function showBets(){
   const multi = !!settling.bets, box = $('#betRows');
@@ -2101,15 +2136,16 @@ function renderPnl(){
 // P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot).
 // Click a type for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
 const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
+const playType = p => hasSweep(p) ? 'SWEEP' : ['OVER', 'UNDER'].includes(String(p.side).toUpperCase()) ? String(p.side).toUpperCase() : '';   // the SWEEP tag wins
 const typeOpen = new Set();   // expanded types ('OVER', 'UNDER', 'SWEEP', '' for No type): any number can be open
 function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
   box.hidden = !!pnlSel; if(pnlSel) return;
   box.appendChild(el('div', 'fsec', 'Play types · all time'));
-  const kinds = [...PLAY_TYPES], other = S.plays.filter(p => !PLAY_TYPES.some(([k]) => String(p.side).toUpperCase() === k));
+  const kinds = [...PLAY_TYPES], other = S.plays.filter(p => !playType(p));
   if(other.length) kinds.push(['', 'No type']);
   kinds.forEach(([k, label]) => {
-    const ps = k ? S.plays.filter(p => String(p.side).toUpperCase() === k) : other;
+    const ps = k ? S.plays.filter(p => playType(p) === k) : other;
     const pl = ps.reduce((t, p) => t + S.val(p), 0), st = ps.reduce((t, p) => t + staked(p), 0), w = ps.filter(p => p.result === 'cash').length;
     const row = el('div', 'trow' + (ps.length ? '' : ' none'));
     const left = el('div', 'tl'); left.append(el('span', 'side ' + (k ? k.toLowerCase() : 'none'), label.toUpperCase()),
@@ -2138,7 +2174,7 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   stat('Staked', fmtU(st) + 'u');
   d.appendChild(grid);
   // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
-  const match = x => (k ? String(x.side).toUpperCase() === k : !PLAY_TYPES.some(([t]) => String(x.side).toUpperCase() === t))
+  const match = x => (k ? playType(x) === k : !playType(x))
     && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
   const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
     : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
@@ -2635,7 +2671,7 @@ function refreshFromStore(){
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
     plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
-    tags = store.get('tt.tags', []) || []; renderTagSettings(); renderViewerTags();
+    tags = store.get('tt.tags', []) || []; ensureSweepTag(); renderTagSettings(); renderViewerTags();
     render();
   } finally { sync.applying = false; }
 }
@@ -2889,10 +2925,10 @@ function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTime
 async function publishPlays(){
   if(!sync.user || !social.me) return;
   const F = fdb(), uid = social.uid, now = Date.now(), want = new Map();
-  if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}) }));   // typed bets: friends see them but can't copy
+  if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}), ...(hasSweep(a) ? { sweep:true } : {}) }));   // typed bets: friends see them but can't copy
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
-    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p) }));   // unit gains are always public to friends
+    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}) }));   // unit gains are always public to friends
   const ops = [];
   want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
   social.lastPub.forEach((j, id) => { if(!want.has(id)) ops.push(b => b.delete(fdoc('profiles', uid, 'plays', id))); });
@@ -3181,7 +3217,8 @@ function friendOn(uid, what){
 function friendPlayCard(p, username){
   const have = alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
   card.innerHTML = `<div class="names"></div>${p.league ? '<div class="comp"></div>' : ''}<div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div></div>
-    <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side || ''}</span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
+    <div class="row"><span class="side ${String(p.side).toLowerCase()}">${['OVER', 'UNDER'].includes(p.side) ? p.side : ''}</span><span class="ftags"></span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
+  if(hasSweep(p)) card.querySelector('.ftags').appendChild(tagChip(tags.find(t => t.id === 'sweep') || SWEEP_TAG));
   card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
   card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
   const started = p.start <= Date.now();   // too late to copy once the match has started
@@ -3222,7 +3259,7 @@ function copyPlay(p, from, quiet){   // quiet: part of Copy all (saving and the 
   if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))) return toast('You already have this play.');
   const now = Date.now();
   alarms.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), name:p.name, start:p.start, ring:p.start - lead * 6e4, lead,
-                side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, league:p.league || '', img:'', fired:p.start <= now, added:now, from, tags:[] });
+                side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, league:p.league || '', img:'', fired:p.start <= now, added:now, from, tags: hasSweep(p) ? ['sweep'] : [] });   // only SWEEP comes across: other tags are personal
   if(quiet) return;
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
   toast(`Copied ${p.name} to your bets.`);
