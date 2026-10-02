@@ -13,7 +13,7 @@ Screenshots are read by Google Gemini (free tier).
    alarm, marked *typed*; friends can see typed bets but can't copy them. The match is added to your **Bets** and its alarm rings
    a set number of minutes before the start. Open or close Bets with **Bets** in the toolbar (› next to ⚙), like
    History, PNL and Friends; it opens by itself when an alarm rings.
-4. Click the player names on a bet to open its league's link (set in ⚙ Settings → **League Links**, Ladbrokes by default). In League Links you can also switch a league off (e.g. Czech Liga Pro): everything from it is then hidden across the site (your bets, which also won't ring, History, PNL and friends' bets) until you switch it back on. The first player's name is copied
+4. Click the player names on a bet to open its league's link (set in ⚙ Settings → **League Links**, Ladbrokes by default). In League Links you can also switch a league off (e.g. Czech Liga Pro): its bets are then hidden (yours, which also won't ring, friends' bets and bell messages) until you switch it back on. P/L and History always include every league. The first player's name is copied
    so you can paste it into the Ladbrokes search. Clicking the desktop notification when an alarm rings does the
    same (and stops the alarm). TT Cup, TT Elite Series and Czech Liga Pro link to their ladbrokes.com.au pages by
    default; change the links or turn the copying off in ⚙ Settings.
