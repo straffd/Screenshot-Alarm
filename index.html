@@ -393,6 +393,14 @@ button.tag{cursor:pointer}
 /* combined totals; hover (or focus) swaps the number for its Me / Bot split */
 .pnl-stats div{min-height:62px}
 .pnl-stats .click{cursor:pointer}
+/* Totals: two columns in a narrow panel (and on phones); four in a wide one, with Last bet filling the row beside ROI */
+#pnl .pnl-body{container-type:inline-size}
+.pnl-stats{grid-template-columns:1fr 1fr}
+.pnl-stats > div{min-width:0}
+@container (min-width:470px){ .pnl-stats{grid-template-columns:repeat(4,1fr)} .pnl-stats .wide{grid-column:span 3} }
+.pnl-stats .sub{display:block;margin-top:5px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pnl-stats .sub + .sub{margin-top:2px}
+
 .pnl-stats .click:hover{border-color:var(--muted)}
 .pnl-stats .click[aria-pressed="true"]{outline:2px solid var(--text);outline-offset:-1px}
 .split{display:none;flex-direction:column;gap:2px;font:600 12px/1.15 var(--sans);color:var(--muted)}
@@ -1976,6 +1984,29 @@ function renderPnl(){
     }
     $('#pnlStats').appendChild(d);
   });
+  // ROI: profit as a share of the units staked (void bets were refunded, so they don't count as staked)
+  const staked = p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void').reduce((t, b) => t + (+b.units || 0), 0) : (+p.units || 0);
+  const roi = list => { const st = list.reduce((t, p) => t + staked(p), 0); return st > 0 ? list.reduce((t, p) => t + S.val(p), 0) / st * 100 : null; };
+  const pct = v => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+  const r = roi(S.plays), rd = document.createElement('div');
+  rd.innerHTML = '<small>ROI</small><b></b>'; rd.querySelector('b').textContent = pct(r); rd.querySelector('b').className = r == null ? '' : plClass(r);
+  const rMe = roi(S.plays.filter(p => !isBot(p))), rBot = roi(S.plays.filter(isBot));
+  rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0;
+  rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked · Personal ${pct(rMe)} · Bot ${pct(rBot)}`;
+  $('#pnlStats').appendChild(rd);
+  // Last bet: the most recent settled match; click it to show that day in the calendar
+  const last = S.plays.reduce((b, p) => !b || p.start > b.start ? p : b, null), ld = document.createElement('div'); ld.className = 'wide';
+  ld.innerHTML = '<small>Last bet</small><b></b><span class="sub"></span><span class="sub"></span>';
+  if(last){
+    const v = S.val(last); ld.querySelector('b').textContent = S.txt(v); ld.querySelector('b').className = plClass(v);
+    const [l1, l2] = ld.querySelectorAll('.sub'); l1.textContent = last.name; l1.title = last.name;
+    l2.textContent = `${last.result === 'cash' ? 'Cash' : 'Chalk'}${isBot(last) ? ' · Bot' : ''} · ${fmtDay(last.start)}, ${fmtTime(last.start)}`;
+    ld.classList.add('click'); ld.setAttribute('role', 'button'); ld.tabIndex = 0; ld.title = 'Show that day in the calendar';
+    ld.onclick = () => { const d = new Date(last.start); pnlView = 'calendar'; pnlMonth = new Date(d.getFullYear(), d.getMonth(), 1); pnlSel = dayKey(last.start); renderPnl();
+      setTimeout(() => { const l = $('#pnlView .daylist'); if(l) l.scrollIntoView({ behavior:'smooth', block:'nearest' }); }, 50); };
+    ld.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ld.click(); } };
+  } else { ld.querySelector('b').textContent = '—'; ld.querySelector('.sub').textContent = 'No settled bets yet'; }
+  $('#pnlStats').appendChild(ld);
   const view = $('#pnlView'); view.innerHTML = '';
   if(pnlView === 'calendar') renderCalendar(view, days, tk); else renderGraph(view, days);
 }
