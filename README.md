@@ -61,7 +61,7 @@ Screenshots are read by Google Gemini (free tier).
     people are listed under Blocked (click to Unblock) and can't send you requests.
     The **🔔** in a friend's drop-down (pressed in = on) makes the chat tell you each time they place a bet, with the bet
     and a **Copy** button.
-    Your bets show the pictures of friends who have the same bet (bottom right of the card). Once a friend records
+    Your bets show the pictures of friends who have the same bet (next to the start time). Once a friend records
     theirs, a **✓** (Cash) or **✕** (Chalk) appears above their picture, so you can see how it went before you press yours.
     **Leaderboard** (toolbar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
     this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
