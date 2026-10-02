@@ -1699,6 +1699,16 @@ function saveTags(){ store.set('tt.tags', tags); renderTagSettings(); renderView
    its colour, merged if there are several), and bets marked Sweep the old way (as their over/under side) get the tag. */
 const SWEEP_TAG = { id:'sweep', name:'SWEEP', color:'#b48cff' };
 const hasSweep = p => !!p && ((p.tags || []).includes('sweep') || p.sweep === true || String(p.side).toUpperCase() === 'SWEEP');
+// Your own tags on a bet, shared so friends can see them (name and colour only; they never copy across)
+const sharedTags = a => tags.filter(t => (a.tags || []).includes(t.id) && t.id !== 'bot' && t.id !== 'sweep').map(t => ({ name:t.name, color:t.color }));
+// A friend's play's tags as chips: Bot and SWEEP in my colours, then their own tags in theirs
+function friendChips(p){
+  const out = [];
+  if(isBot(p)) out.push(tagChip(tags.find(t => t.id === 'bot') || BOT_TAG));
+  if(hasSweep(p)) out.push(tagChip(tags.find(t => t.id === 'sweep') || SWEEP_TAG));
+  (Array.isArray(p.ptags) ? p.ptags : []).slice(0, 8).forEach(t => t && typeof t.name === 'string' && out.push(tagChip({ name:t.name.slice(0, 24), color: /^#[0-9a-f]{3,8}$/i.test(t.color) ? t.color : '#8a8f98' })));
+  return out;
+}
 function ensureSweepTag(){
   let changed = false;
   const old = tags.filter(t => t.id === 'sweep' || String(t.name).trim().toLowerCase() === 'sweep');
@@ -1938,7 +1948,7 @@ function renderHistory(){
     c.querySelector('.names').textContent = p.name;
     if(p.league) c.querySelector('.comp').textContent = p.league;
     c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
-    tags.filter(t => (p.tags || []).includes(t.id)).forEach(t => c.querySelector('.tags').appendChild(tagChip(t)));
+    (S.own ? tags.filter(t => (p.tags || []).includes(t.id)).map(t => tagChip(t)) : friendChips(p)).forEach(t => c.querySelector('.tags').appendChild(t));   // a friend's own tags show but aren't yours
     if(S.own){
       c.onclick = () => openSettle({ play: p });
       c.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openSettle({ play: p }); } };
@@ -2926,10 +2936,10 @@ function publishSoon(){ clearTimeout(social.pubTimer); social.pubTimer = setTime
 async function publishPlays(){
   if(!sync.user || !social.me) return;
   const F = fdb(), uid = social.uid, now = Date.now(), want = new Map();
-  if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}), ...(isBot(a) ? { bot:true } : {}), ...(hasSweep(a) ? { sweep:true } : {}) }));   // typed bets: friends see them but can't copy
+  if(social.me.shareUpcoming !== false) alarms.filter(a => !a.test).forEach(a => want.set('a_' + a.id, { name:a.name, league:a.league || '', start:a.start, side:a.side, line:a.line || '', ouPct:a.ouPct || '', edge:a.edge ?? null, status:'upcoming', ...(a.manual ? { manual:true } : {}), ...(isBot(a) ? { bot:true } : {}), ...(hasSweep(a) ? { sweep:true } : {}), ...(sharedTags(a).length ? { ptags:sharedTags(a) } : {}) }));   // typed bets: friends see them but can't copy
   plays.filter(p => p.start > now - 60 * 864e5).slice(0, 200).forEach(p => want.set('p_' + p.id, {
     name:p.name, league:p.league || '', start:p.start, side:p.side, line:p.line || '', ouPct:p.ouPct || '', edge:p.edge ?? null, status:p.result,
-    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}) }));   // unit gains are always public to friends
+    odds:p.odds || null, units:p.units || 0, pl:+playPL(p).toFixed(4), bot:isBot(p), ...(hasSweep(p) ? { sweep:true } : {}), ...(sharedTags(p).length ? { ptags:sharedTags(p) } : {}) }));   // unit gains are always public to friends
   const ops = [];
   want.forEach((v, id) => { const j = JSON.stringify(v); if(social.lastPub.get(id) !== j) ops.push(b => b.set(fdoc('profiles', uid, 'plays', id), v)); });
   social.lastPub.forEach((j, id) => { if(!want.has(id)) ops.push(b => b.delete(fdoc('profiles', uid, 'plays', id))); });
@@ -3219,8 +3229,7 @@ function friendPlayCard(p, username){
   const have = alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start)), card = el('div', `card ${String(p.side).toLowerCase()}`);
   card.innerHTML = `<div class="names"></div>${p.league ? '<div class="comp"></div>' : ''}<div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div><div></div>
     <div class="row"><span class="side ${String(p.side).toLowerCase()}">${['OVER', 'UNDER'].includes(p.side) ? p.side : ''}</span><span class="ftags"></span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
-  if(isBot(p)) card.querySelector('.ftags').appendChild(tagChip(tags.find(t => t.id === 'bot') || BOT_TAG));
-  if(hasSweep(p)) card.querySelector('.ftags').appendChild(tagChip(tags.find(t => t.id === 'sweep') || SWEEP_TAG));
+  friendChips(p).forEach(c => card.querySelector('.ftags').appendChild(c));
   card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
   card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
   const started = p.start <= Date.now();   // too late to copy once the match has started

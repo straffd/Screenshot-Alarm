@@ -19,7 +19,7 @@ Screenshots are read by Google Gemini (free tier).
    default; change the links or turn the copying off in ⚙ Settings.
 5. Add your own tags (e.g. "Strong", "Live bet") in ⚙ Settings → Tags, then click a bet to tag it. **SWEEP** is a built-in tag
    (purple by default; change its colour but it can't be deleted) for sweep bets: the PNL's Play types counts them as Sweep,
-   and it and **Bot** are the only tags that come along when you copy a friend's bet, along with OVER/UNDER (your other tags are personal).
+   and it and **Bot** are the only tags that come along when you copy a friend's bet, along with OVER/UNDER. Friends can see your other tags on your bets and in your History, but they stay yours and don't copy.
    Tags show next to OVER/UNDER. You can also create a new tag straight from a bet.
 6. Bets are removed automatically a few hours after their match starts (3 by default). Change the number,
    or set 0 to keep them, in ⚙ Settings → Remove old bets.
