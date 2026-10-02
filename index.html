@@ -797,7 +797,7 @@ html.phone .alpha-note{display:inline}
           <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="czech" checked> Czech Liga Pro</label><input id="lbCzech" type="url" aria-label="Czech Liga Pro link" placeholder="Paste the Czech Liga Pro page link"></div>
         </div>
       </div>
-      <p class="note">Switch a league off to hide everything from it: its bets (they won't ring either), History, PNL, and friends' bets. Switch it back on and it all comes back. Click the player names on a bet to open its league's link; clear a link to go back to its default.</p></div>
+      <p class="note">Switch a league off to hide its bets: yours (they won't ring either), friends' bets and bell messages. P/L and History still include every league. Switch it back on and they come back. Click the player names on a bet to open its league's link; clear a link to go back to its default.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -1656,7 +1656,8 @@ function linkPrefs(){
   $('#copyName').checked = store.get('tt.copyName', true) !== false;
   document.querySelectorAll('[data-league]').forEach(i => { i.checked = !leaguesOff().includes(i.dataset.league); i.closest('.league').classList.toggle('off', !i.checked); });
 }
-// Leagues switched off in Settings: everything from them is hidden (tt.leaguesOff, synced). Unknown leagues and typed bets always show.
+// Leagues switched off in Settings (tt.leaguesOff, synced): their bets, friends' bets and alarms are hidden; P/L and History still count everything.
+// Unknown leagues and typed bets always show.
 const leaguesOff = () => store.get('tt.leaguesOff', []) || [];
 function leagueShown(p){ const k = compKey((p && p.league) || ''); return !k || !leaguesOff().includes(k); }
 document.querySelectorAll('[data-league]').forEach(i => i.onchange = () => {
@@ -2002,7 +2003,7 @@ function tickTracker(){
   }
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
-    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime() && leagueShown(p)), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
+    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
     const me = sum(p => !isBot(p)), bot = sum(isBot);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
@@ -2020,9 +2021,9 @@ function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { 
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
 function subject(forUid = pnlFor){
-  if(!forUid || !social || forUid !== social.view) return { own:true, plays: plays.filter(leagueShown), val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
+  if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
   const card = social.cards.get(forUid) || {};
-  const fp = social.viewPlays.filter(p => (p.status === 'cash' || p.status === 'chalk') && leagueShown(p)).map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
+  const fp = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
   // pl comes from the friend's app; older entries without it are worked out from their odds and units
   const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
   return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
@@ -2202,8 +2203,8 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
   const match = x => (k ? playType(x) === k : !playType(x))
     && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
-  const pending = S.own ? alarms.filter(a => !a.test && leagueShown(a) && match(a)).length
-    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && leagueShown(p) && match(p)).length : 0);
+  const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
+    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
   const odds = ps.flatMap(p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : []);
   const avg = odds.length ? (odds.reduce((t, o) => t + o, 0) / odds.length).toFixed(2) : '—';
   d.appendChild(el('p', 'tdf', `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${pending} pending · avg odds ${avg}`));
@@ -2842,7 +2843,7 @@ function setDrawer(open){
   if(open) setTimeout(() => { const f = d.querySelector('[aria-current="true"]') || d.querySelector('.dr-item'); f && f.focus({ preventScroll:true }); }, 60);
 }
 function renderDrawer(){
-  const vp = plays.filter(leagueShown), up = alarms.filter(a => !a.fired && leagueShown(a)).length, ringingN = ringing.size;
+  const vp = plays, up = alarms.filter(a => !a.fired && leagueShown(a)).length, ringingN = ringing.size;
   const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + playPL(p), 0);
   const reqs = social && social.uid ? social.friendships.filter(f => f.status === 'pending' && f.to === social.uid).length : 0;
   const set = (id, text, pill) => { const e = $(id); e.textContent = text; e.className = pill ? 'pill ' + pill : ''; };
