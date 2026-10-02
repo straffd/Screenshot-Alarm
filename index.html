@@ -104,7 +104,7 @@ button{cursor:pointer}
 .theme input[type=range]{width:80px;accent-color:var(--yellow)}
 .theme output{min-width:38px;font-variant-numeric:tabular-nums;color:var(--text)}
 .theme .ghost{padding:5px 9px}
-.sound select,#maxSlides{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
+.sound select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--text)}
 
 /* Main layout */
 .main{flex:1;display:grid;grid-template-columns:1fr;min-height:0;position:relative;overflow:hidden;overflow:clip}
@@ -365,7 +365,6 @@ button.tag{cursor:pointer}
 .syncdot.err{background:var(--red)}
 
 /* Slide-out panels (Bets, History, PNL, Friends): slide in from the right edge */
-.pnl.under-top{padding-top:64px}   /* this panel reaches under the top-left toolbar, so its header starts below it */
 #bets .list{padding:4px 18px 18px}
 /* narrow Bets panel (several panels open): Cash / Chalk / + get their own line */
 #bets .list{container-type:inline-size}
@@ -747,10 +746,6 @@ html.phone .alpha-note{display:inline}
     <div class="hud-row"><label class="lbl" for="defOdds">Default odds</label>
       <div class="ctl lead"><input id="defOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>filled in when you press Cash</span></div>
       <p class="note">The Cash popup (and each new slot for several bets) starts with these odds already filled in. You can change them before saving; nothing is recorded until you press Save. Leave empty to type them each time.</p></div>
-    <div class="hud-row"><label class="lbl" for="maxSlides">Panels</label>
-      <div class="ctl lead"><select id="maxSlides" aria-label="Most panels open at once"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select><span>open at once at most</span></div>
-      <p class="note">Bets, History, PNL, Leaderboard and Friends slide out side by side. Opening one more than this closes the one you opened first.
-        A narrow screen may fit fewer. This setting is for this device only.</p></div>
     <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
       <div class="ctl sound"><select id="soundPick">
         <option value="beep">Beep</option>
@@ -1994,37 +1989,24 @@ let slideOrder = [];   // open panels, first opened = nearest the right edge
 function setSlide(key, open){
   const sl = SLIDES[key], el = $(sl.el);
   slideOrder = slideOrder.filter(k => k !== key); if(open) slideOrder.push(key);
-  if(open) while(slideOrder.length > maxSlides()) closeOldest();   // at the limit: the oldest panel makes way
   el.classList.toggle('open', open); el.setAttribute('aria-hidden', !open);
   if(key !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', open); $(sl.btn).setAttribute('aria-pressed', open); }
   if(key === 'bets') store.set('tt.railOpen', open);   // the Bets panel stays open or closed across visits (per device)
   layoutSlides(); if(open) sl.onOpen(); else if(sl.onClose) sl.onClose();
   if(key !== 'friends' && typeof renderFriends === 'function') renderFriends();   // keep the friend dropdown's highlighted items in step
 }
-// How many panels can be open at once (⚙ Settings → Panels, this device; 4 by default)
-const maxSlides = () => Math.max(1, Math.min(6, Math.round(+store.get('tt.maxSlides', 4)) || 4));
-function closeOldest(){
-  const k = slideOrder.shift(), sl = SLIDES[k], el = $(sl.el);
-  el.classList.remove('open', 'under-top'); el.setAttribute('aria-hidden', true);
-  if(k !== 'falarms'){ $(sl.btn).setAttribute('aria-expanded', false); $(sl.btn).setAttribute('aria-pressed', false); }
-  if(k === 'bets') store.set('tt.railOpen', false);
-  if(sl.onClose) sl.onClose();
-}
 function layoutSlides(){
   const desk = !isPhone(), tab = $('#plTab'), n = slideOrder.length;
   const chatR = innerWidth, topR = $('#top').getBoundingClientRect().right;
   const tabW = tab.hidden ? 0 : $('.pltab-in').offsetWidth, room = chatR - topR - 12;
-  // Panels are at least 300px wide. If the screen can't fit them all, the oldest one closes.
-  if(desk && n > 1 && n * 300 > chatR - 12) return setSlide(slideOrder[0], false);
-  // Panels narrow (down to 300px) to stay clear of the top-left toolbar; only when even that isn't enough do they
-  // slide under it, and those panels move their header below it (see .under-top)
+  // Never slide under the top-left toolbar: if the panels can't all fit (300px each), close the oldest one
+  if(desk && n > 1 && n * 300 > room) return setSlide(slideOrder[0], false);
   const w = Math.round(Math.max(300, Math.min(560, (room - tabW) / Math.max(n, 1), chatR / Math.max(n, 1))));
   Object.entries(SLIDES).forEach(([k, sl]) => {
     const el = $(sl.el), i = slideOrder.indexOf(k);
     if(!desk){ el.style.right = el.style.width = ''; el.style.zIndex = i < 0 ? '' : 30 + i; return; }   // phones: full screen, newest on top
     el.style.width = w + 'px';
     el.style.right = Math.max(i, 0) * w + 'px';
-    el.classList.toggle('under-top', i >= 0 && chatR - (i + 1) * w < topR);   // reaches under the top-left toolbar: header moves below it
     el.style.zIndex = i < 0 ? 7 : 7 + (n - i);   // earlier panels sit above later ones, so a new one slides out from behind them
   });
   const off = desk ? n * w : 0;
@@ -2032,8 +2014,6 @@ function layoutSlides(){
   tab.classList.toggle('over', off > 0 && !tab.hidden && chatR - off - tabW < topR);
 }
 const pnlShift = layoutSlides;
-$('#maxSlides').value = String(maxSlides());
-$('#maxSlides').onchange = e => { store.set('tt.maxSlides', +e.target.value); while(slideOrder.length > maxSlides()) closeOldest(); layoutSlides(); };
 addEventListener('resize', layoutSlides);
 $('#betsBtn').onclick = () => setSlide('bets', !$('#bets').classList.contains('open'));
 $('#betsClose').onclick = () => setSlide('bets', false);
