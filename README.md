@@ -6,12 +6,12 @@ Screenshots are read by Google Gemini (free tier).
 ## Use it
 1. Open the site. On the welcome page, **Sign in with Google** to keep everything on every device,
    or choose **Continue without an account** to keep everything on this device only.
-2. Click the ⚙ button (top left) → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
+2. Click **Settings** in the top bar (phones: ☰ menu → Settings) → **Gemini settings** (or the yellow **Gemini settings** button at the top of the chat,
    shown until a key is saved) and paste your free Gemini API key from https://aistudio.google.com/apikey.
 3. Paste (Ctrl+V), drop, or attach a match screenshot and press Enter. No screenshot? Type the match instead, e.g.
    `Will vs Zed 3:20pm` (add `over` or `under`, and any tag names such as `bot` or `strong`, if you like; one per line for several). It's added as a minimal bet with an
    alarm, marked *typed*; friends can see typed bets but can't copy them. The match is added to your **Bets** and its alarm rings
-   a set number of minutes before the start. Open or close Bets with **Bets** in the toolbar (› next to ⚙), like
+   a set number of minutes before the start. Open or close Bets with **Bets** in the top bar, like
    History, PNL and Friends; it opens by itself when an alarm rings.
 4. Click the player names on a bet to open its league's link (set in ⚙ Settings → **League Links**, Ladbrokes by default). In League Links you can also switch a league off (e.g. Czech Liga Pro): its bets are then hidden (yours, which also won't ring, friends' bets and bell messages) until you switch it back on. P/L and History always include every league. The first player's name is copied
    so you can paste it into the Ladbrokes search. Clicking the desktop notification when an alarm rings does the
@@ -28,14 +28,13 @@ Screenshots are read by Google Gemini (free tier).
    Chalk records a loss with your last-used units. Set **Default odds** in ⚙ Settings and the Cash popup opens with them
    filled in (change them if needed, then Save). Or set **Average odds** and turn on its switch (off by default) and Cash records the win in one
    click too, at those odds with your last-used units (click the entry in History to change it). Placed more than one bet on the match? Press **+** to record each one
-   in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under or Sweep); the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: open the toolbar (› next
-   to ⚙) and press **History** to slide it out (green = cash, red = chalk) with your total won or lost.
+   in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under or Sweep); the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: press **History** in the top bar to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
    (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is either
    a countdown to midnight or the current time. In ⚙ Settings → P/L tracker you can hide either half, pick the
    time style, and show P/L in units or dollars (with your $ per unit).
-9. Open the toolbar with the › next to ⚙ and press **PNL** for your profit & loss page. It slides out from the right
+9. Press **PNL** in the top bar for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this week / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
    **last bet** (click it to jump to that day), with a **Calendar** (each day's P/L; click a day for its
@@ -55,18 +54,18 @@ Screenshots are read by Google Gemini (free tier).
     yellow) take on its colour.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
-13. **Friends** (toolbar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
+13. **Friends** (top bar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
-    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the ⚙ button closes Settings the same way). Blocked
+    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the **Settings** button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
     The **🔔** in a friend's drop-down (pressed in = on) makes the chat tell you each time they place a bet, with the bet
     and a **Copy** button.
     Your bets show the pictures of friends who have the same bet (next to the start time). Once a friend records
     theirs, a **✓** (Cash) or **✕** (Chalk) appears above their picture, so you can see how it went before you press yours.
     Click the pictures to drop down the list of who is on the play, with how theirs went (and their side if it differs from yours).
-    **Leaderboard** (toolbar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
+    **Leaderboard** (top bar → Leaderboard) ranks you and your friends by units won or lost **today**, this **month** or
     this **year**, with each person's wins and losses. Click a friend to open their PNL. A friend's numbers update when
     they next open the site.
     Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
