@@ -135,7 +135,7 @@ body.has-bg #bgClear{display:inline-block}
   -webkit-mask-position:0 0,var(--fade-w,100%) 0;mask-position:0 0,var(--fade-w,100%) 0;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
-html:not(.phone) .log{--fade-top:34px;--fade-len:30px}
+html:not(.phone) .log{--fade-top:calc(34px * var(--pls, 1));--fade-len:30px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
 .msg.user{background:#2a3440;align-self:flex-end}
@@ -602,13 +602,17 @@ html:not(.phone) .me-chip{order:3;display:flex;align-items:center;gap:8px;margin
 html:not(.phone) .me-chip:hover{background:color-mix(in srgb,var(--text) 9%,transparent)}
 html:not(.phone) .me-chip #meName{font:500 14px var(--sans)}
 html:not(.phone) .me-chip .pfp{width:28px;height:28px;font-size:13px}
-html:not(.phone) .log{padding-top:72px !important}
-html:not(.phone) .keycta{top:62px}
+html:not(.phone) .log{padding-top:calc(44px * var(--pls, 1) + 28px) !important}
+html:not(.phone) .keycta{top:calc(44px * var(--pls, 1) + 18px)}
 /* the time | PNL tab hangs from the bar at the top left of the chat */
 html:not(.phone) .pltab{left:0;right:auto;top:0 !important}
 html:not(.phone) .main.pnl-open .pltab{transform:none}
-html:not(.phone) .pltab-in{height:44px;padding:0 44px 0 20px;clip-path:polygon(0 0,100% 0,calc(100% - 30px) 100%,0 100%)}
-html:not(.phone) .pltab-in{font:600 15px/1 var(--sans);color:var(--text)}
+/* its size is a setting (Settings → P/L tracker → Size): --pls scales everything in it */
+html:not(.phone) .pltab-in{height:calc(44px * var(--pls, 1));gap:calc(14px * var(--pls, 1));padding:0 calc(44px * var(--pls, 1)) 0 calc(20px * var(--pls, 1));
+  clip-path:polygon(0 0,100% 0,calc(100% - 30px * var(--pls, 1)) 100%,0 100%);font:600 calc(15px * var(--pls, 1))/1 var(--sans);color:var(--text)}
+html:not(.phone) .pltab .sep{font-size:calc(24px * var(--pls, 1))}
+html:not(.phone) .pltab .k{font-size:calc(12px * var(--pls, 1));margin-right:calc(7px * var(--pls, 1))}
+html:not(.phone) .pltab .who{font-size:calc(11px * var(--pls, 1))}
 html:not(.phone) .chatbg{position:fixed}   /* the background picture runs under the top bar too, so a see-through bar shows it */   /* same font as the top bar */
 html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
 html.phone .me-chip:active{background:var(--panel-2)}
@@ -876,6 +880,7 @@ html.phone .alpha-note{display:inline}
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
         <label class="switch"><input type="checkbox" role="switch" id="timeShow" checked> Show the time</label>
+        <label class="fx plsize">Size<input type="range" id="plSize" min="80" max="200" step="10" value="130" aria-label="P/L tracker size"><output id="plSizeOut">130%</output></label>
         <div class="ctl sound"><select id="timeMode" aria-label="Time display">
           <option value="countdown">Countdown to midnight (when P/L resets)</option>
           <option value="clock">Current time</option>
@@ -2160,14 +2165,22 @@ function plSettings(){
   $('#timeMode').value = plPrefs.timeMode === 'clock' ? 'clock' : 'countdown'; $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
   $('#timeMode').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
+  plSize(plPrefs.size || 130);
   tickTracker();
 }
 function savePlPrefs(){
   plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, timeMode: $('#timeMode').value, hour24: $('#hourFmt').value === '24',
-              money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10) };
+              money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130 };
   store.set('tt.plPrefs', plPrefs); plSettings(); render();
 }
-['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue'].forEach(id => $(id).onchange = savePlPrefs);
+['#plShow', '#timeShow', '#timeMode', '#hourFmt', '#plMoney', '#unitValue', '#plSize'].forEach(id => $(id).onchange = savePlPrefs);
+// Size of the time | PNL tab (computers), 80–200%: scales the tab and the space the chat leaves for it
+function plSize(pct){
+  $('#plSize').value = pct; $('#plSizeOut').textContent = pct + '%';
+  document.documentElement.style.setProperty('--pls', pct / 100);
+  try{ layoutSlides(); markLogScroll(); }catch(e){}   // at startup the panels aren't set up yet
+}
+$('#plSize').oninput = () => plSize(+$('#plSize').value);   // live while dragging; saved on release
 function tickTracker(){
   const showPL = plPrefs.showPL !== false, showTime = plPrefs.showTime !== false;
   $('#plTab').hidden = !showPL && !showTime;
