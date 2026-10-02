@@ -381,6 +381,7 @@ button.tag{cursor:pointer}
 .card .copy:disabled{border-color:var(--line);color:var(--muted);cursor:default}
 .card .have{font-size:12px;color:var(--muted)}
 .pnl header{display:flex;align-items:center;gap:12px;padding:16px 18px 10px}
+.pnl-viewsw{display:flex;width:fit-content;margin:0 0 12px}
 .pnl h3{margin:0;font:600 20px var(--cond);flex:1}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
 .seg button{background:none;border:none;padding:6px 12px;color:var(--muted);font:600 13px var(--sans)}
@@ -662,11 +663,12 @@ html.phone .alpha-note{display:inline}
   <section class="pnl" id="pnl" aria-labelledby="pnlTitle" aria-hidden="true">
     <header>
       <h3 id="pnlTitle">Profit &amp; loss</h3>
-      <div class="seg" role="group" aria-label="View"><button id="pnlCal" aria-pressed="true">Calendar</button><button id="pnlGraph" aria-pressed="false">Graph</button></div>
+      <div class="seg" role="group" aria-label="Whose plays" id="pnlKind"><button data-k="all">All</button><button data-k="me">Personal</button><button data-k="bot">Bot</button></div>
       <button class="close" id="pnlClose" aria-label="Close profit and loss">×</button>
     </header>
     <div class="pnl-body">
       <div class="pnl-stats" id="pnlStats"></div>
+      <div class="seg pnl-viewsw" role="group" aria-label="View"><button id="pnlCal" aria-pressed="true">Calendar</button><button id="pnlGraph" aria-pressed="false">Graph</button></div>
       <div id="pnlView"></div>
     </div>
   </section>
@@ -1891,7 +1893,12 @@ function subject(forUid = pnlFor){
   const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
   return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
 }
-const pnlSubject = () => subject(pnlFor);
+// All / Personal / Bot: All shows everything (hover a total or day for its Personal / Bot split);
+// Personal and Bot show only those plays.
+let pnlKind = store.get('tt.pnlKind', 'all');
+const pnlSubject = () => { const S = subject(pnlFor);
+  return pnlKind === 'all' ? S : { ...S, plays: S.plays.filter(p => pnlKind === 'bot' ? isBot(p) : !isBot(p)) }; };
+$('#pnlKind').onclick = e => { const b = e.target.closest('button'); if(!b) return; pnlKind = b.dataset.k; store.set('tt.pnlKind', pnlKind); pnlSel = null; renderPnl(); };
 // "Me +1u" and "Bot −2u" lines shown when you hover a combined total
 function splitEl(S, me, bot, fmt){   // fmt: show the values some other way (e.g. win rate), uncoloured
   const sp = el('span', 'split'), pair = (k, v) => { const w = el('span', 'pair'); w.append(k + ' ', fmt ? el('i', '', fmt(v)) : el('i', plClass(v), S.txt(v))); return w; };
@@ -1959,6 +1966,8 @@ function renderPnl(){
   if(!$('#pnl').classList.contains('open')) return;
   const S = pnlSubject();
   subjectHead('#pnlTitle', pnlFor, 'Profit & loss');
+  [...$('#pnlKind').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.k === pnlKind));
+  const all_ = pnlKind === 'all';   // the Personal / Bot hover splits only make sense under All
   $('#pnlCal').setAttribute('aria-pressed', pnlView === 'calendar'); $('#pnlGraph').setAttribute('aria-pressed', pnlView === 'graph');
   const days = dailyPL(S), now = new Date(), tk = dayKey(now);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -1973,9 +1982,9 @@ function renderPnl(){
   [['Today', S.txt(today), plClass(today)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
    ['Win rate', S.plays.length ? Math.round(wins / S.plays.length * 100) + '%' : '—', '']].forEach(([k, v, c], i) => {
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
-    if(splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
+    if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
-    if(i === 3){   // Win rate: personal and bot separately
+    if(all_ && i === 3){   // Win rate: personal and bot separately
       const rate = bot => { const ps = S.plays.filter(p => isBot(p) === bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
       const me = rate(false), bot = rate(true); d.appendChild(splitEl(S, me, bot, v => v)); d.classList.add('hassplit'); d.tabIndex = 0;
       d.title = `Personal ${me} · Bot ${bot}`; }
@@ -1995,8 +2004,8 @@ function renderPnl(){
   const r = roi(S.plays), rd = document.createElement('div');
   rd.innerHTML = '<small>ROI</small><b></b>'; rd.querySelector('b').textContent = pct(r); rd.querySelector('b').className = r == null ? '' : plClass(r);
   const rMe = roi(S.plays.filter(p => !isBot(p))), rBot = roi(S.plays.filter(isBot));
-  rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0;
-  rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked · Personal ${pct(rMe)} · Bot ${pct(rBot)}`;
+  rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked`;
+  if(all_){ rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0; rd.title += ` · Personal ${pct(rMe)} · Bot ${pct(rBot)}`; }
   $('#pnlStats').appendChild(rd);
   // Last bet: the most recent settled match; click it to show that day in the calendar
   const last = S.plays.reduce((b, p) => !b || p.start > b.start ? p : b, null), ld = document.createElement('div'); ld.className = 'wide';
@@ -2034,8 +2043,9 @@ function renderCalendar(view, days, tk){
     b.className = 'day' + (e ? (e.pl > 1e-9 ? ' win' : e.pl < -1e-9 ? ' loss' : '') : '') + (k === tk ? ' today' : '') + (k === pnlSel ? ' sel' : '');
     if(e) b.style.setProperty('--k', Math.round(12 + 30 * Math.abs(e.pl) / maxAbs) + '%');   // stronger tint for bigger days
     b.innerHTML = `<span class="n">${d}</span><span class="v"></span>`;
-    if(e){ b.querySelector('.v').textContent = S.txt(e.pl); b.appendChild(splitEl(S, e.me || 0, e.bot || 0));
-      b.title = `${e.n} match${e.n > 1 ? 'es' : ''}: ${S.txt(e.pl)} (Personal ${S.txt(e.me || 0)} · Bot ${S.txt(e.bot || 0)})`; b.onclick = () => { pnlSel = pnlSel === k ? null : k; renderPnl(); }; }
+    if(e){ b.querySelector('.v').textContent = S.txt(e.pl);
+      b.title = `${e.n} match${e.n > 1 ? 'es' : ''}: ${S.txt(e.pl)}`;
+      if(pnlKind === 'all'){ b.appendChild(splitEl(S, e.me || 0, e.bot || 0)); b.title += ` (Personal ${S.txt(e.me || 0)} · Bot ${S.txt(e.bot || 0)})`; } b.onclick = () => { pnlSel = pnlSel === k ? null : k; renderPnl(); }; }
     else b.disabled = true;
     grid.appendChild(b);
   }
