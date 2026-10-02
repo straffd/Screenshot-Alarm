@@ -52,6 +52,8 @@ Screenshots are read by Google Gemini (free tier).
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
     and set the background picture's **blur** and **saturation**. With a background picture, the main buttons (normally
     yellow) take on its colour.
+    **Top bar colour** (⚙ Settings) gives the bar across the top (and the time | PNL tab under it) its own colour and
+    opacity, separate from the chat's; ↺ makes it follow the chat again. On phones it's always solid.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
 13. **Friends** (top bar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
@@ -95,7 +97,7 @@ Signed in, stopping an alarm on one device (e.g. your PC) stops it on your other
 
 ## Where your data is kept
 - **Chat:** the chat log is kept on this device for 3 days (older messages are removed; screenshots aren't kept, just how many you sent). The 🗑 at the right of the text bar clears it: press it twice (or double-click).
-- **Signed in with Google:** bets (with their screenshots), UI colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
+- **Signed in with Google:** bets (with their screenshots), UI colour, top bar colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
   Only you can read them. Some things stay on each device instead: the background picture (and its blur/saturation),
   the alarm switches (Ring alarms, Notifications on this device, Keep the screen on), whether the Bets panel is open, and

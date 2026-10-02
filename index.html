@@ -586,7 +586,7 @@ html.phone .pltab{display:none}                                 /* no clock / PN
 #menuBtn .lbl{display:none}
 /* Computers: one fixed bar across the top (same colour as the PNL tab), everything else sits below it.
    Flat buttons with a mini icon; hover and the open panel get a filled rectangle. */
-html:not(.phone) .top{position:relative;flex:none;height:48px;box-sizing:border-box;gap:4px;padding:0 14px;background:var(--bg);border:none;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none}
+html:not(.phone) .top{position:relative;flex:none;height:48px;box-sizing:border-box;gap:4px;padding:0 14px;background:var(--bg);color:var(--text);border:none;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none}
 html:not(.phone) .brand{font-size:17px;gap:9px;margin-right:14px;min-height:32px}
 html:not(.phone) #barBtn{display:none}
 html:not(.phone) .toolbar{display:flex !important;gap:2px;padding:0;border:none;animation:none}
@@ -606,7 +606,8 @@ html:not(.phone) .keycta{top:62px}
 html:not(.phone) .pltab{left:0;right:auto;top:0 !important}
 html:not(.phone) .main.pnl-open .pltab{transform:none}
 html:not(.phone) .pltab-in{height:44px;padding:0 44px 0 20px;clip-path:polygon(0 0,100% 0,calc(100% - 30px) 100%,0 100%)}
-html:not(.phone) .pltab-in{font:600 15px/1 var(--sans)}   /* same font as the top bar */
+html:not(.phone) .pltab-in{font:600 15px/1 var(--sans);color:var(--text)}
+html:not(.phone) .chatbg{position:fixed}   /* the background picture runs under the top bar too, so a see-through bar shows it */   /* same font as the top bar */
 html.phone .me-chip{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0;max-width:70%;height:40px;padding:0 4px 0 12px;border:none;border-radius:20px;background:none;color:var(--text)}
 html.phone .me-chip:active{background:var(--panel-2)}
 .me-chip #meName{font:600 15px var(--cond);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -841,6 +842,14 @@ html.phone .alpha-note{display:inline}
         <output id="uiAlphaOut" for="uiAlpha">100%</output>
         <span class="alpha-note">Always 100% opaque on phones</span>
         <button class="ghost" id="uiReset" title="Back to the default grey" aria-label="Reset UI colour">↺</button>
+      </div></div>
+    <div class="hud-row"><label class="lbl" for="topColor">Top bar colour</label>
+      <div class="ctl theme">
+        <input type="color" id="topColor" value="#16181b" title="Choose the top bar colour">
+        <input type="range" id="topAlpha" min="20" max="100" step="5" value="100" aria-label="Top bar opacity" title="Top bar opacity">
+        <output id="topAlphaOut" for="topAlpha">100%</output>
+        <span class="alpha-note" id="topColorNote">Same as the chat</span>
+        <button class="ghost" id="topReset" title="Back to the chat's colour" aria-label="Reset top bar colour">↺</button>
       </div></div>
     <div class="hud-row"><span class="lbl">Background</span>
       <div class="ctl bgpick">
@@ -1203,11 +1212,36 @@ function applyTheme(t){
 }
 let uiTheme = store.get('tt.theme', null);
 applyTheme(uiTheme);
-addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); layoutSlides(); } });
+addEventListener('resize', () => { if(markPhone()){ applyTheme(uiTheme); if(typeof applyTopColor === 'function') applyTopColor(); layoutSlides(); } });
 const saveTheme = () => { uiTheme = { color: $('#uiColor').value, alpha: +$('#uiAlpha').value }; applyTheme(uiTheme); store.set('tt.theme', uiTheme); };
 $('#uiColor').oninput = saveTheme;
 $('#uiAlpha').oninput = saveTheme;
 $('#uiReset').onclick = () => { uiTheme = null; applyTheme(null); store.del('tt.theme'); };
+// Top bar colour (Settings): its own colour for the bar across the top (and the time | PNL tab under it), separate from the chat's.
+// Empty = follow the chat's colours. Text switches to dark on light colours.
+function applyTopColor(){
+  const els = [$('#top'), document.querySelector('.pltab-in')];
+  let c = store.get('tt.topColor', null); const alpha = store.get('tt.topAlpha', 100);
+  const props = ['--bg', '--panel', '--panel-2', '--line', '--text', '--muted'];
+  els.forEach(e => e && props.forEach(p => e.style.removeProperty(p)));
+  $('#topColorNote').textContent = c ? (isPhone() ? 'Always 100% opaque on phones' : '') : 'Same as the chat';
+  $('#topAlpha').value = alpha; $('#topAlphaOut').textContent = alpha + '%';
+  const toHex = v => { const m = String(v).match(/\d+/g); return /^#[0-9a-f]{6}$/i.test(v) ? v : m && m.length >= 3 ? '#' + m.slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('') : '#16181b'; };
+  $('#topColor').value = c || toHex(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());   // unset: shows the chat's colour
+  if(!c && alpha >= 100) return;
+  c = c || $('#topColor').value;   // only the opacity changed: the chat's colour, see-through
+  const a = isPhone() ? 1 : alpha / 100;   // phones: always solid, like the rest of the app
+  const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), light = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255 > .55;
+  const mix = (to, k) => `rgb(${rgb.map(v => Math.round(v + (to - v) * k)).join(',')})`;
+  els.forEach(e => { if(!e) return;
+    const fill = `rgba(${rgb.join(',')},${a})`; e.style.setProperty('--bg', fill); e.style.setProperty('--panel', fill);
+    e.style.setProperty('--panel-2', mix(light ? 0 : 255, .08)); e.style.setProperty('--line', mix(light ? 0 : 255, .16));
+    e.style.setProperty('--text', light ? '#1a1a1a' : '#ebe9e4'); e.style.setProperty('--muted', light ? '#4d535b' : '#9aa0a8'); });
+}
+$('#topColor').oninput = () => { store.set('tt.topColor', $('#topColor').value); applyTopColor(); };
+$('#topAlpha').oninput = () => { store.set('tt.topAlpha', +$('#topAlpha').value); applyTopColor(); };
+$('#topReset').onclick = () => { store.del('tt.topColor'); store.del('tt.topAlpha'); applyTopColor(); };
+applyTopColor();
 
 /* ---------- Chat background ---------- */
 // Blur and saturation of the background picture (Settings → Background)
@@ -2837,7 +2871,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -2864,7 +2898,7 @@ function refreshFromStore(){
     alarms = store.get('tt.alarms', []); alarms.sort((x,y) => x.ring - y.ring);
     lead = store.get('tt.lead', 5); $('#leadMin').value = lead;
     soundName = (SOUNDS[store.get('tt.sound', 'beep')] || isCustom(store.get('tt.sound', 'beep'))) ? store.get('tt.sound', 'beep') : 'beep'; $('#soundPick').value = soundName; showSoundDel();
-    uiTheme = store.get('tt.theme', null); applyTheme(uiTheme);
+    uiTheme = store.get('tt.theme', null); applyTheme(uiTheme); applyTopColor();
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
     plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs();
