@@ -62,15 +62,16 @@ button{cursor:pointer}
 .hud-row .ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .hud .account{margin-left:0}
 .hud .links{display:grid;gap:8px}
-.hud .links label{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
-.hud .links input{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px}
+.hud .links .league{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:8px;font-size:13px}
+.hud .links .league.off input[type=url]{opacity:.45}
+.hud .links input[type=url]{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px}
 .hud .note{grid-column:1/-1;margin:0;font-size:12.5px;color:var(--muted)}
 .hud-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line)}
 @media (max-width:560px){
   .modal{padding:12px}
   .hud{padding:16px}
   .hud-row{grid-template-columns:1fr;gap:6px}
-  .hud .links label{grid-template-columns:1fr;gap:4px}
+  .hud .links .league{grid-template-columns:1fr;gap:4px}
 }
 .switch{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:14px}
 .switch input{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:11px;background:var(--line);margin:0;cursor:pointer;transition:background .2s;flex:none}
@@ -533,7 +534,7 @@ html.phone .sheet{max-width:100%;width:100%;max-height:calc(100dvh - var(--top-h
 html.phone .sheet header{position:sticky;top:-14px;background:var(--panel);margin:-14px -14px 10px;padding:14px 14px 8px;z-index:1}
 html.phone select{max-width:100%}
 html.phone .hud-row{grid-template-columns:1fr;gap:6px}
-html.phone .hud .links label{grid-template-columns:1fr;gap:4px}
+html.phone .hud .links .league{grid-template-columns:1fr;gap:4px}
 html.phone .lead{flex-wrap:wrap}
 html.phone .settle-sheet .bet{grid-template-columns:1fr 1fr auto}
 html.phone .card{padding:11px 12px}
@@ -787,16 +788,16 @@ html.phone .alpha-note{display:inline}
         <label class="fx">Saturation<input type="range" id="bgSat" min="0" max="200" step="5" value="100"><output id="bgSatOut">100%</output></label>
       </div>
       <p class="note">The background is for this device only, so each phone or computer can have its own.</p></div>
-    <div class="hud-row"><span class="lbl">Ladbrokes</span>
+    <div class="hud-row"><span class="lbl">League Links</span>
       <div class="ctl" style="display:grid;gap:12px">
-        <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening Ladbrokes</label>
+        <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening a link</label>
         <div class="links">
-          <label>TT Cup<input id="lbCup" type="url" placeholder="Paste the Ladbrokes TT Cup page link"></label>
-          <label>TT Elite Series<input id="lbElite" type="url" placeholder="Paste the Ladbrokes TT Elite page link"></label>
-          <label>Czech Liga Pro<input id="lbCzech" type="url" placeholder="Paste the Ladbrokes Czech Liga Pro page link"></label>
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="cup" checked> TT Cup</label><input id="lbCup" type="url" aria-label="TT Cup link" placeholder="Paste the TT Cup page link"></div>
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="elite" checked> TT Elite Series</label><input id="lbElite" type="url" aria-label="TT Elite Series link" placeholder="Paste the TT Elite page link"></div>
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="czech" checked> Czech Liga Pro</label><input id="lbCzech" type="url" aria-label="Czech Liga Pro link" placeholder="Paste the Czech Liga Pro page link"></div>
         </div>
       </div>
-      <p class="note">Click the player names on a bet to open its competition on Ladbrokes. Clear a link to go back to its default. Other competitions open the main Ladbrokes table tennis page.</p></div>
+      <p class="note">Switch a league off to hide everything from it: its bets (they won't ring either), History, PNL, and friends' bets. Switch it back on and it all comes back. Click the player names on a bet to open its league's link; clear a link to go back to its default.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -1503,6 +1504,8 @@ async function createAlarms(entries, problems = []){
   render();
   const made = results.filter(r => r.ok).map(r => r.a);
   const skipped = results.filter(r => !r.ok);
+  const hidden = made.filter(a => !leagueShown(a));
+  if(hidden.length) setTimeout(() => addMsg('bot', `${hidden.length === made.length ? (made.length > 1 ? 'These are' : 'This is') : hidden.length + ' of these ' + (hidden.length > 1 ? 'are' : 'is')} in a league you've switched off, so ${hidden.length > 1 ? 'they\'re' : 'it\'s'} hidden and won't ring. Turn the league back on in ⚙ Settings → League Links to see ${hidden.length > 1 ? 'them' : 'it'}.`), 0);
   const fmtSide = a => `${a.side}${a.line ? ' ' + a.line : ''}`;
   if(made.length === 1 && !skipped.length && !problems.length){
     const a = made[0], past = a.ring <= Date.now();
@@ -1545,15 +1548,15 @@ function render(){
   renderHistory();   // keeps the History panel current when it's open
   if(social && social.view) renderFAlarms();
   const list = $('#list'); list.innerHTML = '';
-  const active = alarms.filter(a=>!a.fired).length;
-  $('#alarmCount').textContent = (alarms.length ? `${active} upcoming` : '') + (alarmsOn() ? '' : (alarms.length ? ' · ' : '') + 'alarms off');
-  if(!alarms.length){ list.innerHTML = '<div class="empty">No bets yet. Send a match screenshot in the chat to add one.</div>'; return; }
-  for(const a of alarms){
+  const vis = alarms.filter(leagueShown), active = vis.filter(a=>!a.fired).length;
+  $('#alarmCount').textContent = (vis.length ? `${active} upcoming` : '') + (alarmsOn() ? '' : (vis.length ? ' · ' : '') + 'alarms off');
+  if(!vis.length){ list.innerHTML = alarms.length ? '<div class="empty">Your bets are all in leagues you\'ve switched off. Turn them back on in ⚙ Settings → League Links.</div>' : '<div class="empty">No bets yet. Send a match screenshot in the chat to add one.</div>'; return; }
+  for(const a of vis){
     const c = document.createElement('div');
     c.className = `card ${a.side.toLowerCase()}${a.fired?' fired':''}${ringing.has(a.id)?' ringing':''}`;
     c.tabIndex = 0; c.setAttribute('role','button'); c.setAttribute('aria-label', `${a.name}, open screenshot`);
     c.innerHTML = `
-      <button class="names" title="Open on Ladbrokes"></button>
+      <button class="names" title="Open the league's link"></button>
       ${a.league ? '<div class="comp"></div>' : ''}
       <div class="when"><b>${fmtTime(a.start)}</b> ${fmtDay(a.start)} · alert ${a.lead} min before${a.from ? ' · from @' + a.from : ''}${a.manual && !a.test ? ' · <span class="typed" title="Typed in the chat: friends can\'t copy it">typed</span>' : ''}</div>
       ${ringing.has(a.id) ? '<button class="stop count">Stop alarm</button>' : a.fired ? '<div class="settle"><button class="cash" title="It hit: record the win">Cash</button><button class="chalk" title="It lost: record the loss">Chalk</button><button class="more" title="More than one bet on this match: record each one">+</button></div>' : `<div class="count" data-count="${a.id}">${countdown(a.ring)}</div>`}
@@ -1651,6 +1654,17 @@ function linkPrefs(){
   const l = store.get('tt.links', {}) || {};
   Object.entries(LB_FIELDS).forEach(([k, sel]) => { $(sel).value = l[k] || LB_DEFAULTS[k]; });
   $('#copyName').checked = store.get('tt.copyName', true) !== false;
+  document.querySelectorAll('[data-league]').forEach(i => { i.checked = !leaguesOff().includes(i.dataset.league); i.closest('.league').classList.toggle('off', !i.checked); });
+}
+// Leagues switched off in Settings: everything from them is hidden (tt.leaguesOff, synced). Unknown leagues and typed bets always show.
+const leaguesOff = () => store.get('tt.leaguesOff', []) || [];
+function leagueShown(p){ const k = compKey((p && p.league) || ''); return !k || !leaguesOff().includes(k); }
+document.querySelectorAll('[data-league]').forEach(i => i.onchange = () => {
+  const k = i.dataset.league, off = leaguesOff().filter(x => x !== k);
+  store.set('tt.leaguesOff', i.checked ? off : [...off, k]); linkPrefs(); leaguesChanged();
+});
+function leaguesChanged(){
+  render(); renderPnl(); renderFAlarms(); renderDrawer(); tickTracker(); updateWake(); pushSoon();
 }
 Object.entries(LB_FIELDS).forEach(([k, sel]) => $(sel).onchange = () => {
   let v = $(sel).value.trim();
@@ -1988,7 +2002,7 @@ function tickTracker(){
   }
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
-    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
+    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime() && leagueShown(p)), sum = f => td.filter(f).reduce((t, p) => t + playPL(p), 0);
     const me = sum(p => !isBot(p)), bot = sum(isBot);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
@@ -2006,9 +2020,9 @@ function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { 
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
 function subject(forUid = pnlFor){
-  if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
+  if(!forUid || !social || forUid !== social.view) return { own:true, plays: plays.filter(leagueShown), val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
   const card = social.cards.get(forUid) || {};
-  const fp = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
+  const fp = social.viewPlays.filter(p => (p.status === 'cash' || p.status === 'chalk') && leagueShown(p)).map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
   // pl comes from the friend's app; older entries without it are worked out from their odds and units
   const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
   return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
@@ -2188,8 +2202,8 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
   const match = x => (k ? playType(x) === k : !playType(x))
     && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
-  const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
-    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
+  const pending = S.own ? alarms.filter(a => !a.test && leagueShown(a) && match(a)).length
+    : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && leagueShown(p) && match(p)).length : 0);
   const odds = ps.flatMap(p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : []);
   const avg = odds.length ? (odds.reduce((t, o) => t + o, 0) / odds.length).toFixed(2) : '—';
   d.appendChild(el('p', 'tdf', `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${pending} pending · avg odds ${avg}`));
@@ -2541,7 +2555,7 @@ async function syncPush(){
       pushState = 'off'; return renderNotifState();
     }
     const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
-    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3).map(a => ({ id: a.id, ring: a.ring,
+    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && a.ring > now - 30e3 && leagueShown(a)).map(a => ({ id: a.id, ring: a.ring,
       title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
       url: a.test ? '' : ladbrokesUrl(a) })) : [];
     const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list }) });
@@ -2618,7 +2632,7 @@ function stopAlarm(id){
 
 // Keep the screen on while a bet is coming up, so the phone doesn't pause the app before it rings
 let wakeLock = null;
-const wakeWanted = () => store.get('tt.wakeOn', isPhone()) !== false && alarmsOn() && document.visibilityState === 'visible' && alarms.some(a => !a.fired);
+const wakeWanted = () => store.get('tt.wakeOn', isPhone()) !== false && alarmsOn() && document.visibilityState === 'visible' && alarms.some(a => !a.fired && leagueShown(a));
 async function updateWake(){
   if(!('wakeLock' in navigator)) return;
   if(wakeWanted()){ if(!wakeLock){ try{ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }catch(e){ wakeLock = null; } } }
@@ -2632,6 +2646,8 @@ setInterval(() => {
   updateWake();
   cleanupOld();
   tickTracker();
+  const hid = alarms.filter(a => !a.fired && a.ring <= now && !leagueShown(a));   // switched-off leagues never ring: they just count as started
+  if(hid.length){ hid.forEach(a => a.fired = true); store.set('tt.alarms', alarms); render(); }
   alarms.filter(a => !a.fired && a.ring <= now).forEach(fire);
   document.querySelectorAll('[data-count]').forEach(el => {
     const a = alarms.find(x=>x.id===el.dataset.count);
@@ -2652,7 +2668,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -2826,13 +2842,13 @@ function setDrawer(open){
   if(open) setTimeout(() => { const f = d.querySelector('[aria-current="true"]') || d.querySelector('.dr-item'); f && f.focus({ preventScroll:true }); }, 60);
 }
 function renderDrawer(){
-  const up = alarms.filter(a => !a.fired).length, ringingN = ringing.size;
-  const d0 = new Date(); d0.setHours(0,0,0,0); const today = plays.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + playPL(p), 0);
+  const vp = plays.filter(leagueShown), up = alarms.filter(a => !a.fired && leagueShown(a)).length, ringingN = ringing.size;
+  const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + playPL(p), 0);
   const reqs = social && social.uid ? social.friendships.filter(f => f.status === 'pending' && f.to === social.uid).length : 0;
   const set = (id, text, pill) => { const e = $(id); e.textContent = text; e.className = pill ? 'pill ' + pill : ''; };
   set('#drBets', ringingN ? `${ringingN} ringing` : up ? String(up) : '', ringingN ? 'orange' : '');
-  set('#drHist', plays.length ? String(plays.length) : '');
-  set('#drPnl', plays.some(p => p.start >= +d0) ? plText(today) : '', today > 1e-9 ? 'green' : today < -1e-9 ? 'red' : '');
+  set('#drHist', vp.length ? String(vp.length) : '');
+  set('#drPnl', vp.some(p => p.start >= +d0) ? plText(today) : '', today > 1e-9 ? 'green' : today < -1e-9 ? 'red' : '');
   set('#drFriends', reqs ? `${reqs} new` : '', reqs ? 'blue' : '');
   set('#drKey', ready() ? '' : 'Add key', ready() ? '' : 'orange');
   $('#drAcct').textContent = sync.user ? (social && social.me ? `@${social.me.username} · Home page` : 'Home page') : 'Home page · Sign in';
@@ -3078,7 +3094,7 @@ function syncBells(){
 function bellSnapshot(uid, docs){
   const seen = store.get('tt.bellSeen', {}) || {}, up = docs.filter(p => p.status === 'upcoming');
   if(!seen[uid]){ seen[uid] = up.map(p => p.id); store.set('tt.bellSeen', seen); return; }   // just switched on: only bets from now on
-  const fresh = up.filter(p => !seen[uid].includes(p.id) && p.start > Date.now()).sort((a, b) => a.start - b.start);
+  const fresh = up.filter(p => !seen[uid].includes(p.id) && p.start > Date.now() && leagueShown(p)).sort((a, b) => a.start - b.start);
   seen[uid] = up.map(p => p.id); store.set('tt.bellSeen', seen);
   const name = (social.cards.get(uid) || {}).username || 'friend';
   fresh.slice(0, 5).forEach(p => {
@@ -3247,7 +3263,7 @@ function renderFAlarms(){
   if(!$('#falarms').classList.contains('open') || !social.view) return;
   const c = social.cards.get(social.view) || { username:'…' }, body = $('#faBody'); body.innerHTML = '';
   subjectHead('#faTitle', social.view, 'Bets');
-  const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming').sort((a, b) => a.start - b.start);
+  const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming' && leagueShown(p)).sort((a, b) => a.start - b.start);
   const filt = el('div', 'seg ranges');
   [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', l); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderFAlarms(); }; filt.appendChild(b); });
   const shown = up.filter(p => social.filter === 'all' || (social.filter === 'both') === mine.has(playKey(p.name, p.start)));
