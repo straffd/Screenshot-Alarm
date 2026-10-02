@@ -127,8 +127,12 @@ body.has-bg #bgClear{display:inline-block}
 /* Once the chat is scrolled, messages fade out as they pass under the top bar and the clock tab,
    so they never show through a see-through toolbar */
 .log{--fade-top:62px;--fade-len:44px}
-.log.scrolled{-webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len)));
-  mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len)))}
+.log.scrolled{   /* only the part under the toolbar fades (--fade-w = its width); the rest of the top edge stays clear */
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
+  mask-image:linear-gradient(to bottom,transparent 0,transparent var(--fade-top),#000 calc(var(--fade-top) + var(--fade-len))),linear-gradient(#000,#000);
+  -webkit-mask-size:var(--fade-w,100%) 100%,100% 100%;mask-size:var(--fade-w,100%) 100%,100% 100%;
+  -webkit-mask-position:0 0,var(--fade-w,100%) 0;mask-position:0 0,var(--fade-w,100%) 0;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 html.phone .log{--fade-top:var(--top-h);--fade-len:32px}
 .msg{max-width:640px;padding:10px 14px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
 .msg.bot{background:var(--panel);border:1px solid var(--line);align-self:flex-start}
@@ -932,7 +936,14 @@ let audioCtx = null, beepTimer = null;
 
 const $ = s => document.querySelector(s);
 // Chat: fade the top edge only once messages have scrolled up under the top bar
-function markLogScroll(){ const l = $('#log'); if(l) l.classList.toggle('scrolled', l.scrollTop > 4); }
+function markLogScroll(){
+  const l = $('#log'); if(!l) return;
+  l.classList.toggle('scrolled', l.scrollTop > 4);
+  // how far the fade reaches: the toolbar's width (phones: the whole bar, so the full width)
+  const t = $('#top');
+  if(t) l.style.setProperty('--fade-w', document.documentElement.classList.contains('phone') ? '100%' : Math.ceil(t.getBoundingClientRect().right - l.getBoundingClientRect().left + 16) + 'px');
+}
+addEventListener('resize', () => markLogScroll());
 document.addEventListener('scroll', e => { if(e.target && e.target.id === 'log') markLogScroll(); }, true);
 // Service worker: makes the site installable as an app (full screen, no address bar) and shows alarm
 // notifications on Android, where pages can't show them directly.
@@ -1585,7 +1596,7 @@ function setBar(open){
   store.set('tt.toolbarOpen', open);
 }
 setBar(store.get('tt.toolbarOpen', false));
-$('#barBtn').onclick = () => { setBar($('#toolbar').hidden); pnlShift(); };
+$('#barBtn').onclick = () => { setBar($('#toolbar').hidden); pnlShift(); markLogScroll(); };
 $('#toolbar').addEventListener('click', e => { if(isPhone() && e.target.closest('button')) setBar(false); });   // phones: the menu closes once you pick
 document.addEventListener('click', e => { if(isPhone() && !$('#toolbar').hidden && !e.target.closest('.top')) setBar(false); });   // ...or tap elsewhere
 if(isPhone()) setBar(false);
