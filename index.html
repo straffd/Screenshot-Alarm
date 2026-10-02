@@ -59,6 +59,37 @@ button{cursor:pointer}
 .hud{width:min(580px,100%);padding:20px 22px}
 .hud-row{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:8px 14px;padding:12px 0;border-top:1px solid var(--line)}
 .hud-row:first-of-type{border-top:none}
+/* First-time tutorial */
+.tour{position:fixed;inset:0;z-index:90}
+.tour[hidden]{display:none}
+.tour-dim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+.tour.spotting .tour-dim{background:transparent}
+.tour-spot{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.62),0 0 0 2px var(--accent,var(--brand));transition:all .28s ease;pointer-events:none}
+.tour-spot[hidden]{display:none}
+.tour-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;box-sizing:border-box;
+  background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:20px 22px;box-shadow:0 18px 48px rgba(0,0,0,.5);transition:left .28s ease,top .28s ease,transform .28s ease}
+.tour-card h3{margin:2px 0 8px;font:600 21px var(--cond)}
+.tour-step{font:600 11px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.tour-body{font-size:14.5px;line-height:1.55;color:var(--text)}
+.tour-body p{margin:0 0 10px}
+.tour-body .muted{color:var(--muted);font-size:13px}
+.tour-body input[type=password],.tour-body input[type=url]{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:14px}
+.tour-body .tl{display:grid;gap:10px;margin-top:4px}
+.tour-body .tl .row{display:grid;gap:6px}
+.tour-body .ok{color:var(--green)} .tour-body .bad{color:var(--red)}
+.tour-actions{display:flex;align-items:center;gap:8px;margin-top:16px}
+.tour-gap{flex:1}
+.tour-actions .tour-skip{border:none;color:var(--muted);padding-left:0}
+.tour-actions .tour-skip:hover{color:var(--text)}
+.tour-body a{color:var(--accent,var(--brand))}
+.tour-actions .send{height:38px;padding:0 18px}
+.tour-actions .ghost[hidden]{display:none}
+/* Settings sections */
+.hud-sec{font:700 12px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:20px 0 8px;margin-top:6px;border-top:1px solid var(--line)}
+.hud-sec:first-of-type{border-top:none;margin-top:0;padding-top:4px}
+.hud-sec + .hud-row{border-top:none}
+.clearbets{padding:5px 10px;font-size:12.5px;white-space:nowrap}
+.clearbets:disabled{opacity:.4;cursor:default}
 .hud-row > .lbl{color:var(--muted);font-size:14px}
 .hud-row .ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .hud .account{margin-left:0}
@@ -751,6 +782,7 @@ html.phone .alpha-note{display:inline}
     <header>
       <h3 id="betsTitle">Bets</h3>
       <span class="hsum" id="alarmCount"></span>
+      <button class="ghost danger clearbets" id="clearAll" title="Delete every bet in this list">Clear all</button>
       <button class="close" id="betsClose" aria-label="Close bets">×</button>
     </header>
     <div class="list" id="list"></div>
@@ -809,43 +841,9 @@ html.phone .alpha-note{display:inline}
 <div class="modal" id="hud" role="dialog" aria-modal="true" aria-labelledby="hudTitle">
   <div class="sheet hud">
     <header><h3 id="hudTitle">Settings</h3><button class="close" data-close aria-label="Close">×</button></header>
+    <div class="hud-sec">Account</div>
     <div class="hud-row"><span class="lbl">Account</span><div class="ctl account" id="account"></div></div>
-    <div class="hud-row"><span class="lbl">Alarms</span>
-      <div class="ctl" style="display:grid;gap:10px">
-        <label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
-        <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> Notifications on this device</label>
-        <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
-        <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
-      </div>
-      <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
-        <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
-        so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
-        These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
-    <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
-      <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
-    <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old bets</label>
-      <div class="ctl lead"><input id="cleanupHours" type="number" min="0" max="168" value="3"><span>hours after the match starts (0 = never)</span></div></div>
-    <div class="hud-row"><label class="lbl" for="avgOdds">Average odds</label>
-      <div class="ctl" style="display:grid;gap:10px">
-        <label class="switch"><input type="checkbox" role="switch" id="avgOddsOn"> Use average odds for Cash</label>
-        <div class="lead"><input id="avgOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85" aria-label="Average odds"><span>used when you press Cash</span></div>
-      </div>
-      <p class="note">With the switch on and average odds set, Cash records the win straight away at these odds with your last-used units, just like Chalk. Turn it off (or leave the odds empty) to type the odds each time. Use + for several bets, or click the entry in History to change it.</p></div>
-    <div class="hud-row"><label class="lbl" for="defOdds">Default odds</label>
-      <div class="ctl lead"><input id="defOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>filled in when you press Cash</span></div>
-      <p class="note">The Cash popup (and each new slot for several bets) starts with these odds already filled in. You can change them before saving; nothing is recorded until you press Save. Leave empty to type them each time.</p></div>
-    <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
-      <div class="ctl sound"><select id="soundPick">
-        <option value="beep">Beep</option>
-        <option value="pingpong">Ping pong</option>
-        <option value="chime">Chime</option>
-        <option value="bell">Bell</option>
-        <option value="digital">Digital</option>
-        <option value="siren">Siren</option>
-      </select>
-      <button class="ghost" id="soundAdd" title="Use your own sound file (MP3, WAV, OGG…, up to 1 MB)">Add sound…</button>
-      <button class="ghost" id="soundDel" hidden title="Delete this custom sound" aria-label="Delete this custom sound">×</button>
-      <input type="file" id="soundFile" accept="audio/*" hidden></div></div>
+    <div class="hud-sec">Appearance</div>
     <div class="hud-row"><label class="lbl" for="uiColor">Colour</label>
       <div class="ctl theme">
         <input type="color" id="uiColor" value="#1e2125" title="Choose the UI colour">
@@ -871,16 +869,6 @@ html.phone .alpha-note{display:inline}
         <label class="fx">Saturation<input type="range" id="bgSat" min="0" max="200" step="5" value="100"><output id="bgSatOut">100%</output></label>
       </div>
       <p class="note">The background is for this device only, so each phone or computer can have its own.</p></div>
-    <div class="hud-row"><span class="lbl">League Links</span>
-      <div class="ctl" style="display:grid;gap:12px">
-        <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening a link</label>
-        <div class="links">
-          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="cup" checked> TT Cup</label><input id="lbCup" type="url" aria-label="TT Cup link" placeholder="Paste the TT Cup page link"></div>
-          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="elite" checked> TT Elite Series</label><input id="lbElite" type="url" aria-label="TT Elite Series link" placeholder="Paste the TT Elite page link"></div>
-          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="czech" checked> Czech Liga Pro</label><input id="lbCzech" type="url" aria-label="Czech Liga Pro link" placeholder="Paste the Czech Liga Pro page link"></div>
-        </div>
-      </div>
-      <p class="note">Switch a league off to hide its bets: yours (they won't ring either), friends' bets and bell messages. P/L and History still include every league. Switch it back on and they come back. Click the player names on a bet to open its league's link; clear a link to go back to its default.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -901,6 +889,44 @@ html.phone .alpha-note{display:inline}
         <span class="lead" id="unitValueBox">1 unit = $<input id="unitValue" type="number" min="0.01" step="0.5" value="10" aria-label="Dollars per unit"></span></div>
       </div>
       <p class="note">The tracker adds up the matches you Cash or Chalk that start today, and resets to 0 at 12 AM.</p></div>
+    <div class="hud-sec">Alarms</div>
+    <div class="hud-row"><span class="lbl">Alarms</span>
+      <div class="ctl" style="display:grid;gap:10px">
+        <label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
+        <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> Notifications on this device</label>
+        <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
+        <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
+      </div>
+      <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
+        <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
+        so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
+        These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
+    <div class="hud-row"><label class="lbl" for="leadMin">Alert me</label>
+      <div class="ctl lead"><input id="leadMin" type="number" min="0" max="600" value="5"><span>min before the match</span></div></div>
+    <div class="hud-row"><label class="lbl" for="soundPick">Sound</label>
+      <div class="ctl sound"><select id="soundPick">
+        <option value="beep">Beep</option>
+        <option value="pingpong">Ping pong</option>
+        <option value="chime">Chime</option>
+        <option value="bell">Bell</option>
+        <option value="digital">Digital</option>
+        <option value="siren">Siren</option>
+      </select>
+      <button class="ghost" id="soundAdd" title="Use your own sound file (MP3, WAV, OGG…, up to 1 MB)">Add sound…</button>
+      <button class="ghost" id="soundDel" hidden title="Delete this custom sound" aria-label="Delete this custom sound">×</button>
+      <input type="file" id="soundFile" accept="audio/*" hidden></div></div>
+    <div class="hud-sec">Betting</div>
+    <div class="hud-row"><label class="lbl" for="cleanupHours">Remove old bets</label>
+      <div class="ctl lead"><input id="cleanupHours" type="number" min="0" max="168" value="3"><span>hours after the match starts (0 = never)</span></div></div>
+    <div class="hud-row"><label class="lbl" for="avgOdds">Average odds</label>
+      <div class="ctl" style="display:grid;gap:10px">
+        <label class="switch"><input type="checkbox" role="switch" id="avgOddsOn"> Use average odds for Cash</label>
+        <div class="lead"><input id="avgOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85" aria-label="Average odds"><span>used when you press Cash</span></div>
+      </div>
+      <p class="note">With the switch on and average odds set, Cash records the win straight away at these odds with your last-used units, just like Chalk. Turn it off (or leave the odds empty) to type the odds each time. Use + for several bets, or click the entry in History to change it.</p></div>
+    <div class="hud-row"><label class="lbl" for="defOdds">Default odds</label>
+      <div class="ctl lead"><input id="defOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>filled in when you press Cash</span></div>
+      <p class="note">The Cash popup (and each new slot for several bets) starts with these odds already filled in. You can change them before saving; nothing is recorded until you press Save. Leave empty to type them each time.</p></div>
     <div class="hud-row"><span class="lbl">Tags</span>
       <div class="ctl" style="display:grid;gap:10px">
         <div class="taglist" id="tagList"></div>
@@ -911,13 +937,45 @@ html.phone .alpha-note{display:inline}
         </div>
       </div>
       <p class="note">Tags show next to OVER/UNDER on your alarms. Click an alarm to add or remove its tags.</p></div>
-    <div class="hud-foot">
-      <button class="ghost" id="openSettings">Gemini settings</button>
-      <button class="ghost danger" id="clearAll">Clear all bets</button>
-    </div>
+    <div class="hud-row"><span class="lbl">League Links</span>
+      <div class="ctl" style="display:grid;gap:12px">
+        <label class="switch"><input type="checkbox" role="switch" id="copyName" checked> Copy the first player's name when opening a link</label>
+        <div class="links">
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="cup" checked> TT Cup</label><input id="lbCup" type="url" aria-label="TT Cup link" placeholder="Paste the TT Cup page link"></div>
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="elite" checked> TT Elite Series</label><input id="lbElite" type="url" aria-label="TT Elite Series link" placeholder="Paste the TT Elite page link"></div>
+          <div class="league"><label class="switch"><input type="checkbox" role="switch" data-league="czech" checked> Czech Liga Pro</label><input id="lbCzech" type="url" aria-label="Czech Liga Pro link" placeholder="Paste the Czech Liga Pro page link"></div>
+        </div>
+      </div>
+      <p class="note">Switch a league off to hide its bets: yours (they won't ring either), friends' bets and bell messages. P/L and History still include every league. Switch it back on and they come back. Click the player names on a bet to open its league's link; clear a link to go back to its default.</p></div>
+    <div class="hud-sec">Gemini</div>
+    <div class="hud-row"><span class="lbl">Screenshot reading</span>
+      <div class="ctl" style="display:grid;gap:8px;justify-items:start">
+        <span class="note" id="geminiState" style="margin:0"></span>
+        <button class="ghost" id="openSettings">Gemini settings</button>
+      </div></div>
+    <div class="hud-sec">Help</div>
+    <div class="hud-row"><span class="lbl">Tutorial</span>
+      <div class="ctl"><button class="ghost" id="tourAgain">Replay the tutorial</button></div></div>
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- First-time tutorial: setup (Gemini key, league links) then a tour that spotlights each part of the site -->
+<div class="tour" id="tour" hidden>
+  <div class="tour-dim" id="tourDim"></div>
+  <div class="tour-spot" id="tourSpot" hidden></div>
+  <div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <div class="tour-step" id="tourStep"></div>
+    <h3 id="tourTitle"></h3>
+    <div class="tour-body" id="tourBody"></div>
+    <div class="tour-actions">
+      <button class="ghost tour-skip" id="tourSkip">Skip tutorial</button>
+      <span class="tour-gap"></span>
+      <button class="ghost" id="tourBack">Back</button>
+      <button class="send" id="tourNext">Next</button>
+    </div>
+  </div>
+</div>
 
 <!-- Screenshot viewer -->
 <div class="modal" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
@@ -2609,7 +2667,12 @@ function fillSettings(){
 $('#mode').onchange = showMode;
 $('#openSettings').onclick = () => { closeModal($('#hud')); fillSettings(); openModal('#settingsModal'); };
 // Shown only while there's no API key (or server) to read screenshots with
-function keyCta(){ $('#keyCta').hidden = ready(); }
+function keyCta(){
+  $('#keyCta').hidden = ready();
+  const st = $('#geminiState');
+  if(st) st.innerHTML = ready() ? `<span class="ok" style="color:var(--green)">Ready</span>: screenshots are read through ${settings.mode === 'server' ? 'your server' : 'your own key'}.`
+                                : '<b>Not set up yet</b>: add your free Gemini API key to read screenshots.';
+}
 $('#keyCta').onclick = () => { fillSettings(); openModal('#settingsModal'); setTimeout(() => ($('#mode').value === 'server' ? $('#serverUrl') : $('#apiKey')).focus(), 50); };
 keyCta();
 $('#testConn').onclick = async () => {
@@ -2760,13 +2823,13 @@ $('#soundPick').onchange = e => { soundName = e.target.value; store.set('tt.soun
 let clearTimer = null;
 function resetClearBtn(){
   const b = $('#clearAll'); clearTimeout(clearTimer);
-  b.classList.remove('confirm'); b.textContent = 'Clear all bets'; b.disabled = !alarms.length;
+  b.classList.remove('confirm'); b.textContent = 'Clear all'; b.disabled = !alarms.length;
 }
 $('#clearAll').onclick = () => {
   const b = $('#clearAll');
   if(!alarms.length) return;
   if(!b.classList.contains('confirm')){
-    b.classList.add('confirm'); b.textContent = `Click again to delete ${alarms.length} bet${alarms.length>1?'s':''}`;
+    b.classList.add('confirm'); b.textContent = `Delete ${alarms.length} bet${alarms.length>1?'s':''}?`;
     clearTimer = setTimeout(resetClearBtn, 4000);
     return;
   }
@@ -2944,7 +3007,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -3652,6 +3715,97 @@ $('#continueGuest').onclick = () => { store.set('tt.mode', 'guest'); showLanding
 })();
 
 render();
+
+/* ---------- First-time tutorial ----------
+   Setup first (Gemini key, league links), then a tour that spotlights each part of the site. Shown once to new users
+   (no key, no bets, no history); tt.tourDone (synced) remembers it. Settings → Help → Replay the tutorial runs it again. */
+const tour = { i: 0, steps: [] };
+function tourSteps(){
+  const phone = isPhone();
+  const setup = [
+    { title: 'Welcome to TT Alarm Bot', body: () => `<p>Send a screenshot of a table tennis match and I'll read the players, start time, over/under and edge, then ring an alarm before it starts.</p>
+        <p>You can then record each result (Cash or Chalk) and track your profit and loss, and compare with friends.</p>
+        <p class="muted">This takes about a minute: two quick setup steps, then a short tour.</p>`, next: 'Start' },
+    { title: 'Set up Gemini', body: () => `<p>Screenshots are read by Google's Gemini. It's free: get a key at
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (sign in, press <b>Create API key</b>, copy it).</p>
+        ${settings.mode === 'server' && settings.server ? '<p class="ok">Already set up: screenshots are read through your server.</p>'
+          : `<p><input type="password" id="tourKey" placeholder="Paste your API key" autocomplete="off" value="${(settings.key || '').replace(/"/g, '&quot;')}"></p>
+             <p class="muted" id="tourKeyOut">You can change it later in Settings → Gemini.</p>`}`,
+      leave: () => { const k = document.querySelector('#tourKey'); if(!k) return true;
+        const key = k.value.trim(); if(key && key !== settings.key){ settings = { ...settings, mode: 'key', key }; store.set('tt.settings', settings); keyCta(); }
+        return true; } },
+    { title: 'Your league links', body: () => { const l = store.get('tt.links', {}) || {}, off = leaguesOff();
+        return `<p>Clicking a match's player names opens its league on your betting site. Check the links, and switch off any league you don't bet on (its bets are hidden).</p>
+        <div class="tl">${Object.entries({ cup:'TT Cup', elite:'TT Elite Series', czech:'Czech Liga Pro' }).map(([k, n]) => `<div class="row">
+          <label class="switch"><input type="checkbox" role="switch" data-tl="${k}" ${off.includes(k) ? '' : 'checked'}> ${n}</label>
+          <input type="url" data-tlu="${k}" value="${(l[k] || LB_DEFAULTS[k]).replace(/"/g, '&quot;')}" aria-label="${n} link"></div>`).join('')}</div>
+        <p class="muted" style="margin-top:10px">Change these any time in Settings → Betting → League Links.</p>`; },
+      leave: () => { const links = { ...(store.get('tt.links', {}) || {}) }, off = [];
+        document.querySelectorAll('#tourBody [data-tlu]').forEach(i => { let v = i.value.trim(); const k = i.dataset.tlu;
+          if(v && !/^https?:\/\//i.test(v)) v = 'https://' + v; links[k] = v === LB_DEFAULTS[k] ? '' : v; });
+        document.querySelectorAll('#tourBody [data-tl]').forEach(i => { if(!i.checked) off.push(i.dataset.tl); });
+        store.set('tt.links', links); store.set('tt.leaguesOff', off); linkPrefs(); leaguesChanged(); return true; } }
+  ];
+  const spots = phone ? [
+    { el: '.composer', title: 'Send screenshots here', body: 'Attach or paste up to 10 match screenshots, then press Enter. You can also type a bet like “Will vs Zed 3:20pm”.' },
+    { el: '#drawerBtn', title: 'The menu', body: 'Everything else is here: Bets, History, PNL (profit & loss), Leaderboard, Friends and Settings.' },
+    { el: '#meChip', title: 'Your profile', body: 'Sign in with Google to sync across devices and add friends.' }
+  ] : [
+    { el: '.composer', title: 'Send screenshots here', body: 'Attach, drag in or paste up to 10 match screenshots, then press Enter. You can also type a bet like “Will vs Zed 3:20pm”. The 🗑 clears the chat.' },
+    { el: '#betsBtn', title: 'Bets', body: 'Your upcoming bets with a countdown. They ring before the match; once it starts, press Cash or Chalk (or + for several bets) to record the result.' },
+    { el: '#histOpen', title: 'History', body: 'Every result you\'ve recorded. Click one to change its odds, units or result.' },
+    { el: '#pnlBtn', title: 'PNL', body: 'Your profit & loss: today, this week, month and all time, a calendar or graph, and stats by play type. Switch between All, Personal and Bot.' },
+    { el: '#plTab', title: 'Today at a glance', body: 'The time and today\'s P/L. Hover it to split it into your own plays and bot picks.' },
+    { el: '#lbBtn', title: 'Leaderboard', body: 'See how you rank against your friends today, this month and this year.' },
+    { el: '#friendsBtn', title: 'Friends', body: 'Add friends by @username, copy their bets, and ring a 🔔 to hear when they place one.' },
+    { el: '#menuBtn', title: 'Settings', body: 'Colours, alarms, betting options, Gemini and this tutorial (Help → Replay the tutorial).' },
+    { el: '#meChip', title: 'Your profile', body: 'Sign in with Google to sync across devices and to use Friends and the Leaderboard.' }
+  ];
+  return [...setup, ...spots, { title: 'You\'re all set', body: () => ready()
+      ? '<p>Send your first match screenshot in the chat and I\'ll set the alarm.</p>'
+      : '<p>Add your Gemini key (Settings → Gemini) whenever you\'re ready, then send a match screenshot in the chat.</p>', next: 'Finish' }];
+}
+function startTour(){
+  document.querySelectorAll('.modal.show').forEach(m => closeModal(m));
+  tour.steps = tourSteps(); tour.i = 0; $('#tour').hidden = false; showTourStep();
+}
+function endTour(){ $('#tour').hidden = true; $('#tour').classList.remove('spotting'); store.set('tt.tourDone', true); }
+function showTourStep(){
+  const st = tour.steps[tour.i], card = $('#tourCard'), spot = $('#tourSpot');
+  const target = st.el ? document.querySelector(st.el) : null, r = target ? target.getBoundingClientRect() : null;
+  if(st.el && (!r || !r.width || !r.height)){ tour.i += tour.dir || 1; if(tour.i >= 0 && tour.i < tour.steps.length) return showTourStep(); tour.i = Math.max(0, Math.min(tour.i, tour.steps.length - 1)); }   // not on screen: skip it
+  $('#tourStep').textContent = `Step ${tour.i + 1} of ${tour.steps.length}`;
+  $('#tourTitle').textContent = st.title;
+  $('#tourBody').innerHTML = typeof st.body === 'function' ? st.body() : `<p>${st.body}</p>`;
+  $('#tourBack').hidden = tour.i === 0;
+  $('#tourNext').textContent = st.next || 'Next';
+  $('#tour').classList.toggle('spotting', !!target);
+  spot.hidden = !target;
+  if(target){
+    const pad = 6; Object.assign(spot.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+    // card beside the spotlight: below it if there's room, otherwise above
+    const cw = Math.min(440, innerWidth - 32), below = r.bottom + 14 + 230 < innerHeight;
+    const left = Math.max(16, Math.min(innerWidth - cw - 16, r.left + r.width / 2 - cw / 2));
+    Object.assign(card.style, { left: left + 'px', transform: 'none', top: below ? r.bottom + pad + 12 + 'px' : 'auto', bottom: below ? 'auto' : innerHeight - r.top + pad + 12 + 'px' });
+  } else Object.assign(card.style, { left: '50%', top: '50%', bottom: 'auto', transform: 'translate(-50%,-50%)' });
+  const f = $('#tourBody').querySelector('input'); setTimeout(() => (f || $('#tourNext')).focus({ preventScroll: true }), 60);
+}
+$('#tourNext').onclick = () => { const st = tour.steps[tour.i]; if(st.leave && !st.leave()) return;
+  tour.dir = 1; if(tour.i >= tour.steps.length - 1) return endTour(); tour.i++; showTourStep(); };
+$('#tourBack').onclick = () => { tour.dir = -1; tour.i = Math.max(0, tour.i - 1); showTourStep(); };
+$('#tourSkip').onclick = () => { const st = tour.steps[tour.i]; if(st.leave) st.leave(); endTour(); };
+document.addEventListener('keydown', e => { if($('#tour').hidden) return;
+  if(e.key === 'Escape'){ e.stopPropagation(); $('#tourSkip').click(); } else if(e.key === 'Enter' && !e.target.closest('a')){ e.preventDefault(); $('#tourNext').click(); } }, true);
+addEventListener('resize', () => { if(!$('#tour').hidden) showTourStep(); });
+$('#tourAgain').onclick = () => { closeModal($('#hud')); startTour(); };
+// New users only: no key, no bets, no history, and the home page has been closed
+function maybeTour(){
+  if(store.get('tt.tourDone', false) || !$('#tour').hidden || !$('#landing').hidden) return;
+  if(ready() || alarms.length || plays.length) return store.set('tt.tourDone', true);   // already using the app: not a first-timer
+  startTour();
+}
+setTimeout(maybeTour, 900);
+new MutationObserver(() => { if($('#landing').hidden) setTimeout(maybeTour, 1500); }).observe($('#landing'), { attributes: true, attributeFilter: ['hidden'] });   // after sign-in, give sync a moment
 </script>
 </body>
 </html>
