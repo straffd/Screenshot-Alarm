@@ -40,7 +40,7 @@ Screenshots are read by Google Gemini (free tier).
    under All, totals and calendar days are combined (hover over one to split it into Me and Bot); Personal and Bot show
    only those plays. The **Calendar / Graph** switch sits just above the calendar or graph.
    Under it, **Play types** shows bets, W–L, win rate, P/L and ROI for Over, Under and Sweep (also split by All / Personal /
-   Bot); click a type for a bigger breakdown (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
+   Bot); click any types for a bigger breakdown, as many open as you like (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
    odds). Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Set a bet's type with its OVER/UNDER button (press twice to switch: Over → Under → Sweep), by typing `sweep` in
    a typed bet, or in the Cash / Chalk popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**

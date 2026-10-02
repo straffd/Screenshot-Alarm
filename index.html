@@ -2067,7 +2067,7 @@ function renderPnl(){
 // P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot).
 // Click a type for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
 const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
-let typeOpen = null;   // the expanded type ('OVER', 'UNDER', 'SWEEP' or '' for No type)
+const typeOpen = new Set();   // expanded types ('OVER', 'UNDER', 'SWEEP', '' for No type): any number can be open
 function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
   box.hidden = !!pnlSel; if(pnlSel) return;
@@ -2082,9 +2082,9 @@ function renderTypes(S, staked, pct){
       el('small', '', ps.length ? `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${w}W ${ps.length - w}L · ${Math.round(w / ps.length * 100)}%` : 'No bets'));
     const right = el('div', 'tr'); right.append(el('b', plClass(pl), S.txt(pl)), el('small', '', ps.length ? 'ROI ' + pct(st > 0 ? pl / st * 100 : null) : ''));
     row.append(left, right); box.appendChild(row);
-    const open = typeOpen === k;
+    const open = typeOpen.has(k);
     row.classList.add('click'); row.tabIndex = 0; row.setAttribute('role', 'button'); row.setAttribute('aria-expanded', open);
-    row.onclick = () => { typeOpen = open ? null : k; renderTypes(S, staked, pct); };
+    row.onclick = () => { if(open) typeOpen.delete(k); else typeOpen.add(k); renderTypes(S, staked, pct); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
     if(open) box.appendChild(typeDetail(S, k, ps, pl, st, w, pct));
   });
