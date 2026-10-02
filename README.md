@@ -28,7 +28,7 @@ Screenshots are read by Google Gemini (free tier).
    Chalk records a loss with your last-used units. Set **Default odds** in ⚙ Settings and the Cash popup opens with them
    filled in (change them if needed, then Save). Or set **Average odds** and turn on its switch (off by default) and Cash records the win in one
    click too, at those odds with your last-used units (click the entry in History to change it). Placed more than one bet on the match? Press **+** to record each one
-   in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under or Sweep); the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: press **History** in the top bar to slide it out (green = cash, red = chalk) with your total won or lost.
+   in its own slot (odds, units, Cash / Chalk / Void where Void counts as 0, and its own play type: Over, Under, Sweep or **Overcommit**). On a Bot-tagged match, Sweep and Overcommit bets count as **Personal** P/L; its other bets count as Bot; the match's P/L is the total, and the PNL's Play types counts each bet under its own type. The match then moves to your history: press **History** in the top bar to slide it out (green = cash, red = chalk) with your total won or lost.
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
    (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is either
@@ -41,7 +41,7 @@ Screenshots are read by Google Gemini (free tier).
    matches) or a **Graph** (running total over 7, 30, 90 days or all time). Switch between **All**, **Personal** and **Bot** at the top:
    under All, totals and calendar days are combined (hover over one to split it into Me and Bot); Personal and Bot show
    only those plays. The **Calendar / Graph** switch sits just above the calendar or graph.
-   Under it, **Play types** shows bets, W–L, win rate, P/L and ROI for Over, Under and Sweep (also split by All / Personal /
+   Under it, **Play types** shows bets, W–L, win rate, P/L and ROI for Over, Under, Sweep and Overcommit (Bot shows no Sweep or Overcommit: they're always Personal) (also split by All / Personal /
    Bot); click any types for a bigger breakdown, as many open as you like (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
    odds). Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Mark a bet as Sweep with the **SWEEP** tag (click the bet, or type `sweep` in a typed bet), or in the Cash / Chalk
    popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
