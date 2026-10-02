@@ -13,6 +13,7 @@
      POST /pending    { endpoint }                   alarms just sent to this phone (the service worker shows them)
    Pushes carry no payload, so nothing needs encrypting: the phone fetches the details from /pending. */
 
+const VERSION = '2026-10-02';  // shown on the health check, so you can tell which code is deployed
 const LOOKAHEAD = 20e3;          // send up to 20 s early (the cron runs once a minute)
 const SHOW_WINDOW = 15 * 60e3;   // /pending returns alarms sent in the last 15 min
 
@@ -32,12 +33,15 @@ export default {
                    'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' };
     const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
     if(req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if(!db) return json({ ok: false, error: NO_DB }, 500);
+    if(!db) return json({ ok: false, error: NO_DB, version: VERSION, bindingsSeen: Object.keys(env || {}).map(k => `${k} (${env[k] === null ? 'null' : typeof env[k]})`) }, 500);
     try{
       await setup(env);
       const path = new URL(req.url).pathname.replace(/\/+$/, '');
       if(req.method === 'GET' && path === '/vapid') return json({ key: (await vapid(env)).pub });
-      if(req.method === 'GET' && (path === '' || path === '/')) return json({ ok: true, service: 'TT Alarm Bot push' });
+      if(req.method === 'GET' && (path === '' || path === '/')){   // health check: shows the database works
+        const subs = await env.DB.prepare('SELECT count(*) AS n FROM subs').first(), waiting = await env.DB.prepare("SELECT count(*) AS n FROM alarms WHERE status = 'wait'").first();
+        return json({ ok: true, service: 'TT Alarm Bot push', version: VERSION, phones: subs.n, alarmsWaiting: waiting.n });
+      }
       if(req.method !== 'POST') return json({ error: 'not found' }, 404);
       const body = await req.json().catch(() => null);
       if(!body) return json({ error: 'bad json' }, 400);
