@@ -61,7 +61,7 @@ Screenshots are read by Google Gemini (free tier).
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
-    upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the **Settings** button closes Settings the same way). Blocked
+    upcoming plays, filtered to **Not in mine / In both / All** (each with its count, and the total upcoming at the top), with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the **Settings** button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
     In your friends list, a dot shows where each friend is (hover it for the word): **green** = Online (on the site right now),
     **yellow** = Idle (the site is open in another tab or app), **grey** = Offline (a friend who closes the site turns grey within
