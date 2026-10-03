@@ -151,6 +151,8 @@ html,body{overflow-x:hidden}
 .fx output{color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
 .chatbg::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,10,10,.3),rgba(10,10,10,.4))}
 .chat.has-bg .chatbg{display:block}
+/* A video background plays in the same blurred, tinted layer (the ::after tint stays on top of it) */
+.chatbg video{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(var(--bg-blur,3px)) saturate(var(--bg-sat,1))}
 .chat .log,.chat .composer{position:relative;z-index:1}
 .chat.has-bg .msg.bot{background:var(--glass-msg);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .bgpick{display:flex;align-items:center;gap:4px}
@@ -898,13 +900,13 @@ html.phone .alpha-note{display:inline}
       </div></div>
     <div class="hud-row"><span class="lbl">Background</span>
       <div class="ctl bgpick">
-        <button class="ghost" id="bgPick">Choose image</button>
-        <button class="ghost" id="bgClear" aria-label="Remove background image" title="Remove background image">×</button>
-        <input type="file" id="bgFile" accept="image/*" hidden>
+        <button class="ghost" id="bgPick">Choose image or video</button>
+        <button class="ghost" id="bgClear" aria-label="Remove background" title="Remove background">×</button>
+        <input type="file" id="bgFile" accept="image/*,video/mp4,video/webm,video/quicktime" hidden>
         <label class="fx">Blur<input type="range" id="bgBlur" min="0" max="20" step="1" value="3"><output id="bgBlurOut">3px</output></label>
         <label class="fx">Saturation<input type="range" id="bgSat" min="0" max="200" step="5" value="100"><output id="bgSatOut">100%</output></label>
       </div>
-      <p class="note">The background is for this device only, so each phone or computer can have its own.</p></div>
+      <p class="note">A picture, an animated GIF (up to 8 MB) or a short video (MP4 or WebM, up to 25 MB, plays muted on a loop). The background is for this device only, so each phone or computer can have its own.</p></div>
     <div class="hud-row"><span class="lbl">P/L tracker</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch"><input type="checkbox" role="switch" id="plShow" checked> Show today's P/L</label>
@@ -1174,16 +1176,18 @@ const CHAT_DAYS = 3;
 const chatSaved = store.get('tt.chat', []) || [];
 let chatLog = chatSaved.filter(m => m && m.t > Date.now() - CHAT_DAYS * 864e5);
 // Screenshots sent in the chat are kept (downsized) in this browser's IndexedDB, which has far more room than localStorage
-const chatImgs = (() => {
+const idbStore = name => {
   let dbp = null;
-  const open = () => dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open('tt-chat', 1);
+  const open = () => dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open(name, 1);
     r.onupgradeneeded = () => r.result.createObjectStore('imgs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
   const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('imgs', mode), q = fn(t.objectStore('imgs'));
     t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
   const safe = p => p.catch(() => null);   // private windows etc.: just don't keep them
   return { put: (k, v) => safe(tx('readwrite', st => st.put(v, k))), get: k => safe(tx('readonly', st => st.get(k))),
            del: k => safe(tx('readwrite', st => st.delete(k))), clear: () => safe(tx('readwrite', st => st.clear())) };
-})();
+};
+const chatImgs = idbStore('tt-chat');
+const bgMedia = idbStore('tt-bg');   // a GIF or video background (too big for localStorage); tt.bg then holds 'idb:<n>'
 function addMsg(who, text, opts={}){
   const m = { t: Date.now(), who, text: text || '', ...(opts.err ? { err:true } : {}), ...(opts.facts ? { facts: opts.facts } : {}),
               ...(opts.imgs && opts.imgs.length ? { n: opts.imgs.length } : {}), ...(opts.bell ? { bell: opts.bell } : {}) };
@@ -1398,14 +1402,31 @@ function bgFx(){
   $(id).onchange = () => store.set('tt.bgFx', { blur: +$('#bgBlur').value, sat: +$('#bgSat').value });
 });
 bgFx();
-function applyBg(url){
-  $('.chat').style.setProperty('--bg-img', url ? `url("${url}")` : 'none');
-  $('.chat').classList.toggle('has-bg', !!url);
-  document.body.classList.toggle('has-bg', !!url);
-  // the main buttons (normally blue) take the background picture's colour
+/* tt.bg is a picture's data URL, or 'idb:…' for a GIF/video kept in IndexedDB (bgMedia 'bg') */
+async function applyBg(url){
+  if(url === applyBg.cur) return;   // unchanged (settings re-apply on every sync): don't restart a playing video
+  applyBg.cur = url;
   const root = document.documentElement.style, token = applyBg.token = (applyBg.token || 0) + 1;
-  if(!url){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
-  mainColor(url).then(c => {
+  let src = url, video = false;
+  if(url && url.startsWith('idb:')){
+    const blob = await bgMedia.get('bg');
+    if(token !== applyBg.token) return;
+    src = blob instanceof Blob ? URL.createObjectURL(blob) : null; video = !!src && blob.type.startsWith('video/');
+  }
+  if(applyBg.obj) URL.revokeObjectURL(applyBg.obj);
+  applyBg.obj = src && src.startsWith('blob:') ? src : null;
+  const box = $('.chatbg'); box.querySelector('video')?.remove();
+  if(video){
+    const v = Object.assign(document.createElement('video'), { src, muted:true, loop:true, autoplay:true, playsInline:true, preload:'auto' });
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
+    box.appendChild(v); v.play().catch(() => {});
+  }
+  $('.chat').style.setProperty('--bg-img', src && !video ? `url("${src}")` : 'none');
+  $('.chat').classList.toggle('has-bg', !!src);
+  document.body.classList.toggle('has-bg', !!src);
+  // the main buttons (normally blue) take the background's colour
+  if(!src){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
+  (video ? videoColor(box.querySelector('video')) : mainColor(src)).then(c => {
     if(token !== applyBg.token) return;   // a newer picture was set meanwhile
     if(!c){ root.removeProperty('--accent'); root.removeProperty('--on-accent'); return; }
     root.setProperty('--accent', `rgb(${c.rgb})`); root.setProperty('--on-accent', c.light ? '#1a1a1a' : '#fff');
@@ -1415,26 +1436,37 @@ function applyBg(url){
 function mainColor(url){
   return new Promise(res => {
     const im = new Image();
-    im.onload = () => {
-      const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
-      const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(im, 0, 0, N, N);
-      const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
-      for(let i = 0; i < d.length; i += 4){
-        if(d[i+3] < 128) continue;
-        const r = d[i], g = d[i+1], b = d[i+2], w = (Math.max(r,g,b) - Math.min(r,g,b)) / 255 + .05;   // favour colourful pixels over greys
-        const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5), e = bins.get(k) || { w:0, r:0, g:0, b:0 };
-        e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
-      }
-      let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
-      if(!best) return res(null);
-      let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
-      l = Math.min(.66, Math.max(.46, l)); sat = Math.max(sat, .35);
-      const rgb = fromHsl(h, sat, l), lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
-      res({ rgb: rgb.join(','), light: lum > .5 });
-    };
+    im.onload = () => res(colorOf(im));
     im.onerror = () => res(null);
     im.src = url;
   });
+}
+// a video's colour comes from a frame a moment in (the very first frame is often black)
+function videoColor(v){
+  return new Promise(res => {
+    const go = () => { try{ res(colorOf(v)); }catch(e){ res(null); } };
+    if(v.readyState >= 2 && v.currentTime > 0) return go();
+    v.addEventListener('timeupdate', function t(){ if(v.currentTime > .3){ v.removeEventListener('timeupdate', t); go(); } });
+    v.addEventListener('error', () => res(null), { once:true });
+    setTimeout(() => v.readyState >= 2 ? go() : res(null), 4000);   // paused (e.g. power saving): use what's there
+  });
+}
+function colorOf(im){
+  const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+  const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(im, 0, 0, N, N);
+  const d = ctx.getImageData(0, 0, N, N).data, bins = new Map();
+  for(let i = 0; i < d.length; i += 4){
+    if(d[i+3] < 128) continue;
+    const r = d[i], g = d[i+1], b = d[i+2], w = (Math.max(r,g,b) - Math.min(r,g,b)) / 255 + .05;   // favour colourful pixels over greys
+    const k = (r>>5)<<6 | (g>>5)<<3 | (b>>5), e = bins.get(k) || { w:0, r:0, g:0, b:0 };
+    e.w += w; e.r += r*w; e.g += g*w; e.b += b*w; bins.set(k, e);
+  }
+  let best = null; for(const e of bins.values()) if(!best || e.w > best.w) best = e;
+  if(!best) return null;
+  let [h, sat, l] = toHsl(best.r/best.w, best.g/best.w, best.b/best.w);
+  l = Math.min(.66, Math.max(.46, l)); sat = Math.max(sat, .35);
+  const rgb = fromHsl(h, sat, l), lum = (.2126*rgb[0] + .7152*rgb[1] + .0722*rgb[2]) / 255;
+  return { rgb: rgb.join(','), light: lum > .5 };
 }
 function toHsl(r, g, b){
   r/=255; g/=255; b/=255;
@@ -1452,18 +1484,30 @@ function fromHsl(h, s, l){
 
 applyBg(store.get('tt.bg', null));
 $('#bgPick').onclick = () => $('#bgFile').click();
-$('#bgFile').onchange = e => {
+const BG_MAX = { gif: 8, video: 25 };   // MB: big enough for a short loop, small enough to play smoothly and not hog the device's storage
+$('#bgFile').onchange = async e => {
   const f = e.target.files[0]; e.target.value = '';
-  if(!f || !f.type.startsWith('image/')) return;
+  if(!f) return;
+  const video = f.type.startsWith('video/'), gif = f.type === 'image/gif';
+  if(!video && !f.type.startsWith('image/')) return addMsg('bot', 'That file isn\'t a picture or a video, so it can\'t be the background.', { err:true });
+  if(video || gif){   // kept as is (shrinking would stop it moving), so it needs a size cap
+    const max = video ? BG_MAX.video : BG_MAX.gif, mb = f.size / 1048576;
+    if(mb > max) return addMsg('bot', `That ${video ? 'video' : 'GIF'} is ${mb.toFixed(1)} MB. Backgrounds can be up to ${max} MB, so try a shorter or smaller one.`, { err:true });
+    if(video && !document.createElement('video').canPlayType(f.type)) return addMsg('bot', 'This browser can\'t play that video. MP4 (H.264) or WebM works everywhere.', { err:true });
+    if(await bgMedia.put('bg', f) === null) return addMsg('bot', 'This browser didn\'t let the site save the file (a private window?), so it can\'t be the background.', { err:true });
+    const key = 'idb:' + Date.now();
+    applyBg(key); store.set('tt.bg', key);
+    return;
+  }
   const r = new FileReader();
   r.onload = async () => {
     const url = await shrink(r.result, 1600);   // blurred anyway, so a smaller copy keeps storage free for alarms
-    applyBg(url);
+    applyBg(url); bgMedia.del('bg');
     if(!store.set('tt.bg', url)) addMsg('bot', 'Browser storage is full, so the background won\'t survive a reload.', { err:true });
   };
   r.readAsDataURL(f);
 };
-$('#bgClear').onclick = () => { applyBg(null); store.del('tt.bg'); };
+$('#bgClear').onclick = () => { applyBg(null); store.del('tt.bg'); bgMedia.del('bg'); };
 
 /* ---------- LLM ---------- */
 const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
