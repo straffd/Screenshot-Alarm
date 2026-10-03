@@ -950,6 +950,12 @@ html.phone .alpha-note{display:inline}
     <div class="hud-row"><label class="lbl" for="defOdds">Default odds</label>
       <div class="ctl lead"><input id="defOdds" type="number" min="1.01" step="0.01" inputmode="decimal" placeholder="e.g. 1.85"><span>filled in when you press Cash</span></div>
       <p class="note">The Cash popup (and each new slot for several bets) starts with these odds already filled in. You can change them before saving; nothing is recorded until you press Save. Leave empty to type them each time.</p></div>
+    <div class="hud-row"><label class="lbl" for="botUnits">Bot units</label>
+      <div class="ctl" style="display:grid;gap:10px">
+        <label class="switch"><input type="checkbox" role="switch" id="botUnitsOn"> Use a different unit size for bot plays</label>
+        <div class="ctl lead"><input id="botUnits" type="number" min="0.01" step="0.1" inputmode="decimal" placeholder="e.g. 0.5"><span>units for bets tagged Bot</span></div>
+      </div>
+      <p class="note">With this on, bets tagged Bot start with these units (Cash / Chalk buttons and the Cash popup) instead of your last-used units, and recording them doesn't change your last-used units.</p></div>
     <div class="hud-row"><span class="lbl">Tags</span>
       <div class="ctl" style="display:grid;gap:10px">
         <div class="taglist" id="tagList"></div>
@@ -1959,8 +1965,8 @@ function render(){
       <button class="del" aria-label="Delete bet" title="Delete bet">×</button>`;
     c.querySelector('.names').textContent = a.name;
     if(c.querySelector('.settle')){
-      c.querySelector('.cash').onclick = e => { e.stopPropagation(); if(avgOdds()) settle(a, 'cash', avgOdds(), lastUnits()); else openSettle({ alarm:a, result:'cash' }); };
-      c.querySelector('.chalk').onclick = e => { e.stopPropagation(); settle(a, 'chalk', null, lastUnits()); };
+      c.querySelector('.cash').onclick = e => { e.stopPropagation(); if(avgOdds()) settle(a, 'cash', avgOdds(), unitsFor(a)); else openSettle({ alarm:a, result:'cash' }); };
+      c.querySelector('.chalk').onclick = e => { e.stopPropagation(); settle(a, 'chalk', null, unitsFor(a)); };
       c.querySelector('.more').onclick = e => { e.stopPropagation(); openSettle({ alarm:a, result:'cash', multi:true }); };
     }
     c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
@@ -2209,12 +2215,20 @@ const playPL = p => Array.isArray(p.bets) && p.bets.length ? p.bets.reduce((t, b
 const betsResult = bets => { const pl = bets.reduce((t, b) => t + betPL(b), 0); return pl > 0 || (pl === 0 && bets.some(b => b.result === 'cash')) ? 'cash' : 'chalk'; };
 const betsUnits = bets => +bets.reduce((t, b) => t + (b.units || 0), 0).toFixed(4);
 const lastUnits = () => store.get('tt.lastUnits', 1);
+// Bot units (Settings → Betting): bot-tagged bets can start with their own unit size
+const botUnitsOn = () => store.get('tt.botUnitsOn', false) === true && +store.get('tt.botUnits', 0) > 0;
+const usesBotUnits = a => !!a && botUnitsOn() && isBot(a);
+const unitsFor = a => usesBotUnits(a) ? +store.get('tt.botUnits', 1) : lastUnits();
+function botUnitsPrefs(){ $('#botUnitsOn').checked = store.get('tt.botUnitsOn', false) === true; const u = +store.get('tt.botUnits', 0); $('#botUnits').value = u > 0 ? u : ''; $('#botUnits').disabled = !$('#botUnitsOn').checked; }
+$('#botUnitsOn').onchange = e => { store.set('tt.botUnitsOn', e.target.checked); botUnitsPrefs(); if(e.target.checked && !(+store.get('tt.botUnits', 0) > 0)) $('#botUnits').focus(); };
+$('#botUnits').onchange = e => { const u = +e.target.value; store.set('tt.botUnits', u > 0 ? +u.toFixed(2) : 0); botUnitsPrefs(); };
+botUnitsPrefs();
 function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); renderPnl(); if(typeof renderLeaderboard === 'function') renderLeaderboard(); }
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
 function settle(a, result, odds, units, bets){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
                   edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, ...(bets ? { bets } : {}), settled: Date.now() });
-  if(units && !bets) store.set('tt.lastUnits', units);
+  if(units && !bets && !usesBotUnits(a)) store.set('tt.lastUnits', units);   // bot units don't become your last-used units
   alarms = alarms.filter(x => x.id !== a.id); store.set('tt.alarms', alarms);
   toast(bets ? `Recorded ${bets.length} bets: ${a.name} (${fmtPL(playPL(plays[0]))})`
     : result === 'cash' ? `Cashed: ${a.name}${odds ? ` @ ${odds}` : ''} (${fmtPL(playPL(plays[0]))})` : `Chalked: ${a.name} (${fmtPL(-(units || 0))})`);
@@ -2228,11 +2242,11 @@ function openSettle({ alarm, play, result, multi }){
   settling.side = playType(src); showType();
   $('#settleTitle').textContent = src.name;
   $('#settleOdds').value = play ? (play.odds || '') : defOdds();   // a new result starts with your default odds
-  $('#settleUnits').value = play ? play.units : lastUnits();
+  $('#settleUnits').value = play ? play.units : unitsFor(alarm);
   $('#settleDelete').hidden = !play;
   $('#settleSave').textContent = play ? 'Save changes' : 'Save to history';
   if(play && Array.isArray(play.bets) && play.bets.length) settling.bets = play.bets.map(b => ({ ...b, type: b.type ?? settling.side }));
-  else if(multi) settling.bets = [{ result:'cash', odds:defOdds(), units:lastUnits(), type:settling.side }, { result:'cash', odds:defOdds(), units:lastUnits(), type:settling.side }];
+  else if(multi) settling.bets = [{ result:'cash', odds:defOdds(), units:unitsFor(alarm), type:settling.side }, { result:'cash', odds:defOdds(), units:unitsFor(alarm), type:settling.side }];
   showBets(); pickResult(settling.result); openModal('#settleModal');
   setTimeout(() => (settling.bets ? $('#betRows input') : settling.result === 'cash' && !$('#settleOdds').value ? $('#settleOdds') : $('#settleUnits')).focus(), 50);
 }
@@ -2277,8 +2291,8 @@ function showBets(){
 }
 $('#addBet').onclick = () => {
   // from a single bet, keep what was typed as the first slot
-  if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || lastUnits(), type: settling.side }];
-  settling.bets.push({ result:'cash', odds: defOdds(), units: lastUnits(), type: settling.side });
+  if(!settling.bets) settling.bets = [{ result: settling.result, odds: $('#settleOdds').value, units: $('#settleUnits').value || unitsFor(settling.play || settling.alarm), type: settling.side }];
+  settling.bets.push({ result:'cash', odds: defOdds(), units: unitsFor(settling.play || settling.alarm), type: settling.side });
   showBets(); const ins = $('#betRows').querySelectorAll('.bet:last-child input'); if(ins[0]) ins[0].focus();
 };
 function pickResult(r){
@@ -2309,7 +2323,7 @@ $('#settleSave').onclick = () => {
   closeModal($('#settleModal'));
   if(settling.play){
     Object.assign(settling.play, { result: r, odds: r === 'cash' ? odds : (odds > 1 ? odds : null), units }); delete settling.play.bets;
-    store.set('tt.lastUnits', units); savePlays();
+    if(!usesBotUnits(settling.play)) store.set('tt.lastUnits', units); savePlays();
   } else settle(settling.alarm, r, odds > 1 ? odds : null, units);
 };
 function saveBets(){
@@ -2325,7 +2339,7 @@ function saveBets(){
   if(bets.length === 1){   // only one slot left: store it as a plain single bet
     const [b] = bets, r = b.result === 'void' ? 'chalk' : b.result;
     if(b.result !== 'void'){
-      if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; store.set('tt.lastUnits', b.units); return savePlays(); }   // one bet: its type is the match's
+      if(settling.play){ Object.assign(settling.play, { result:r, odds:b.odds, units:b.units }); delete settling.play.bets; if(!usesBotUnits(settling.play)) store.set('tt.lastUnits', b.units); return savePlays(); }   // one bet: its type is the match's
       return settle(settling.alarm, r, b.odds, b.units);
     }
   }
@@ -3127,7 +3141,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.botUnitsOn', 'tt.botUnits', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -3157,7 +3171,7 @@ function refreshFromStore(){
     uiTheme = store.get('tt.theme', null); applyTheme(uiTheme); applyTopColor();
     applyBg(store.get('tt.bg', null));
     linkPrefs(); cleanupPrefs();
-    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs(); if(typeof renderLeaderboard === 'function') renderLeaderboard();   // results from your other devices
+    plays = store.get('tt.history', []) || []; plSettings(); bgFx(); renderPnl(); alarmsPrefs(); botUnitsPrefs(); if(typeof renderLeaderboard === 'function') renderLeaderboard();   // results from your other devices
     tags = store.get('tt.tags', []) || []; ensureSweepTag(); renderTagSettings(); renderViewerTags();
     [...ringing].forEach(id => { const a = alarms.find(x => x.id === id); if(!a || a.stopped) stopAlarm(id, true); });   // stopped (or settled) on another device
     render();
