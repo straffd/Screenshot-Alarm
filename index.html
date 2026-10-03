@@ -460,6 +460,9 @@ button.tag{cursor:pointer}
 .frow.click:hover{border-color:var(--muted)}
 .frow .who{flex:1;min-width:0}
 .frow .who b{display:block;font:600 15px var(--cond)}
+.pres{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--muted);opacity:.6}
+.pres.on{background:var(--green);opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
+.pres.away{background:var(--yellow);opacity:1}
 .frow .who small{color:var(--muted);font-size:12.5px}
 .frow .ghost{padding:5px 10px}
 .frow .chev{color:var(--muted);font-size:12px}
@@ -3275,7 +3278,7 @@ async function startSocial(uid){
       $('#reqBadge').hidden = !incoming; $('#reqBadge').textContent = incoming;
       renderFriends();
       if(social.view && !friendOf(social.view)) stopViewing();   // unfriended or blocked while viewing
-      syncBells(); if($('#lb').classList.contains('open')) lbWatch(true);   // friends added or removed
+      syncBells(); if($('#lb').classList.contains('open')) lbWatch(true); if($('#friends').classList.contains('open')) presenceWatch(true);   // friends added or removed
     }));
     social.unsubs.push(F.onSnapshot(F.query(F.collection(sync.fb.db, 'blocks'), F.where('by', '==', uid)), async snap => {
       social.blocked = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -3283,7 +3286,7 @@ async function startSocial(uid){
     }));
     const old = await F.getDocs(F.collection(sync.fb.db, 'profiles', uid, 'plays'));
     old.docs.forEach(d => social.lastPub.set(d.id, JSON.stringify(d.data())));
-    renderAccount(); publishSoon();
+    renderAccount(); publishSoon(); beat();
     if(social.invite) openFriends(social.me ? 'add' : 'me');
   }catch(e){ console.warn('Friends unavailable', e); }
 }
@@ -3398,7 +3401,8 @@ function fList(body){
   fr.forEach(f => {
     const uid = f.members.find(m => m !== social.uid), c = social.cards.get(uid) || { username:'…' }, open = social.open === uid;
     const row = el('div', 'frow click'); row.setAttribute('aria-expanded', open); row.tabIndex = 0;
-    row.append(pfpEl(c), (() => { const w = el('div', 'who'); w.append(el('b', '', '@' + c.username), el('small', '', 'PNL · History · Bets')); return w; })(), el('span', 'chev', open ? '▴' : '▾'));
+    const ps = presState(uid), dot = el('span', 'pres ' + ps); dot.title = { on:'On the site now', away:'Site open in the background', off:'Offline' }[ps]; dot.setAttribute('aria-label', dot.title);
+    row.append(pfpEl(c), (() => { const w = el('div', 'who'), b = el('b'); b.append(dot, '@' + c.username); w.append(b, el('small', '', 'PNL · History · Bets')); return w; })(), el('span', 'chev', open ? '▴' : '▾'));
     row.onclick = () => { social.open = open ? null : uid; renderFriends(); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
     body.appendChild(row);
@@ -3693,7 +3697,33 @@ function copyPlay(p, from, quiet){   // quiet: part of Copy all (saving and the 
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
   toast(`Copied ${p.name} to your bets.`);
 }
-SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => renderFriends() };
+SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => { presenceWatch(true); renderFriends(); }, onClose: () => presenceWatch(false) };
+/* ---------- Online / away / offline ----------
+   While you have the site open, profiles/{uid}/meta/presence gets a timestamp every 45 s plus whether the page is in
+   front (friends can read it, only you can write it). Friends see: green = on the site now, yellow = the site is open in
+   another tab or app, grey = closed (a closed page goes grey within ~1½ minutes if it couldn't say goodbye).
+   Friends' timestamps are only watched while the Friends panel is open. */
+const PRES_EVERY = 45e3, PRES_FRESH = 130e3;   // check in every 45 s; older than 130 s = offline (background tabs may be slowed to once a minute)
+let presTimer = null, presUnsubs = new Map(), presTick = null;
+function beat(){
+  clearTimeout(presTimer);
+  if(!sync.user || !social || !social.uid || !sync.fb) return;
+  fdb().setDoc(fdoc('profiles', social.uid, 'meta', 'presence'), { at: Date.now(), active: document.visibilityState === 'visible' }).catch(() => {});
+  presTimer = setTimeout(beat, PRES_EVERY);   // keeps going in a background tab (as "away")
+}
+document.addEventListener('visibilitychange', beat);
+addEventListener('pagehide', () => { if(sync.user && social && social.uid) fdb().setDoc(fdoc('profiles', social.uid, 'meta', 'presence'), { at: 0, active: false }).catch(() => {}); });
+// 'on' (on the site now), 'away' (open in the background) or 'off'
+const presState = uid => { const p = social.presence && social.presence.get(uid); return !p || !p.at || Date.now() - p.at >= PRES_FRESH ? 'off' : p.active === false ? 'away' : 'on'; };
+function presenceWatch(on){
+  social.presence = social.presence || new Map();
+  const want = on && social.uid && sync.fb ? new Set(social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid))) : new Set();
+  presUnsubs.forEach((u, uid) => { if(!want.has(uid)){ u(); presUnsubs.delete(uid); } });
+  want.forEach(uid => { if(presUnsubs.has(uid)) return;
+    presUnsubs.set(uid, fdb().onSnapshot(fdoc('profiles', uid, 'meta', 'presence'),
+      snap => { const d = snap.exists() ? snap.data() : {}; social.presence.set(uid, { at: +d.at || 0, active: d.active !== false }); renderFriends(); }, () => {})); });
+  clearInterval(presTick); if(want.size) presTick = setInterval(renderFriends, 30e3);   // someone who stops checking in goes grey
+}
 SLIDES.falarms = { el:'#falarms', btn:'#friendsBtn', onOpen: () => renderFAlarms() };
 
 $('#googleSignIn').onclick = signIn;
