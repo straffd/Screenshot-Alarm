@@ -645,6 +645,8 @@ html:not(.phone) #menuBtn{order:2}
 html:not(.phone) #menuBtn .lbl{display:inline}
 .barlead{display:none}
 html:not(.phone) .barlead{order:3;display:flex;align-items:center;gap:6px;margin-left:auto;height:32px;padding:0 10px;border-radius:6px;color:var(--muted);font:500 14px var(--sans);cursor:text}
+html:not(.phone) .barlead.baruv{margin-left:2px;gap:4px}
+html:not(.phone) .baruv input{width:54px}
 html:not(.phone) .barlead:hover,html:not(.phone) .barlead:focus-within{color:var(--text)}   /* no fill: just brightens */
 html:not(.phone) .barlead input{width:44px;height:24px;box-sizing:border-box;padding:0 4px;text-align:center;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:5px;font:600 14px var(--sans);-moz-appearance:textfield}
 html:not(.phone) .barlead input::-webkit-inner-spin-button,html:not(.phone) .barlead input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
@@ -746,6 +748,9 @@ html.phone .alpha-note{display:inline}
   <label class="barlead" title="Alarms ring this many minutes before each match">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg>
     <input id="barLead" type="number" min="0" max="600" inputmode="numeric" aria-label="Alarm: minutes before the match"><span>min</span>
+  </label>
+  <label class="barlead baruv" title="Your unit value: what 1 unit is worth in dollars (used when P/L is shown in dollars)">
+    <span>1U =</span><input id="barUV" type="number" min="0.01" step="0.5" inputmode="decimal" aria-label="Unit value in dollars">
   </label>
   <button class="me-chip" id="meChip" title="Your profile"><span id="meName"></span><span id="mePfp"></span></button>
   <div class="toolbar" id="toolbar" hidden>
@@ -2199,6 +2204,18 @@ ensureSweepTag(); renderTagSettings();
 const fmtU = n => (Math.round(n * 100) / 100).toString();
 const inDollars = () => plPrefs.money === 'dollars';
 const unitValue = () => +plPrefs.unitValue > 0 ? +plPrefs.unitValue : 10;
+/* Dollars follow the unit value at the time: each result remembers the $ per unit when it was recorded (p.uv), and
+   changes to "1 unit = $" are kept with their date (tt.uvHistory) for results recorded before that. So 4u won on a
+   $10-a-unit day stays $40 even after you move to $25 a unit. Units are never affected. */
+function uvAt(p){
+  if(+p.uv > 0) return +p.uv;
+  const h = store.get('tt.uvHistory', null), t = p.settled || p.start || 0;
+  if(Array.isArray(h) && h.length){ let v = h[0].v; for(const e of h) if(e.from <= t) v = e.v; return v; }
+  return unitValue();
+}
+// a result's weight in the dollar display: its own unit value against today's (P/L is shown as units × today's value)
+const dw = p => inDollars() ? uvAt(p) / unitValue() : 1;
+const shownPL = p => playPL(p) * dw(p);
 // Signed P/L in the chosen display: "+1.7u" or "+$17.00"
 const fmtPL = n => (n > 0 ? '+' : n < 0 ? '−' : '') + (inDollars() ? '$' + (Math.abs(n) * unitValue()).toFixed(2) : fmtU(Math.abs(n)) + 'u');
 // One bet: cash wins units × (odds − 1), chalk loses the units, void (refunded / not settled) is 0
@@ -2213,7 +2230,7 @@ function savePlays(){ store.set('tt.history', plays); render(); tickTracker(); r
 // Record a finished alarm as a hit (cash) or a loss (chalk); it moves from the alarm list into history
 function settle(a, result, odds, units, bets){
   plays.unshift({ id: a.id, name: a.name, league: a.league || '', start: a.start, side: a.side, line: a.line || '', ouPct: a.ouPct || '',
-                  edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, ...(bets ? { bets } : {}), settled: Date.now() });
+                  edge: a.edge, tags: a.tags || [], result, odds: odds || null, units: units || 0, ...(bets ? { bets } : {}), settled: Date.now(), uv: unitValue() });
   if(units && !bets) store.set('tt.lastUnits', units);
   alarms = alarms.filter(x => x.id !== a.id); store.set('tt.alarms', alarms);
   toast(bets ? `Recorded ${bets.length} bets: ${a.name} (${fmtPL(playPL(plays[0]))})`
@@ -2376,7 +2393,7 @@ function plSettings(){
   $('#plShow').checked = plPrefs.showPL !== false; $('#timeShow').checked = plPrefs.showTime !== false;
   $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
-  $('#hourFmt').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = !inDollars();
+  $('#hourFmt').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = false; $('#barUV').value = unitValue();   // the unit value is always shown
   plSize(plPrefs.size || 130);
   const pos = plPrefs.pos === 'right' ? 'right' : 'left'; $('#plPos').value = pos;
   $('#plTab').classList.toggle('pos-right', pos === 'right');
@@ -2384,11 +2401,19 @@ function plSettings(){
   tickTracker();
 }
 function savePlPrefs(){
+  const oldUV = unitValue(), newUV = Math.max(0.01, +$('#unitValue').value || 10);
+  if(newUV !== oldUV){   // remember when the unit value changed, so earlier results keep their own dollars
+    const h = store.get('tt.uvHistory', null) || [{ from: 0, v: oldUV }];
+    store.set('tt.uvHistory', [...h, { from: Date.now(), v: newUV }].slice(-50));
+  }
   plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, hour24: $('#hourFmt').value === '24',
               money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130, pos: $('#plPos').value };
   store.set('tt.plPrefs', plPrefs); plSettings(); render();
 }
 ['#plShow', '#timeShow', '#hourFmt', '#plMoney', '#unitValue', '#plSize', '#plPos'].forEach(id => $(id).onchange = savePlPrefs);
+// the unit value in the top bar (computers): the same setting as Settings → P/L tracker
+$('#barUV').onchange = e => { const v = Math.max(0.01, +e.target.value || unitValue()); $('#unitValue').value = v; savePlPrefs(); toast(`1 unit = $${+v.toFixed(2)}. Results you've already recorded keep their own unit value.`); };
+$('#barUV').onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); e.target.blur(); } };
 // Size of the time | PNL tab (computers), 80–200%: scales the tab and the space the chat leaves for it
 function plSize(pct){
   $('#plSize').value = pct; $('#plSizeOut').textContent = pct + '%';
@@ -2412,7 +2437,7 @@ function tickTracker(){
   }
   if(showPL){
     // today's P/L, split into my own plays and bot picks (tagged Bot)
-    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = bot => sidePlays(td, bot).reduce((t, p) => t + playPL(p), 0);
+    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = bot => sidePlays(td, bot).reduce((t, p) => t + shownPL(p), 0);
     const me = sum(false), bot = sum(true);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
@@ -2430,7 +2455,7 @@ function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { 
 // Units, odds and PNL are always shared with friends.
 let pnlFor = null, histFor = null;
 function subject(forUid = pnlFor){
-  if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: playPL, txt: plText, k: inDollars() ? unitValue() : 1 };
+  if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: shownPL, txt: plText, k: inDollars() ? unitValue() : 1 };
   const card = social.cards.get(forUid) || {};
   const fp = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
   // pl comes from the friend's app; older entries without it are worked out from their odds and units
@@ -2549,7 +2574,7 @@ function renderPnl(){
     $('#pnlStats').appendChild(d);
   });
   // ROI: profit as a share of the units staked (void bets were refunded, so they don't count as staked)
-  const staked = p => Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void').reduce((t, b) => t + (+b.units || 0), 0) : (+p.units || 0);
+  const staked = p => (Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void').reduce((t, b) => t + (+b.units || 0), 0) : (+p.units || 0)) * (S.own ? dw(p) : 1);   // in dollars: at its own unit value
   const roi = list => { const st = list.reduce((t, p) => t + staked(p), 0); return st > 0 ? list.reduce((t, p) => t + S.val(p), 0) / st * 100 : null; };
   const pct = v => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
   const r = roi(S.plays), rd = document.createElement('div');
@@ -2587,7 +2612,7 @@ function typeEntries(S, staked){
   const out = [];
   S.plays.forEach(p => {
     if(Array.isArray(p.bets) && p.bets.length && p.bets.some(b => b.type != null))
-      p.bets.forEach(b => { if(b.result !== 'void') out.push({ p, type: b.type ?? playType(p), pl: betPL({ result:b.result, odds:+b.odds, units:+b.units }), st: +b.units || 0, win: b.result === 'cash', odds: +b.odds > 1 ? [+b.odds] : [] }); });
+      p.bets.forEach(b => { const w = S.own ? dw(p) : 1; if(b.result !== 'void') out.push({ p, type: b.type ?? playType(p), pl: betPL({ result:b.result, odds:+b.odds, units:+b.units }) * w, st: (+b.units || 0) * w, win: b.result === 'cash', odds: +b.odds > 1 ? [+b.odds] : [] }); });
     else out.push({ p, type: playType(p), pl: S.val(p), st: staked(p), win: p.result === 'cash',
       odds: Array.isArray(p.bets) && p.bets.length ? p.bets.filter(b => b.result !== 'void' && +b.odds > 1).map(b => +b.odds) : +p.odds > 1 ? [+p.odds] : [] });
   });
@@ -3127,7 +3152,7 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen', 'tt.uvHistory'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
 const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
 
@@ -3303,7 +3328,7 @@ function setDrawer(open){
 }
 function renderDrawer(){
   const vp = plays, up = alarms.filter(a => !a.fired && leagueShown(a)).length, ringingN = ringing.size;
-  const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + playPL(p), 0);
+  const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + shownPL(p), 0);
   const reqs = social && social.uid ? social.friendships.filter(f => f.status === 'pending' && f.to === social.uid).length : 0;
   const set = (id, text, pill) => { const e = $(id); e.textContent = text; e.className = pill ? 'pill ' + pill : ''; };
   set('#drBets', ringingN ? `${ringingN} ringing` : up ? String(up) : '', ringingN ? 'orange' : '');
