@@ -1576,8 +1576,10 @@ async function send(){
   const many = imgs.length > 1;
   const thinking = addMsg('bot', imgs.length ? (many ? `Reading screenshot 1 of ${imgs.length}…` : 'Reading the screenshot…') : '…', { temp:true });
   const status = t => { thinking.firstChild.textContent = t; };
+  const mark = !imgs.length && isUndo(text) ? null : undoMark();   // remember the bets before this send, so "undo" can reverse it
   try{
-    if(imgs.length){
+    if(!mark){ thinking.remove(); undoLast(); }   // "undo" / "revert": reverse the last bets the bot placed
+    else if(imgs.length){
       const prompt = EXTRACT_PROMPT + (text ? `\n\nExtra note from the user: ${text}` : '');
       const keep = keepTagsRequest(text);   // "don't overwrite the tags": bets you already have keep theirs
       const entries = [], problems = [], tagNames = tagRequest(keep.rest);   // "tag all these with Strong"
@@ -1614,7 +1616,43 @@ async function send(){
   }catch(e){
     thinking.remove();
     addMsg('bot', e instanceof SyntaxError ? 'The model\'s answer wasn\'t readable. Try sending the screenshot again.' : e.message, { err:true });
-  }finally{ sending = false; }
+  }finally{ sending = false; if(mark) undoRecord(mark); }
+}
+
+/* ---------- Undo ----------
+   "undo", "revert", "undo that", "take that back" (with no screenshot) reverses the bot's last change to your bets: bets it
+   just added are removed, tags it changed on bets you already had go back, and tags it created for them are deleted if
+   nothing else uses them. The last 5 sends can be undone, one at a time. Things you did yourself since (Cash / Chalk,
+   deleting a bet, editing tags) are left alone. Kept for this visit only. */
+const undoStack = [];
+const isUndo = t => /^\s*(?:please\s+|pls\s+|can you\s+|could you\s+)?(?:undo|revert|reverse|take (?:that|it|them) back)\b[\w\s']{0,40}[.!?]*\s*$/i.test(String(t || ''));
+function undoMark(){ return { ids: new Set(alarms.map(a => a.id)), tagsOf: new Map(alarms.map(a => [a.id, [...(a.tags || [])]])), tagIds: new Set(tags.map(t => t.id)) }; }
+function undoRecord(mark){
+  const added = alarms.filter(a => !mark.ids.has(a.id)).map(a => ({ id: a.id, name: a.name }));
+  const changed = alarms.filter(a => mark.ids.has(a.id) && JSON.stringify(a.tags || []) !== JSON.stringify(mark.tagsOf.get(a.id)))
+    .map(a => ({ id: a.id, name: a.name, before: mark.tagsOf.get(a.id), after: [...(a.tags || [])] }));
+  const newTags = tags.filter(t => !mark.tagIds.has(t.id)).map(t => t.id);
+  if(!added.length && !changed.length && !newTags.length) return;
+  undoStack.push({ added, changed, newTags }); if(undoStack.length > 5) undoStack.shift();
+}
+function undoLast(){
+  const u = undoStack.pop();
+  if(!u) return addMsg('bot', 'Nothing to undo. (I can undo my last 5 sends since you opened the site.)');
+  const gone = [], settled = [], restored = [];
+  u.added.forEach(x => { const a = alarms.find(y => y.id === x.id);
+    if(a){ if(ringing.has(a.id)) stopAlarm(a.id, true); gone.push(a.name); }
+    else if(plays.some(p => p.id === x.id)) settled.push(x.name); });   // already recorded as Cash / Chalk: left in History
+  alarms = alarms.filter(a => !u.added.some(x => x.id === a.id));
+  u.changed.forEach(x => { const a = alarms.find(y => y.id === x.id);
+    if(a && JSON.stringify(a.tags || []) === JSON.stringify(x.after)){ a.tags = x.before; restored.push(a.name); } });   // only if you haven't changed them since
+  const inUse = id => alarms.some(a => (a.tags || []).includes(id)) || plays.some(p => (p.tags || []).includes(id));
+  const dropped = u.newTags.filter(id => !inUse(id) && id !== 'bot' && id !== 'sweep');
+  const droppedNames = dropped.map(id => (tags.find(t => t.id === id) || {}).name).filter(Boolean);
+  if(dropped.length){ tags = tags.filter(t => !dropped.includes(t.id)); saveTags(); }
+  store.set('tt.alarms', alarms); render();
+  const facts = [...gone.map(n => ['Removed', n]), ...restored.map(n => ['Tags back', n]), ...settled.map(n => ['Kept', `${n} (already recorded in History)`]),
+                 ...(droppedNames.length ? [['Deleted tag' + (droppedNames.length > 1 ? 's' : ''), droppedNames.join(', ')]] : [])];
+  addMsg('bot', facts.length ? `Undone.${undoStack.length ? ' Say undo again to reverse the send before that.' : ''}` : 'That change was already undone or changed since, so there was nothing left to reverse.', { facts });
 }
 
 function cropRow(dataUrl, box){
