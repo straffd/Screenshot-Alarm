@@ -34,7 +34,7 @@ Screenshots are read by Google Gemini (free tier).
    Click a history entry to edit or delete it.
 8. The tab at the top right of the chat shows today's combined P/L (matches starting today, reset to 0 at 12 AM); hover over it
    (or tap it on a phone) to split it into **Me** (your own plays) and **Bot** (bot picks). Next to it is
-   the current time. In ⚙ Settings → P/L tracker you can hide either half, pick a 12- or 24-hour clock, show P/L in units or dollars (with your $ per unit), and set its **Size** (computers, 80–200%) and **Position**: left or right (beside any open panels).
+   the current time. In ⚙ Settings → P/L tracker you can hide either half, pick a 12- or 24-hour clock, show P/L in units or dollars (with your $ per unit), (each result keeps the unit value from the day it was recorded, so changing "1 unit = $" later doesn't re-price old results; the unit value box is always in Settings, and on computers also next to ⏰ in the top bar as **1U = [ ]**), and set its **Size** (computers, 80–200%) and **Position**: left or right (beside any open panels).
 9. Press **PNL** in the top bar for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this week / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
