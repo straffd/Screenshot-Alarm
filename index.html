@@ -3717,24 +3717,32 @@ SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => { presenceWat
    another tab or app, grey = closed (a closed page goes grey within ~1½ minutes if it couldn't say goodbye).
    Friends' timestamps are only watched while the Friends panel is open. */
 const PRES_EVERY = 45e3, PRES_FRESH = 130e3;   // check in every 45 s; older than 130 s = offline (background tabs may be slowed to once a minute)
-let presTimer = null, presUnsubs = new Map(), presTick = null;
+let presTimer = null, presUnsubs = new Map(), presTick = null, presSelf = null, clockOff = 0;
+// Check-ins are stamped with the server's clock, and each device learns how far its own clock is from the server's
+// (from its own check-ins), so a phone or PC whose clock is a few minutes out doesn't show friends as offline.
+const tsMs = v => v && typeof v.toMillis === 'function' ? v.toMillis() : +v || 0;
+const serverNow = () => Date.now() + clockOff;
 function beat(){
   clearTimeout(presTimer);
   if(!sync.user || !social || !social.uid || !sync.fb) return;
-  fdb().setDoc(fdoc('profiles', social.uid, 'meta', 'presence'), { at: Date.now(), active: document.visibilityState === 'visible' }).catch(() => {});
+  const F = fdb(), ref = fdoc('profiles', social.uid, 'meta', 'presence');
+  if(!presSelf) presSelf = F.onSnapshot(ref, snap => { const d = snap.exists() ? snap.data() : null;   // my own check-in, as the server stamped it
+    if(d && !snap.metadata.hasPendingWrites && tsMs(d.at) && d.t) clockOff = tsMs(d.at) - d.t; }, () => {});
+  F.setDoc(ref, { at: F.serverTimestamp(), t: Date.now(), active: document.visibilityState === 'visible' }).catch(e => console.warn('Presence check-in failed', e));
   presTimer = setTimeout(beat, PRES_EVERY);   // keeps going in a background tab (as "away")
 }
 document.addEventListener('visibilitychange', beat);
 addEventListener('pagehide', () => { if(sync.user && social && social.uid) fdb().setDoc(fdoc('profiles', social.uid, 'meta', 'presence'), { at: 0, active: false }).catch(() => {}); });
 // 'on' (on the site now), 'away' (open in the background) or 'off'
-const presState = uid => { const p = social.presence && social.presence.get(uid); return !p || !p.at || Date.now() - p.at >= PRES_FRESH ? 'off' : p.active === false ? 'away' : 'on'; };
+const presState = uid => { const p = social.presence && social.presence.get(uid); return !p || !p.at || serverNow() - p.at >= PRES_FRESH ? 'off' : p.active === false ? 'away' : 'on'; };
 function presenceWatch(on){
   social.presence = social.presence || new Map();
   const want = on && social.uid && sync.fb ? new Set(social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid))) : new Set();
   presUnsubs.forEach((u, uid) => { if(!want.has(uid)){ u(); presUnsubs.delete(uid); } });
   want.forEach(uid => { if(presUnsubs.has(uid)) return;
     presUnsubs.set(uid, fdb().onSnapshot(fdoc('profiles', uid, 'meta', 'presence'),
-      snap => { const d = snap.exists() ? snap.data() : {}; social.presence.set(uid, { at: +d.at || 0, active: d.active !== false }); renderFriends(); }, () => {})); });
+      snap => { const d = snap.exists() ? snap.data() : {}; social.presence.set(uid, { at: tsMs(d.at), active: d.active !== false }); renderFriends(); },
+      e => console.warn('Can\'t see a friend\'s online status', e))); });
   clearInterval(presTick); if(want.size) presTick = setInterval(renderFriends, 30e3);   // someone who stops checking in goes grey
 }
 SLIDES.falarms = { el:'#falarms', btn:'#friendsBtn', onOpen: () => renderFAlarms() };
