@@ -659,6 +659,15 @@ html:not(.phone) .barlead.baruv{margin-left:2px;gap:4px}
 html:not(.phone) .baruv input{width:54px}
 html:not(.phone) .barlead:hover,html:not(.phone) .barlead:focus-within{color:var(--text)}   /* no fill: just brightens */
 html:not(.phone) .barlead input{width:44px;height:24px;box-sizing:border-box;padding:0 4px;text-align:center;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:5px;font:600 14px var(--sans);-moz-appearance:textfield}
+/* $ | U switch beside the unit value: the knob slides under the one in use */
+.moneysw{display:none}
+html:not(.phone) .moneysw{order:3;display:inline-grid;grid-template-columns:1fr 1fr;position:relative;align-self:center;height:26px;width:58px;padding:2px;margin:0 6px 0 2px;border-radius:13px;
+  background:var(--bg);border:1px solid var(--line);cursor:pointer;font:700 13px/1 var(--sans);color:var(--muted)}
+html:not(.phone) .moneysw::before{content:"";position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:11px;background:var(--accent,var(--brand));transition:transform .18s ease}
+html:not(.phone) .moneysw[aria-checked="true"]::before{transform:translateX(100%)}
+html:not(.phone) .moneysw span{position:relative;display:grid;place-items:center;transition:color .18s}
+html:not(.phone) .moneysw[aria-checked="false"] span[data-m="dollars"],html:not(.phone) .moneysw[aria-checked="true"] span[data-m="units"]{color:var(--on-accent,var(--on-brand))}
+html:not(.phone) .moneysw:hover{border-color:var(--muted)}
 html:not(.phone) .barlead input::-webkit-inner-spin-button,html:not(.phone) .barlead input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 html:not(.phone) .me-chip{order:4;margin-left:6px !important;display:flex;align-items:center;gap:8px;margin-left:auto;height:36px;padding:0 4px 0 10px;border:none;border-radius:18px;background:none;color:var(--text);max-width:260px}
 html:not(.phone) .me-chip:hover{background:color-mix(in srgb,var(--text) 9%,transparent)}
@@ -762,6 +771,7 @@ html.phone .alpha-note{display:inline}
   <label class="barlead baruv" title="Your unit value: what 1 unit is worth in dollars (used when P/L is shown in dollars)">
     <span>1U =</span><input id="barUV" type="number" min="0.01" step="0.5" inputmode="decimal" aria-label="Unit value in dollars">
   </label>
+  <button class="moneysw" id="barMoney" role="switch" aria-checked="false" aria-label="Show P/L in units or dollars" title="Show P/L in dollars ($) or units (U)"><span data-m="dollars">$</span><span data-m="units">U</span></button>
   <button class="me-chip" id="meChip" title="Your profile"><span id="meName"></span><span id="mePfp"></span></button>
   <div class="toolbar" id="toolbar" hidden>
     <button class="ghost" id="betsBtn" aria-controls="bets" aria-expanded="false"><svg class="ti" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg>Bets</button>
@@ -2468,6 +2478,7 @@ function plSettings(){
   $('#hourFmt').value = plPrefs.hour24 ? '24' : '12';
   $('#plMoney').value = inDollars() ? 'dollars' : 'units'; $('#unitValue').value = unitValue();
   $('#hourFmt').disabled = !$('#timeShow').checked; $('#unitValueBox').hidden = false; $('#barUV').value = unitValue();   // the unit value is always shown
+  $('#barMoney').setAttribute('aria-checked', !inDollars());   // on = units
   plSize(plPrefs.size || 130);
   const pos = plPrefs.pos === 'right' ? 'right' : 'left'; $('#plPos').value = pos;
   $('#plTab').classList.toggle('pos-right', pos === 'right');
@@ -2482,11 +2493,13 @@ function savePlPrefs(){
   }
   plPrefs = { showPL: $('#plShow').checked, showTime: $('#timeShow').checked, hour24: $('#hourFmt').value === '24',
               money: $('#plMoney').value, unitValue: Math.max(0.01, +$('#unitValue').value || 10), size: +$('#plSize').value || 130, pos: $('#plPos').value };
-  store.set('tt.plPrefs', plPrefs); plSettings(); render();
+  store.set('tt.plPrefs', plPrefs); plSettings(); render(); renderPnl();   // an open PNL panel switches $ ⇄ u straight away
 }
 ['#plShow', '#timeShow', '#hourFmt', '#plMoney', '#unitValue', '#plSize', '#plPos'].forEach(id => $(id).onchange = savePlPrefs);
 // the unit value in the top bar (computers): the same setting as Settings → P/L tracker
 $('#barUV').onchange = e => { const v = Math.max(0.01, +e.target.value || unitValue()); $('#unitValue').value = v; savePlPrefs(); toast(`1 unit = $${+v.toFixed(2)}. Results you've already recorded keep their own unit value.`); };
+// the $ | U switch in the top bar (computers): the same setting as Settings → P/L tracker → Show P/L in
+$('#barMoney').onclick = () => { $('#plMoney').value = inDollars() ? 'units' : 'dollars'; savePlPrefs(); };
 $('#barUV').onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); e.target.blur(); } };
 // Size of the time | PNL tab (computers), 80–200%: scales the tab and the space the chat leaves for it
 function plSize(pct){
