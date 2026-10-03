@@ -3462,6 +3462,8 @@ function lbWatch(on){
       snap => { lbCache.set(uid, snap.exists() ? snap.data().periods || null : null); lbSoon(); },
       () => { lbCache.set(uid, null); lbSoon(); })); });
 }
+// The leaderboard is always in units (everyone's unit is worth a different amount, so dollars wouldn't compare fairly)
+const lbU = n => Math.abs(n) < 1e-9 ? '0u' : (n > 0 ? '+' : '−') + fmtU(Math.abs(n)) + 'u';
 async function renderLeaderboard(refetch){
   if(!$('#lb').classList.contains('open')) return;
   [...$('#lbTabs').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.p === lbPeriod));
@@ -3483,9 +3485,9 @@ async function renderLeaderboard(refetch){
     const row = el('div', 'frow lbrow' + (r.me ? ' mine' : '') + (rank <= 3 && r.s.n ? ' top' + rank : ''));
     const who = el('div', 'who'); who.append(el('b', '', '@' + r.card.username + (r.me ? ' (you)' : '')),
       el('small', '', r.s.n ? `${r.s.w}W ${r.s.n - r.s.w}L · ${r.s.n} bet${r.s.n === 1 ? '' : 's'}` : r.missing ? 'No results shared yet' : 'No bets'));
-    const val = el('span', 'lbpl ' + plClass(r.s.pl), plText(r.s.pl));
+    const val = el('span', 'lbpl ' + plClass(r.s.pl), lbU(r.s.pl));
     row.append(el('span', 'lbrank', String(rank)), pfpEl(r.card), who, val);
-    row.title = `Personal ${plText(r.s.me)} · Bot ${plText(r.s.bot)}`;
+    row.title = `Personal ${lbU(r.s.me)} · Bot ${lbU(r.s.bot)}`;
     if(!r.me && r.uid){ row.classList.add('click'); row.tabIndex = 0; row.onclick = () => friendAction(r.uid, 'pnl');
       row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } }; }
     body.appendChild(row);
