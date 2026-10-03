@@ -830,6 +830,7 @@ html.phone .alpha-note{display:inline}
   <section class="pnl" id="falarms" aria-labelledby="faTitle" aria-hidden="true">
     <header>
       <h3 id="faTitle">Bets</h3>
+      <span class="hsum" id="faCount"></span>
       <button class="close" id="faClose" aria-label="Close friend's bets">×</button>
     </header>
     <div class="pnl-body" id="faBody"></div>
@@ -3702,7 +3703,10 @@ function renderFAlarms(){
   subjectHead('#faTitle', social.view, 'Bets');
   const mine = new Set(alarms.map(a => playKey(a.name, a.start))), up = social.viewPlays.filter(p => p.status === 'upcoming' && leagueShown(p)).sort((a, b) => a.start - b.start);
   const filt = el('div', 'seg ranges');
-  [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', l); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderFAlarms(); }; filt.appendChild(b); });
+  // how many bets they have coming up, and how many under each filter
+  const nIn = up.filter(p => mine.has(playKey(p.name, p.start))).length, counts = { missing: up.length - nIn, both: nIn, all: up.length };
+  $('#faCount').textContent = up.length ? `${up.length} upcoming` : '';
+  [['missing', 'Not in mine'], ['both', 'In both'], ['all', 'All']].forEach(([v, l]) => { const b = el('button', '', `${l} (${counts[v]})`); b.setAttribute('aria-pressed', social.filter === v); b.onclick = () => { social.filter = v; store.set('tt.fFilter', v); renderFAlarms(); }; filt.appendChild(b); });
   const shown = up.filter(p => social.filter === 'all' || (social.filter === 'both') === mine.has(playKey(p.name, p.start)));
   // Not in mine: copy every play you can still copy in one go
   const copyable = social.filter === 'missing' ? shown.filter(p => canCopy(p, mine)) : [];
