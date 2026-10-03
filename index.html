@@ -468,6 +468,7 @@ button.tag{cursor:pointer}
 .pres{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:1px;background:color-mix(in srgb,var(--muted) 60%,transparent)}
 .pres.on{background:var(--green);opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
 .pres.away{background:var(--yellow);opacity:1}
+.pres.unk{background:transparent;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--muted) 70%,transparent)}   /* waiting for their first check-in */
 /* hover label: Online / Idle / Offline */
 .pres{position:relative;cursor:default}
 .pres::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);padding:3px 7px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);font:600 11.5px/1.2 var(--sans);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;z-index:5}
@@ -3298,7 +3299,7 @@ async function startSocial(uid){
       await Promise.all(social.friendships.map(f => getCard(f.members.find(m => m !== uid), true)));   // fresh: names, pictures and sharing can change
       renderFriends(); reqDots();
       if(social.view && !friendOf(social.view)) stopViewing();   // unfriended or blocked while viewing
-      syncBells(); if($('#lb').classList.contains('open')) lbWatch(true); if($('#friends').classList.contains('open')) presenceWatch(true);   // friends added or removed
+      syncBells(); if($('#lb').classList.contains('open')) lbWatch(true); presenceWatch(true);   // friends added or removed (their online dots are watched from sign-in, so they're ready when you open Friends)
     }));
     social.unsubs.push(F.onSnapshot(F.query(F.collection(sync.fb.db, 'blocks'), F.where('by', '==', uid)), async snap => {
       social.blocked = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -3433,7 +3434,7 @@ function fList(body){
   fr.forEach(f => {
     const uid = f.members.find(m => m !== social.uid), c = social.cards.get(uid) || { username:'…' }, open = social.open === uid;
     const row = el('div', 'frow click'); row.setAttribute('aria-expanded', open); row.tabIndex = 0;
-    const ps = presState(uid), dot = el('span', 'pres ' + ps); dot.dataset.tip = { on:'Online', away:'Idle', off:'Offline' }[ps]; dot.setAttribute('aria-label', dot.dataset.tip);
+    const ps = presState(uid), dot = el('span', 'pres ' + ps); dot.dataset.tip = { on:'Online', away:'Idle', off:'Offline', unk:'Checking…' }[ps]; dot.setAttribute('aria-label', dot.dataset.tip);
     row.append(pfpEl(c), (() => { const w = el('div', 'who'), b = el('b'); b.append(dot, '@' + c.username); w.append(b, el('small', '', 'PNL · History · Bets')); return w; })(), el('span', 'chev', open ? '▴' : '▾'));
     row.onclick = () => { social.open = open ? null : uid; renderFriends(); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
@@ -3729,12 +3730,12 @@ function copyPlay(p, from, quiet){   // quiet: part of Copy all (saving and the 
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render(); renderFAlarms();
   toast(`Copied ${p.name} to your bets.`);
 }
-SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => { presenceWatch(true); renderFriends(); }, onClose: () => presenceWatch(false) };
+SLIDES.friends = { el:'#friends', btn:'#friendsBtn', onOpen: () => { presTicker(true); renderFriends(); }, onClose: () => presTicker(false) };
 /* ---------- Online / away / offline ----------
    While you have the site open, profiles/{uid}/meta/presence gets a timestamp every 45 s plus whether the page is in
    front (friends can read it, only you can write it). Friends see: green = on the site now, yellow = the site is open in
    another tab or app, grey = closed (a closed page goes grey within ~1½ minutes if it couldn't say goodbye).
-   Friends' timestamps are only watched while the Friends panel is open. */
+   Friends' check-ins are watched from sign-in (one tiny document each), so the dots are ready when you open Friends. */
 const PRES_EVERY = 45e3, PRES_FRESH = 130e3;   // check in every 45 s; older than 130 s = offline (background tabs may be slowed to once a minute)
 let presTimer = null, presUnsubs = new Map(), presTick = null, presSelf = null, clockOff = 0;
 // Check-ins are stamped with the server's clock, and each device learns how far its own clock is from the server's
@@ -3753,7 +3754,8 @@ function beat(){
 document.addEventListener('visibilitychange', beat);
 addEventListener('pagehide', () => { if(sync.user && social && social.uid) fdb().setDoc(fdoc('profiles', social.uid, 'meta', 'presence'), { at: 0, active: false }).catch(() => {}); });
 // 'on' (on the site now), 'away' (open in the background) or 'off'
-const presState = uid => { const p = social.presence && social.presence.get(uid); return !p || !p.at || serverNow() - p.at >= PRES_FRESH ? 'off' : p.active === false ? 'away' : 'on'; };
+// 'on' (online), 'away' (idle: open in the background), 'off', or 'unk' while their first check-in hasn't arrived yet
+const presState = uid => { const p = social.presence && social.presence.get(uid); if(!p) return 'unk'; return !p.at || serverNow() - p.at >= PRES_FRESH ? 'off' : p.active === false ? 'away' : 'on'; };
 function presenceWatch(on){
   social.presence = social.presence || new Map();
   const want = on && social.uid && sync.fb ? new Set(social.friendships.filter(f => f.status === 'accepted').map(f => f.members.find(m => m !== social.uid))) : new Set();
@@ -3762,8 +3764,10 @@ function presenceWatch(on){
     presUnsubs.set(uid, fdb().onSnapshot(fdoc('profiles', uid, 'meta', 'presence'),
       snap => { const d = snap.exists() ? snap.data() : {}; social.presence.set(uid, { at: tsMs(d.at), active: d.active !== false }); renderFriends(); },
       e => console.warn('Can\'t see a friend\'s online status', e))); });
-  clearInterval(presTick); if(want.size) presTick = setInterval(renderFriends, 30e3);   // someone who stops checking in goes grey
+  social.presence.forEach((v, uid) => { if(!want.has(uid)) social.presence.delete(uid); });
 }
+// while the Friends panel is open, re-check every 30 s so someone who stops checking in goes grey
+function presTicker(on){ clearInterval(presTick); presTick = on ? setInterval(renderFriends, 30e3) : null; }
 SLIDES.falarms = { el:'#falarms', btn:'#friendsBtn', onOpen: () => renderFAlarms() };
 
 $('#googleSignIn').onclick = signIn;
