@@ -1791,10 +1791,10 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
     const added = t.filter(id => !before.includes(id)).map(id => (tags.find(x => x.id === id) || { name:id }).name);
     return { ok:false, retag:true, name, why: added.length ? `kept its tags, added ${added.join(', ')}` : 'kept its tags as they were' };
   }
-  if(have){   // already placed: redo its tags from this photo (Bot from the yellow row; SWEEP only if you wrote it). Your own tags stay.
+  if(have){   // already placed: a new photo can add tags (Bot from a yellow row; SWEEP only if you wrote it) but never removes any
     const bot = await botRow(img, cropIt ? info.box_2d : null); if(bot) ensureBotTag();
-    const before = new Set(have.tags || []), t = (have.tags || []).filter(id => id !== 'bot');
-    if(bot) t.unshift('bot'); if(sweep && !t.includes('sweep')) t.push('sweep');
+    const before = new Set(have.tags || []), t = [...(have.tags || [])];
+    if(bot && !t.includes('bot')) t.unshift('bot'); if(sweep && !t.includes('sweep')) t.push('sweep');
     extra.forEach(id => { if(!t.includes(id)) t.push(id); });   // tags you asked for in the message
     have.tags = t;
     const added = t.filter(id => !before.has(id)), gone = [...before].filter(id => !t.includes(id));
@@ -1912,7 +1912,7 @@ async function createAlarms(entries, problems = []){
     const n = entries.length;
     const done = made.filter(a => a.fired).length, set = made.length - done;
     addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
-                              : `Found ${n} match${n>1?'es':''}, already in your bets.` + (entries.some(e => e.keepTags) ? ' I kept their tags.' : skipped.some(r => r.retag) ? ' I redid their tags from this photo.' : ''), { facts });
+                              : `Found ${n} match${n>1?'es':''}, already in your bets.` + (entries.some(e => e.keepTags) ? ' I kept their tags.' : skipped.some(r => r.retag) ? ' I checked their tags against this photo (tags are only ever added, never removed).' : ''), { facts });
   }
   if(made.some(a => !a.fired)) askNotify();
 }
