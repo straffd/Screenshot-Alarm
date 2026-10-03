@@ -105,6 +105,9 @@ Settings is grouped into **Account**, **Appearance** (colours, background, P/L t
 lead time, sound), **Betting** (old-bet removal, average/default odds, tags, League Links), **Gemini** and **Help**.
 **Clear all** (delete every bet) is in the Bets panel's header: press it twice to confirm.
 
+**Updates:** the site checks for a newer version every few minutes (and when you come back to the tab) and reloads
+itself once it's safe: nothing ringing, nothing typed or attached, no popup open. So nobody needs to refresh by hand.
+
 ## Where your data is kept
 - **Chat:** the chat log is kept on this device for 3 days (older messages are removed). Screenshots you send are kept with it, downsized, in the browser's own storage (IndexedDB), and go with their messages. The 🗑 at the right of the text bar clears it: press it twice (or double-click).
 - **Signed in with Google:** bets (with their screenshots), UI colour, top bar colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
