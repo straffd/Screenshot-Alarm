@@ -2634,7 +2634,7 @@ function renderPnl(){
   [['Today', S.txt(today), plClass(today)], ['This week', S.txt(week), plClass(week)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
    ['Win rate', S.plays.length ? Math.round(wins / S.plays.length * 100) + '%' : '—', '']].forEach(([k, v, c], i) => {
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
-    if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); d.tabIndex = 0;
+    if(all_ && splits[i]){ const me = part(false, splits[i]), bot = part(true, splits[i]); d.appendChild(splitEl(S, me, bot)); d.classList.add('hassplit'); if(i !== 1) d.tabIndex = 0;   // This week: hover only, not clickable
       d.title = `Personal ${S.txt(me)} · Bot ${S.txt(bot)}`; }
     if(all_ && i === 4){   // Win rate: personal and bot separately
       const rate = bot => { const ps = sidePlays(S.plays, bot); return ps.length ? Math.round(ps.filter(p => p.result === 'cash').length / ps.length * 100) + '%' : '—'; };
@@ -2659,17 +2659,13 @@ function renderPnl(){
   rd.title = `Return on units staked, all time: ${S.txt(all)} from ${fmtU(S.plays.reduce((t, p) => t + staked(p), 0))}u staked`;
   if(all_){ rd.appendChild(splitEl(S, rMe, rBot, pct)); rd.classList.add('hassplit'); rd.tabIndex = 0; rd.title += ` · Personal ${pct(rMe)} · Bot ${pct(rBot)}`; }
   $('#pnlStats').appendChild(rd);
-  // Last bet: the most recent settled match; click it to show that day in the calendar
+  // Last bet: the most recent settled match (just shown, not clickable)
   const last = S.plays.reduce((b, p) => !b || p.start > b.start ? p : b, null), ld = document.createElement('div'); ld.className = 'wide';
   ld.innerHTML = '<small>Last bet</small><b></b><span class="sub"></span><span class="sub"></span>';
   if(last){
     const v = S.val(last); ld.querySelector('b').textContent = S.txt(v); ld.querySelector('b').className = plClass(v);
     const [l1, l2] = ld.querySelectorAll('.sub'); l1.textContent = last.name; l1.title = last.name;
     l2.textContent = `${last.result === 'cash' ? 'Cash' : 'Chalk'}${isBot(last) ? ' · Bot' : ''} · ${fmtDay(last.start)}, ${fmtTime(last.start)}`;
-    ld.classList.add('click'); ld.setAttribute('role', 'button'); ld.tabIndex = 0; ld.title = 'Show that day in the calendar';
-    ld.onclick = () => { const d = new Date(last.start); pnlView = 'calendar'; pnlMonth = new Date(d.getFullYear(), d.getMonth(), 1); pnlSel = dayKey(last.start); renderPnl();
-      setTimeout(() => { const l = $('#pnlView .daylist'); if(l) l.scrollIntoView({ behavior:'smooth', block:'nearest' }); }, 50); };
-    ld.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ld.click(); } };
   } else { ld.querySelector('b').textContent = '—'; ld.querySelector('.sub').textContent = 'No settled bets yet'; }
   $('#pnlStats').appendChild(ld);
   const view = $('#pnlView'); view.innerHTML = '';

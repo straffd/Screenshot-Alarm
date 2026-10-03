@@ -38,7 +38,7 @@ Screenshots are read by Google Gemini (free tier).
 9. Press **PNL** in the top bar for your profit & loss page. It slides out from the right
    (past Bets or History if they're open too, with the time | PNL tab always just left of the outermost panel)
    and shows today / this week / this month / all time / win rate / **ROI** (profit ÷ units staked, void bets not counted) /
-   **last bet** (click it to jump to that day), with a **Calendar** (each day's P/L; click a day for its
+   **last bet**, with a **Calendar** (each day's P/L; click a day for its
    matches) or a **Graph** (running total over 7, 30, 90 days or all time). Switch between **All**, **Personal** and **Bot** at the top:
    under All, totals and calendar days are combined (hover over one to split it into Me and Bot); Personal and Bot show
    only those plays. The **Calendar / Graph** switch sits just above the calendar or graph.
