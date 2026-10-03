@@ -1547,6 +1547,25 @@ function matchStart(info){
   return when.getTime();
 }
 const clean = n => String(n||'').trim().replace(/\.+$/,'');
+/* Is this the same match as a bet you already have? Screenshots in different layouts can read a name slightly
+   differently ("Ruskiewicz A." / "Ruszkiewicz A", initials, accents, players swapped), so: start times within 10 minutes,
+   and both players' surnames match (either order), allowing a letter or two of difference. */
+const surname = p => { const w = String(p || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean);
+  return w.filter(x => x.length > 2).sort((a, b) => b.length - a.length)[0] || w[0] || ''; };
+function nearName(a, b){
+  if(!a || !b) return false; if(a === b) return true;
+  if(a.length >= 6 && b.length >= 6 && a.slice(0, 6) === b.slice(0, 6)) return true;
+  if(Math.abs(a.length - b.length) > 2) return false;
+  const d = Array.from({ length: b.length + 1 }, (_, i) => i);   // edit distance, at most 2
+  for(let i = 1; i <= a.length; i++){ let prev = d[0]; d[0] = i;
+    for(let j = 1; j <= b.length; j++){ const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } }
+  return d[b.length] <= 2;
+}
+function sameMatch(nameA, startA, nameB, startB){
+  if(Math.abs(startA - startB) > 10 * 60e3) return false;
+  const [a1, a2] = String(nameA).split(/\s+vs\.?\s+/i).map(surname), [b1, b2] = String(nameB).split(/\s+vs\.?\s+/i).map(surname);
+  return (nearName(a1, b1) && nearName(a2, b2)) || (nearName(a1, b2) && nearName(a2, b1));
+}
 const clockOpts = () => plPrefs.hour24 ? { hour:'2-digit', minute:'2-digit', hourCycle:'h23' } : { hour:'numeric', minute:'2-digit', hour12:true };
 const fmtTime = ms => new Date(ms).toLocaleTimeString([], clockOpts());
 const fmtDay = ms => {
@@ -1760,7 +1779,7 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
-  const have = alarms.find(x => x.name === name && x.start === start);
+  const have = alarms.find(x => sameMatch(x.name, x.start, name, start));
   if(have && keepTags){   // you asked to keep its tags: only add the ones you named
     const before = have.tags || [], t = [...before]; extra.forEach(id => { if(!t.includes(id)) t.push(id); }); have.tags = t;
     const added = t.filter(id => !before.includes(id)).map(id => (tags.find(x => x.id === id) || { name:id }).name);
@@ -1834,7 +1853,7 @@ function addTypedBets(list){
   const made = [], skipped = [];
   for(const t of list){
     const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time });
-    if(alarms.some(x => x.name === name && x.start === start)){ skipped.push(name); continue; }
+    if(alarms.some(x => sameMatch(x.name, x.start, name, start))){ skipped.push(name); continue; }
     const a = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, start, ring: start - lead * 60000, lead,
                 side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true };
     if(a.tags.includes('bot')) ensureBotTag();
