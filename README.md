@@ -53,6 +53,8 @@ Screenshots are read by Google Gemini (free tier).
     **Undo:** type **undo** (or "revert", "undo that", "take that back") to reverse the bot's last send: the bets it just added
     are removed, tags it changed go back, and tags it created for them are deleted if unused. Say it again for the send before
     (up to 5). Anything you changed yourself since (e.g. Cash / Chalk) is left alone.
+    **Bot units** (Settings → Betting): switch it on and set a unit size, and bets tagged Bot start with those units
+    (Cash / Chalk buttons and the Cash popup) instead of your last-used units, without changing your last-used units.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
     Sending a screenshot of a bet you already have redoes its tags from the new photo: Bot is added or removed to match,
