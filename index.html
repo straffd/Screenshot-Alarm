@@ -1579,7 +1579,7 @@ async function send(){
   try{
     if(imgs.length){
       const prompt = EXTRACT_PROMPT + (text ? `\n\nExtra note from the user: ${text}` : '');
-      const entries = [], problems = [];
+      const entries = [], problems = [], tagNames = tagRequest(text);   // "tag all these with Strong"
       for(let n = 0; n < imgs.length; n++){   // one at a time, so free-tier rate limits aren't hit all at once
         const tag = many ? `Screenshot ${n+1}: ` : '';
         if(many) status(`Reading screenshot ${n+1} of ${imgs.length}…`);
@@ -1589,7 +1589,7 @@ async function send(){
           const list = Array.isArray(info.matches) ? info.matches : (info.player1 ? [info] : []);
           if(!list.length){ problems.push(tag + 'no complete match rows found'); continue; }
           // SWEEP is only ever added by you: the word "sweep" in your own message tags these bets (never from the screenshot itself)
-          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1, sweep: /\bsweep\b/i.test(text) }));
+          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1, sweep: /\bsweep\b/i.test(text), tagNames }));
         }catch(e){
           problems.push(tag + (e instanceof SyntaxError ? 'the model\'s answer wasn\'t readable' : e.message));
         }
@@ -1690,7 +1690,24 @@ const sidePlays = (list, bot) => list.flatMap(p => { const x = sidePart(p, bot);
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
-async function createAlarm(info, img, cropIt, sweep){
+/* "Can you tag all these with Strong", "tag these as live and value", "tag them Strong": tags to put on every bet sent
+   with this message. Only when the message says "tag"; names after with/as/: (comma or "and" separated) are used, and
+   any of your existing tag names mentioned are picked up too. New names become new tags. */
+function tagRequest(text){
+  text = String(text || ''); if(!/\btag/i.test(text)) return [];
+  const names = [], add = n => { n = n.trim().replace(/^["'“”‘’]+|["'“”‘’.!?]+$/g, '').trim(); if(n && n.length <= 24 && !names.some(x => x.toLowerCase() === n.toLowerCase())) names.push(n); };
+  const m = text.match(/\btag(?:s|ged|ging)?\b[\s\S]*?(?:\bwith\b|\bas\b|:)\s*([\s\S]+)$/i) || text.match(/\btag\s+(?:all\s+)?(?:these|them|those|this|it)(?:\s+bets?)?\s+([\s\S]+)$/i);
+  if(m) m[1].split(/,|&|\band\b|\n/i).forEach(x => add(x.replace(/\b(please|pls|thanks|thank you|tags?)\b/gi, '')));
+  tags.forEach(t => { if(new RegExp('(^|[^a-z0-9])' + t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)', 'i').test(text)) add(t.name); });
+  return names.filter(n => n.toLowerCase() !== 'sweep');   // SWEEP has its own rule (the word sweep)
+}
+// tag names → tag ids, creating any new ones
+function tagIds(names){
+  const before = tags.length, ids = (names || []).map(n => newTag(n)).filter(Boolean).map(t => t.id);
+  if(tags.length !== before) saveTags();
+  return [...new Set(ids)];
+}
+async function createAlarm(info, img, cropIt, sweep, extra = []){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
@@ -1699,6 +1716,7 @@ async function createAlarm(info, img, cropIt, sweep){
     const bot = await botRow(img, cropIt ? info.box_2d : null); if(bot) ensureBotTag();
     const before = new Set(have.tags || []), t = (have.tags || []).filter(id => id !== 'bot');
     if(bot) t.unshift('bot'); if(sweep && !t.includes('sweep')) t.push('sweep');
+    extra.forEach(id => { if(!t.includes(id)) t.push(id); });   // tags you asked for in the message
     have.tags = t;
     const added = t.filter(id => !before.has(id)), gone = [...before].filter(id => !t.includes(id));
     const nm = id => (tags.find(x => x.id === id) || { name:id }).name;
@@ -1717,7 +1735,7 @@ async function createAlarm(info, img, cropIt, sweep){
     edge: isNaN(edgeNum) ? null : edgeNum,
     league: compName(info.league),
     img: await shrink(shot), fired: start <= Date.now(),   // already started: added as done, ready for Cash / Chalk
-    added: Date.now(), tags: [...(bot ? ['bot'] : []), ...(sweep ? ['sweep'] : [])]   // Bot from the yellow row; SWEEP only if you wrote it
+    added: Date.now(), tags: [...new Set([...(bot ? ['bot'] : []), ...(sweep ? ['sweep'] : []), ...extra])]   // Bot from the yellow row; SWEEP only if you wrote it; plus any you asked for
   };
   alarms.push(a);
   return { ok:true, a };
@@ -1791,7 +1809,8 @@ function compName(v){
 
 async function createAlarms(entries, problems = []){
   const results = [];
-  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop, e.sweep));
+  const extra = tagIds(entries[0] && entries[0].tagNames), extraNames = extra.map(id => (tags.find(t => t.id === id) || {}).name).filter(Boolean);
+  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop, e.sweep, extra));
   alarms.sort((x,y)=>x.ring-y.ring);
   if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new bets won\'t survive a reload. Delete a few old bets to free space.', { err:true });
   render();
@@ -1804,12 +1823,13 @@ async function createAlarms(entries, problems = []){
     const a = made[0], past = a.ring <= Date.now();
     addMsg('bot', a.fired ? `This match already started at ${fmtTime(a.start)}, so I added it as done. Mark it Cash or Chalk in the list.`
       : past ? 'Alarm set. The alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
-      facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%'], ...(isBot(a) ? [['Tag', 'Bot (yellow row)']] : [])]
+      facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%'], ...(isBot(a) ? [['Tag', 'Bot (yellow row)']] : []), ...(extraNames.length ? [['Tagged', extraNames.join(', ')]] : [])]
     });
   } else {
     const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}${isBot(a) ? ' · Bot' : ''}${a.fired ? ' · done, mark Cash or Chalk' : ''}`]);
     skipped.forEach(r => facts.push([r.retag ? 'Already in' : 'Skipped', `${r.name}: ${r.why}`]));
     problems.forEach(pr => facts.push(['Not read', pr]));
+    if(extraNames.length) facts.push(['Tagged', `${extraNames.join(', ')} (all of these)`]);
     const n = entries.length;
     const done = made.filter(a => a.fired).length, set = made.length - done;
     addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
