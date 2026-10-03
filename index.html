@@ -2517,14 +2517,14 @@ function tickTracker(){
   $('#plTab').hidden = !showPL && !showTime;
   $('#plTimeBox').hidden = !showTime; $('#plValBox').hidden = !showPL;
   $('#plSep').hidden = !(showPL && showTime);
-  const now = new Date(), midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
-  const dayStart = midnight.getTime() - 864e5;
+  const now = new Date();
   if(showTime){
     $('#plTime').textContent = now.toLocaleTimeString([], clockOpts());   // the current time
   }
   if(showPL){
-    // today's P/L, split into my own plays and bot picks (tagged Bot)
-    const td = plays.filter(p => p.start >= dayStart && p.start < midnight.getTime()), sum = bot => sidePlays(td, bot).reduce((t, p) => t + shownPL(p), 0);
+    // today's P/L, split into my own plays and bot picks (tagged Bot). "Today" is the calendar date, not the last 24 hours,
+    // so on a daylight-saving day (23 or 25 hours long) last night's late matches don't count as today
+    const tk = now.toDateString(), td = plays.filter(p => new Date(p.start).toDateString() === tk), sum = bot => sidePlays(td, bot).reduce((t, p) => t + shownPL(p), 0);
     const me = sum(false), bot = sum(true);
     [['#plVal', me + bot], ['#plMe', me], ['#plBot', bot]].forEach(([id, v]) => { $(id).className = plClass(v); $(id).textContent = plText(v); });
   }
@@ -2643,7 +2643,7 @@ function renderPnl(){
   // each total is combined; hovering it shows the Me (personal) / Bot split
   const part = (bot, f) => sidePlays(S.plays, bot).filter(f).reduce((t, p) => t + S.val(p), 0);
   const d0 = new Date(now); d0.setHours(0,0,0,0);
-  const splits = [p => p.start >= +d0 && p.start < +d0 + 864e5, p => p.start >= weekStart, p => p.start >= monthStart, () => true];
+  const splits = [p => dayKey(p.start) === tk, p => p.start >= weekStart, p => p.start >= monthStart, () => true];
   [['Today', S.txt(today), plClass(today)], ['This week', S.txt(week), plClass(week)], ['This month', S.txt(month), plClass(month)], ['All time', S.txt(all), plClass(all)],
    ['Win rate', S.plays.length ? Math.round(wins / S.plays.length * 100) + '%' : '—', '']].forEach(([k, v, c], i) => {
     const d = document.createElement('div'); d.innerHTML = `<small></small><b class="${c}"></b>`; d.querySelector('small').textContent = k; d.querySelector('b').textContent = v;
@@ -2811,7 +2811,7 @@ function renderGraph(view, days){
   // One point per day from the first day in range to today; value = running total (cumulative P/L)
   const today = new Date(); today.setHours(0,0,0,0);
   const firstPlay = keyDate([...days.keys()].sort()[0]);
-  let start = pnlRange ? new Date(today.getTime() - (pnlRange - 1) * 864e5) : firstPlay;
+  let start = pnlRange ? new Date(today.getFullYear(), today.getMonth(), today.getDate() - (pnlRange - 1)) : firstPlay;   // calendar days (daylight saving makes some 23 or 25 hours)
   if(start > today) start = today;
   let run = S.plays.filter(p => p.start < start.getTime()).reduce((t, p) => t + S.val(p), 0);
   const pts = [];
@@ -3418,7 +3418,7 @@ function setDrawer(open){
 }
 function renderDrawer(){
   const vp = plays, up = alarms.filter(a => !a.fired && leagueShown(a)).length, ringingN = ringing.size;
-  const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => p.start >= +d0 && p.start < +d0 + 864e5).reduce((t, p) => t + shownPL(p), 0);
+  const d0 = new Date(); d0.setHours(0,0,0,0); const today = vp.filter(p => dayKey(p.start) === dayKey(d0)).reduce((t, p) => t + shownPL(p), 0);
   const reqs = social && social.uid ? social.friendships.filter(f => f.status === 'pending' && f.to === social.uid).length : 0;
   const set = (id, text, pill) => { const e = $(id); e.textContent = text; e.className = pill ? 'pill ' + pill : ''; };
   set('#drBets', ringingN ? `${ringingN} ringing` : up ? String(up) : '', ringingN ? 'orange' : '');
