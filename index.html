@@ -1579,7 +1579,8 @@ async function send(){
   try{
     if(imgs.length){
       const prompt = EXTRACT_PROMPT + (text ? `\n\nExtra note from the user: ${text}` : '');
-      const entries = [], problems = [], tagNames = tagRequest(text);   // "tag all these with Strong"
+      const keep = keepTagsRequest(text);   // "don't overwrite the tags": bets you already have keep theirs
+      const entries = [], problems = [], tagNames = tagRequest(keep.rest);   // "tag all these with Strong"
       for(let n = 0; n < imgs.length; n++){   // one at a time, so free-tier rate limits aren't hit all at once
         const tag = many ? `Screenshot ${n+1}: ` : '';
         if(many) status(`Reading screenshot ${n+1} of ${imgs.length}…`);
@@ -1589,7 +1590,7 @@ async function send(){
           const list = Array.isArray(info.matches) ? info.matches : (info.player1 ? [info] : []);
           if(!list.length){ problems.push(tag + 'no complete match rows found'); continue; }
           // SWEEP is only ever added by you: the word "sweep" in your own message tags these bets (never from the screenshot itself)
-          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1, sweep: /\bsweep\b/i.test(text), tagNames }));
+          list.forEach(m => entries.push({ info:m, img:imgs[n], crop: list.length > 1, sweep: /\bsweep\b/i.test(text), tagNames, keepTags: keep.keep }));
         }catch(e){
           problems.push(tag + (e instanceof SyntaxError ? 'the model\'s answer wasn\'t readable' : e.message));
         }
@@ -1690,6 +1691,16 @@ const sidePlays = (list, bot) => list.flatMap(p => { const x = sidePart(p, bot);
 function ensureBotTag(){ if(!tags.some(t => t.id === 'bot')){ tags.push({ ...BOT_TAG }); saveTags(); } }
 
 // Returns {ok:true, a} or {ok:false, why, name}
+/* "Don't overwrite the tags", "keep the existing tags", "leave the tags alone", "don't retag": bets already in your list
+   keep their tags as they are (no Bot / SWEEP changes from the new photo); tags you ask for in the same message are still
+   added. Returns the message with that part taken out, so it isn't read as tag names. */
+function keepTagsRequest(text){
+  text = String(text || '');
+  const tail = String.raw`(?:(?!\band\b)[^.,;\n])*`;   // the rest of that phrase, up to "and" / punctuation
+  const re = new RegExp(String.raw`\b(?:(?:don'?t|do not|dont|never|no need to|without)\s+(?:\w+\s+){0,2}?(?:overwrite|override|change|touch|redo|replace|update|reset|remove|lose)\b` + tail + String.raw`\btags?\b|(?:don'?t|do not|dont)\s+re-?tag\b|(?:keep|leave)\b` + tail + String.raw`\btags?\b)` + tail, 'i');
+  const m = text.match(re);
+  return m ? { keep: true, rest: text.replace(m[0], ' ') } : { keep: false, rest: text };
+}
 /* "Can you tag all these with Strong", "tag these as live and value", "tag them Strong": tags to put on every bet sent
    with this message. Only when the message says "tag"; names after with/as/: (comma or "and" separated) are used, and
    any of your existing tag names mentioned are picked up too. New names become new tags. */
@@ -1707,11 +1718,16 @@ function tagIds(names){
   if(tags.length !== before) saveTags();
   return [...new Set(ids)];
 }
-async function createAlarm(info, img, cropIt, sweep, extra = []){
+async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = false){
   const name = `${clean(info.player1)} vs ${clean(info.player2)}`;
   const start = matchStart(info);
   if(!start) return { ok:false, name, why:'start time unreadable' };
   const have = alarms.find(x => x.name === name && x.start === start);
+  if(have && keepTags){   // you asked to keep its tags: only add the ones you named
+    const before = have.tags || [], t = [...before]; extra.forEach(id => { if(!t.includes(id)) t.push(id); }); have.tags = t;
+    const added = t.filter(id => !before.includes(id)).map(id => (tags.find(x => x.id === id) || { name:id }).name);
+    return { ok:false, retag:true, name, why: added.length ? `kept its tags, added ${added.join(', ')}` : 'kept its tags as they were' };
+  }
   if(have){   // already placed: redo its tags from this photo (Bot from the yellow row; SWEEP only if you wrote it). Your own tags stay.
     const bot = await botRow(img, cropIt ? info.box_2d : null); if(bot) ensureBotTag();
     const before = new Set(have.tags || []), t = (have.tags || []).filter(id => id !== 'bot');
@@ -1810,7 +1826,7 @@ function compName(v){
 async function createAlarms(entries, problems = []){
   const results = [];
   const extra = tagIds(entries[0] && entries[0].tagNames), extraNames = extra.map(id => (tags.find(t => t.id === id) || {}).name).filter(Boolean);
-  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop, e.sweep, extra));
+  for(const e of entries) results.push(await createAlarm(e.info, e.img, e.crop, e.sweep, extra, e.keepTags));
   alarms.sort((x,y)=>x.ring-y.ring);
   if(!store.set('tt.alarms', alarms)) addMsg('bot', 'Browser storage is full, so new bets won\'t survive a reload. Delete a few old bets to free space.', { err:true });
   render();
@@ -1833,7 +1849,7 @@ async function createAlarms(entries, problems = []){
     const n = entries.length;
     const done = made.filter(a => a.fired).length, set = made.length - done;
     addMsg('bot', made.length ? `Found ${n} match${n>1?'es':''}. ` + [set ? `Set ${set} alarm${set>1?'s':''}, each ${lead} min before the start.` : '', done ? `Added ${done} that already started as done.` : ''].filter(Boolean).join(' ')
-                              : `Found ${n} match${n>1?'es':''}, already in your bets.` + (skipped.some(r => r.retag) ? ' I redid their tags from this photo.' : ''), { facts });
+                              : `Found ${n} match${n>1?'es':''}, already in your bets.` + (entries.some(e => e.keepTags) ? ' I kept their tags.' : skipped.some(r => r.retag) ? ' I redid their tags from this photo.' : ''), { facts });
   }
   if(made.some(a => !a.fired)) askNotify();
 }

@@ -48,6 +48,8 @@ Screenshots are read by Google Gemini (free tier).
    popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
     **Tag while you send:** write something like "tag all these with Strong" or "tag these as live and value" with your
     screenshots and every bet from that send gets those tags (new names become new tags; bets already in your list get them too).
+    Sending a screenshot of a bet you already have normally redoes its tags from the photo (see Bot picks below); add
+    "don't overwrite the tags" (or "keep the tags", "leave the tags alone") and those bets keep their tags as they are.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
     Sending a screenshot of a bet you already have redoes its tags from the new photo: Bot is added or removed to match,
