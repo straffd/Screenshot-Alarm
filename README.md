@@ -60,8 +60,8 @@ Screenshots are read by Google Gemini (free tier).
     Sending a screenshot of a bet you already have only ever adds tags: Bot if the new photo's row is yellow, SWEEP if you
     write "sweep" with it. A photo without the yellow row never removes Bot (click the tag to remove it yourself).
 11. In ⚙ Settings you can also add your own alarm sound (**Add sound…**, audio up to 1 MB, kept on this device)
-    and set the background picture's **blur** and **saturation**. With a background picture, the main buttons (normally
-    blue) take on its colour. The background can also be an animated **GIF** (up to 8 MB) or a short **video**
+    and set the background picture's **blur** and **saturation**. With a background picture, everything in the main
+    colour (normally blue: buttons, the edge % and its bar, sliders, the $ | U switch, focus rings, highlights) takes on its colour. The background can also be an animated **GIF** (up to 8 MB) or a short **video**
     (MP4 or WebM, up to 25 MB) that plays muted on a loop under the same blur and tint. These are kept in the browser's
     IndexedDB on that device; normal pictures are still shrunk to save space.
     **Top bar colour** (⚙ Settings) gives the bar across the top (and the time | PNL tab under it) its own colour and
