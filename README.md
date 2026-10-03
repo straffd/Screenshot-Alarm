@@ -86,7 +86,7 @@ Screenshots are read by Google Gemini (free tier).
     **Leaderboard** (top bar → Leaderboard) ranks you and your friends (always in units, even if you show P/L in dollars) by units won or lost **today**, this **month** or
     this **year**, with each person's wins and losses. Click a friend to open their PNL. It updates live while it's
     open (and so do friends' PNL, History and Bets), so there's no need to refresh.
-    Friends always see your results with odds, units and PNL; under My profile you choose whether they also see your upcoming plays.
+    Friends always see your results with odds, units and PNL (a friend's PNL and History are always shown in units, even if you show your own P/L in dollars); under My profile you choose whether they also see your upcoming plays.
 
 **On a phone** the top is one bar: a **☰** menu on the left (Chat, Bets, History, PNL, Leaderboard, Friends, Settings,
 Gemini settings and the home page, with counts and today's P/L next to each) and your picture and @name on the right

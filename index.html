@@ -2433,7 +2433,7 @@ function renderHistory(){
   const S = subject(histFor), list = $('#histList'); list.innerHTML = '';
   subjectHead('#histTitle', histFor, 'History');
   const total = S.plays.reduce((t, p) => t + S.val(p), 0), wins = S.plays.filter(p => p.result === 'cash').length;
-  $('#histSum').textContent = S.plays.length ? `${wins}/${S.plays.length} cashed · ${S.own ? fmtPL(total) : S.txt(total)}` : '';
+  $('#histSum').textContent = S.plays.length ? `${wins}/${S.plays.length} cashed · ${S.txt(total)}` : '';
   if(!S.plays.length){ list.innerHTML = S.own ? '<div class="empty">No settled matches yet. When a bet\'s match has started, press Cash or Chalk on it to record the result here.</div>' : '<div class="empty">No settled matches shared yet.</div>'; return; }
   for(const p of S.plays){
     const c = document.createElement('div'), pl = S.val(p), showMoney = true, multi = S.own && Array.isArray(p.bets) && p.bets.length;
@@ -2445,8 +2445,8 @@ function renderHistory(){
       <div class="when"><b>${fmtTime(p.start)}</b> ${fmtDay(p.start)}</div>
       <div class="result">${p.result === 'cash' ? 'CASH' : 'CHALK'}</div>
       <div class="row"><span class="side ${String(p.side).toLowerCase()}">${p.side}</span><span class="tags"></span><span class="line"></span></div>
-      ${showMoney && multi ? `<div class="money"><span>Bets <b>${p.bets.length}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div><div class="betline"></div>`
-        : showMoney ? `<div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${fmtPL(pl)}</span></div>` : ''}`;
+      ${showMoney && multi ? `<div class="money"><span>Bets <b>${p.bets.length}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${S.txt(pl)}</span></div><div class="betline"></div>`
+        : showMoney ? `<div class="money"><span>Odds <b>${p.odds ? p.odds : '—'}</b></span><span>Units <b>${fmtU(p.units || 0)}</b></span><span class="pl">${S.txt(pl)}</span></div>` : ''}`;
     // each bet: "Cash 2u @1.9 · Chalk 1u · Void 1u"
     if(c.querySelector('.betline')) p.bets.forEach((b, i) => { if(i) c.querySelector('.betline').append(' · ');
       c.querySelector('.betline').appendChild(el('span', b.result, `${b.type ? b.type[0] + b.type.slice(1).toLowerCase() + ' ' : ''}${b.result[0].toUpperCase() + b.result.slice(1)} ${fmtU(b.units || 0)}u${b.odds ? ' @' + b.odds : ''}`)); });
@@ -2526,7 +2526,7 @@ const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${Stri
 const keyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 function dailyPL(S = pnlSubject()){ const m = new Map(); S.plays.forEach(p => { const k = dayKey(p.start), e = m.get(k) || { pl:0, n:0, plays:[] }; e.pl += S.val(p); [false, true].forEach(b => { const x = sidePart(p, b); if(x) e[b ? 'bot' : 'me'] = (e[b ? 'bot' : 'me'] || 0) + S.val(x); }); e.n++; e.plays.push(p); m.set(k, e); }); return m; }
 // Whose numbers the PNL / History panels show: mine, or the friend picked from the Friends list.
-// Units, odds and PNL are always shared with friends.
+// Units, odds and PNL are always shared with friends, and a friend's are always shown in units.
 let pnlFor = null, histFor = null;
 function subject(forUid = pnlFor){
   if(!forUid || !social || forUid !== social.view) return { own:true, plays, val: shownPL, txt: plText, k: inDollars() ? unitValue() : 1 };
@@ -2534,7 +2534,7 @@ function subject(forUid = pnlFor){
   const fp = social.viewPlays.filter(p => p.status === 'cash' || p.status === 'chalk').map(p => ({ ...p, result: p.status })).sort((a, b) => b.start - a.start);
   // pl comes from the friend's app; older entries without it are worked out from their odds and units
   const pl = p => 'pl' in p ? p.pl : p.result === 'cash' ? (p.units || 0) * ((p.odds || 1) - 1) : -(p.units || 0);
-  return { own:false, card, plays: fp, val: pl, txt: plText, k: inDollars() ? unitValue() : 1 };
+  return { own:false, card, plays: fp, val: pl, txt: unitText, k: 1 };
 }
 // All / Personal / Bot: All shows everything (hover a total or day for its Personal / Bot split);
 // Personal and Bot show only those plays.
@@ -2556,6 +2556,8 @@ function subjectHead(sel, forUid, title){
 }
 function plClass(n){ return n > 1e-9 ? 'up' : n < -1e-9 ? 'down' : ''; }
 function plText(n){ return Math.abs(n) < 1e-9 ? (inDollars() ? '$0.00' : '0u') : fmtPL(n); }
+// A friend's numbers are always in units: their dollars are private, and your unit value isn't theirs
+function unitText(n){ return Math.abs(n) < 1e-9 ? '0u' : (n > 0 ? '+' : '−') + fmtU(Math.abs(n)) + 'u'; }
 /* Slide-out panels (Bets, History, PNL, Friends). Each slides in from the right edge; a panel opened while another is out
    slides out further left, past it. The time | PNL tab always sits just left of the outermost panel. Panels narrow
    (down to 360px) so the tab still fits beside the top-left tab; if it can't, the tab drops just below the top bar. */
@@ -2720,7 +2722,7 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   // P/L in the chosen display, with the other one (units ⇄ dollars) beside it
   const head = el('div', 'tdh'); head.append(el('b', plClass(pl), S.txt(pl)));
   const alt = inDollars() ? (pl > 0 ? '+' : pl < 0 ? '−' : '') + fmtU(Math.abs(pl)) + 'u' : (pl > 0 ? '+' : pl < 0 ? '−' : '') + '$' + (Math.abs(pl) * unitValue()).toFixed(2);
-  head.append(el('span', '', alt)); d.appendChild(head);
+  if(S.own) head.append(el('span', '', alt)); d.appendChild(head);
   const grid = el('div', 'tdg'), stat = (label, val, cls) => { const c = el('div'); c.append(el('small', '', label), el('b', cls || '', val)); grid.appendChild(c); };
   const roi = st > 0 ? pl / st * 100 : null;
   stat('ROI', pct(roi), roi == null ? '' : plClass(roi));
@@ -3726,7 +3728,7 @@ function faceList(a){
     if(p.side && p.side !== a.side && ['OVER', 'UNDER'].includes(p.side)) who.appendChild(el('span', 'fl-side ' + p.side.toLowerCase(), p.side));
     const st = f.status === 'cash' ? `✓ Cashed${+p.odds > 1 ? ' @' + p.odds : ''}` : f.status === 'chalk' ? '✕ Chalked' : f.status === 'void' ? 'Void' : 'On it';
     const res = el('span', 'fl-res', st);
-    if((f.status === 'cash' || f.status === 'chalk') && 'pl' in p) res.appendChild(el('b', plClass(p.pl), ' ' + plText(p.pl)));
+    if((f.status === 'cash' || f.status === 'chalk') && 'pl' in p) res.appendChild(el('b', plClass(p.pl), ' ' + unitText(p.pl)));
     r.append(pfpEl(f.card, 'tiny'), who, res); box.appendChild(r);
   });
   return box;
