@@ -63,8 +63,10 @@ Screenshots are read by Google Gemini (free tier).
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
     upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the **Settings** button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
-    In your friends list, a dot shows where each friend is: **green** = on the site right now, **yellow** = the site is open
-    in another tab or app, **grey** = offline (a friend who closes the site turns grey within about 2 minutes).
+    In your friends list, a dot shows where each friend is (hover it for the word): **green** = Online (on the site right now),
+    **yellow** = Idle (the site is open in another tab or app), **grey** = Offline (a friend who closes the site turns grey within
+    about 2 minutes). A new friend request puts a **blue dot** on Friends in the top bar (phones: on ☰) and on the Requests tab
+    until you open Requests.
     The **🔔** in a friend's drop-down (pressed in = on) makes the chat tell you each time they place a bet, with the bet
     and a **Copy** button.
     Your bets show the pictures of friends who have the same bet (next to the start time). Once a friend records
