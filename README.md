@@ -63,6 +63,8 @@ Screenshots are read by Google Gemini (free tier).
     History open those panels with their numbers (units, odds and PNL), and Bets slides out their
     upcoming plays, filtered to **Not in mine / In both / All**, with **Copy** to add one to your bets (or **Copy all** under Not in mine). Click an item again to close its panel (the **Settings** button closes Settings the same way). Blocked
     people are listed under Blocked (click to Unblock) and can't send you requests.
+    In your friends list, a **green dot** means that friend has the site open right now; **grey** means they're offline
+    (a friend who closes the site turns grey within about 1½ minutes).
     The **🔔** in a friend's drop-down (pressed in = on) makes the chat tell you each time they place a bet, with the bet
     and a **Copy** button.
     Your bets show the pictures of friends who have the same bet (next to the start time). Once a friend records
