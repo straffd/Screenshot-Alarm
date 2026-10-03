@@ -96,6 +96,9 @@ Worker). Once it's set up and its address is in `index.html` (`PUSH_SERVER`), al
 the phone is locked or the app is closed; Settings → Alarms shows **Locked-phone alarms: on**.
 Signed in, stopping an alarm on one device (e.g. your PC) stops it on your others too, including a locked phone.
 
+On computers, the **⏰ [5] min** box at the right of the top bar sets how many minutes before each match alarms ring
+(the same as Settings → Alarms → Alert me); changing it moves your upcoming alarms.
+
 Settings is grouped into **Account**, **Appearance** (colours, background, P/L tracker), **Alarms** (alarm switches,
 lead time, sound), **Betting** (old-bet removal, average/default odds, tags, League Links), **Gemini** and **Help**.
 **Clear all** (delete every bet) is in the Bets panel's header: press it twice to confirm.
