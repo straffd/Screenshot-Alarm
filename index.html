@@ -1537,7 +1537,7 @@ Return ONLY a JSON object, no markdown, in this shape:
   "player1": "top player of the row exactly as shown, e.g. Minda M.",
   "player2": "bottom player of the row exactly as shown",
   "time": "match start time in 24h HH:MM",
-  "ou_line": "the O/U value text, e.g. 36/8",
+  "ou_line": "the O/U value: two whole numbers with a slash, copied digit for digit, e.g. 4/12 (the part before the dot and the percentage)",
   "ou_pct": "the percentage next to O/U, e.g. 82%",
   "ou_color": "the text colour of the O/U value: green, red or grey",
   "ou_side": "OVER or UNDER",
@@ -1548,6 +1548,7 @@ Return ONLY a JSON object, no markdown, in this shape:
 ]}
 List every complete match row, top to bottom. Skip rows that are cut off so the players or time can't be read.
 box_2d is the bounding box of that whole row, normalised to 0-1000.
+The O/U value is overs/unders, and its percentage is overs ÷ (overs + unders): "4/12 · 25%" means 4/12 and 25% (4 ÷ 16). Check your digits against that.
 Rules for ou_side: if the O/U value is written in GREEN it is OVER; if it is RED/orange it is UNDER. If it is GREY/white/neutral, use the O/U percentage: above 50% is OVER, 50% or below is UNDER. If the words Over/Under appear explicitly, use them.
 Keep each row's values together: never take a value from a neighbouring row.
 Do not confuse other percentages (H2H, SWEEP, SPLIT, 5-SET, O18.5, OT) with the edge. The edge is the lone percentage below the small horizontal bar.
@@ -1887,7 +1888,7 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
   const a = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     name, start, ring: start - lead*60000, lead,
-    side, line: info.ou_line || '', ouPct: info.ou_pct || '',
+    side, line: fixOuLine(info.ou_line, info.ou_pct), ouPct: info.ou_pct || '',
     edge: isNaN(edgeNum) ? null : edgeNum,
     league: compName(info.league),
     img: await shrink(shot), fired: start <= Date.now(),   // already started: added as done, ready for Cash / Chalk
@@ -1897,6 +1898,23 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
   return { ok:true, a };
 }
 
+/* The O/U value is overs/unders and its percentage is overs ÷ (overs + unders) ("4/12 · 25%"). When the two numbers read
+   from the screenshot don't fit the percentage, a digit was misread (e.g. "40/12"): try each number with one digit
+   dropped and keep the pair that fits. Anything that still doesn't fit is left as read. */
+function fixOuLine(line, pct){
+  const s = String(line || '').trim(), m = s.match(/^(\d+)\s*\/\s*(\d+)$/), p = parseFloat(String(pct || '').replace(/[^\d.]/g, ''));
+  if(!m || isNaN(p)) return s;
+  const fits = (a, b) => a + b > 0 && Math.abs(a / (a + b) * 100 - p) <= 2.5;
+  if(fits(+m[1], +m[2])) return `${+m[1]}/${+m[2]}`;
+  const drops = d => [d, ...[...d].map((_, i) => d.slice(0, i) + d.slice(i + 1)).filter(x => x !== '')];
+  let best = null;
+  for(const a of drops(m[1])) for(const b of drops(m[2])){
+    const x = +a, y = +b; if(!fits(x, y)) continue;
+    const err = Math.abs(x / (x + y) * 100 - p);
+    if(!best || err < best.err) best = { a:x, b:y, err };
+  }
+  return best ? `${best.a}/${best.b}` : s;
+}
 /* Typed bets: "Will vs Zed 3:20pm", "3:20 pm Will v Zed", "Will vs Zed at 15:20 under" (one per line).
    They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them. */
 function parseTypedBets(text){
@@ -1974,7 +1992,7 @@ async function createAlarms(entries, problems = []){
   const skipped = results.filter(r => !r.ok);
   const hidden = made.filter(a => !leagueShown(a));
   if(hidden.length) setTimeout(() => addMsg('bot', `${hidden.length === made.length ? (made.length > 1 ? 'These are' : 'This is') : hidden.length + ' of these ' + (hidden.length > 1 ? 'are' : 'is')} in a league you've switched off, so ${hidden.length > 1 ? 'they\'re' : 'it\'s'} hidden and won't ring. Turn the league back on in ⚙ Settings → League Links to see ${hidden.length > 1 ? 'them' : 'it'}.`), 0);
-  const fmtSide = a => `${a.side}${a.line ? ' ' + a.line : ''}`;
+  const fmtSide = a => `${a.side}${a.line ? ' ' + fixOuLine(a.line, a.ouPct) : ''}`;
   if(made.length === 1 && !skipped.length && !problems.length){
     const a = made[0], past = a.ring <= Date.now();
     addMsg('bot', a.fired ? `This match already started at ${fmtTime(a.start)}, so I added it as done. Mark it Cash or Chalk in the list.`
@@ -2048,7 +2066,7 @@ function render(){
     }
     c.querySelector('.names').onclick = e => { e.stopPropagation(); if(ringing.has(a.id)) stopAlarm(a.id); openLadbrokes(a); };
     if(a.league) c.querySelector('.comp').textContent = a.league;
-    c.querySelector('.line').textContent = [a.line, a.ouPct].filter(Boolean).join(' · ');
+    c.querySelector('.line').textContent = [fixOuLine(a.line, a.ouPct), a.ouPct].filter(Boolean).join(' · ');
     tags.filter(t => (a.tags || []).includes(t.id)).forEach(t => c.querySelector('.tags').appendChild(tagChip(t)));   // in Settings order
     const faces = faceRow(a); if(faces) c.querySelector('.when').appendChild(faces);   // friends who have it too, after the start time
     const fl = faceList(a); if(fl) c.querySelector('.row').after(fl);   // clicked: who's on it
@@ -2482,7 +2500,7 @@ function renderHistory(){
       c.querySelector('.betline').appendChild(el('span', b.result, `${b.type ? b.type[0] + b.type.slice(1).toLowerCase() + ' ' : ''}${b.result[0].toUpperCase() + b.result.slice(1)} ${fmtU(b.units || 0)}u${b.odds ? ' @' + b.odds : ''}`)); });
     c.querySelector('.names').textContent = p.name;
     if(p.league) c.querySelector('.comp').textContent = p.league;
-    c.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+    c.querySelector('.line').textContent = [fixOuLine(p.line, p.ouPct), p.ouPct].filter(Boolean).join(' · ');
     (S.own ? tags.filter(t => (p.tags || []).includes(t.id)).map(t => tagChip(t)) : friendChips(p)).forEach(t => c.querySelector('.tags').appendChild(t));   // a friend's own tags show but aren't yours
     if(S.own){
       c.onclick = () => openSettle({ play: p });
@@ -2718,7 +2736,7 @@ let pnlBreak = store.get('tt.pnlBreak', 'types'); if(!BREAKS.some(([k]) => k ===
 const COMP_NAMES = { cup:'TT CUP', elite:'TT ELITE SERIES', czech:'CZECH LIGA PRO' };
 const compOf = x => { const l = String(x.league || '').trim().replace(/\s+/g, ' '); return COMP_NAMES[compKey(l)] || l.toUpperCase(); };
 // Games played: the two numbers of the O/U value added together ("3/2" → 5); null when it has none
-const gamesOf = x => { const m = String(x.line || '').match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/); return m ? +m[1] + +m[2] : null; };
+const gamesOf = x => { const m = fixOuLine(x.line, x.ouPct).match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/); return m ? +m[1] + +m[2] : null; };
 // Separate ranges 1–10, 10–20 and 20+: a count on a boundary goes in the lower one (10 → 1–10, 20 → 10–20)
 const GAME_BUCKETS = [['10', '1–10 games', g => g <= 10], ['20', '10–20 games', g => g > 10 && g <= 20], ['20+', '20+ games', g => g > 20]];
 // Each match counts once under its type, except a match with several bets of their own types (from + in the Cash popup):
@@ -3980,7 +3998,7 @@ function friendPlayCard(p, username){
     <div class="row"><span class="side ${String(p.side).toLowerCase()}">${['OVER', 'UNDER'].includes(p.side) ? p.side : ''}</span><span class="ftags"></span><span class="line"></span><span class="edge">${p.edge == null ? '' : p.edge + '%'}</span></div>`;
   friendChips(p).forEach(c => card.querySelector('.ftags').appendChild(c));
   card.querySelector('.names').textContent = p.name; if(p.league) card.querySelector('.comp').textContent = p.league;
-  card.querySelector('.line').textContent = [p.line, p.ouPct].filter(Boolean).join(' · ');
+  card.querySelector('.line').textContent = [fixOuLine(p.line, p.ouPct), p.ouPct].filter(Boolean).join(' · ');
   const started = p.start <= Date.now();   // too late to copy once the match has started
   const cp = btn(have ? 'In your bets' : started ? 'Started' : p.manual ? 'Private' : 'Copy', 'copy', () => {
     copyPlay(p, username); if(alarms.some(a => playKey(a.name, a.start) === playKey(p.name, p.start))){ cp.textContent = 'In your bets'; cp.disabled = true; } });
