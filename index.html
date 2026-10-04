@@ -2714,7 +2714,9 @@ const typeOpen = new Set();   // expanded rows ('t:OVER', 'c:TT ELITE', 'g:10' �
 // What the breakdown under the calendar groups by: play types, competitions, or games played
 const BREAKS = [['types', 'Play types'], ['comps', 'Competitions'], ['games', 'Games played']];
 let pnlBreak = store.get('tt.pnlBreak', 'types'); if(!BREAKS.some(([k]) => k === pnlBreak)) pnlBreak = 'types';
-const compOf = x => String(x.league || '').trim().toUpperCase();
+// The known competitions go under one name however the screenshot spells them ("TT Elite" = "TT Elite Series"); others as read
+const COMP_NAMES = { cup:'TT CUP', elite:'TT ELITE SERIES', czech:'CZECH LIGA PRO' };
+const compOf = x => { const l = String(x.league || '').trim().replace(/\s+/g, ' '); return COMP_NAMES[compKey(l)] || l.toUpperCase(); };
 // Games played: the two numbers of the O/U value added together ("3/2" → 5); null when it has none
 const gamesOf = x => { const m = String(x.line || '').match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/); return m ? +m[1] + +m[2] : null; };
 // Separate ranges 1–5, 5–10, 10–20 and 20+: a count on a boundary goes in the lower one (5 → 1–5, 10 → 5–10, 20 → 10–20)
