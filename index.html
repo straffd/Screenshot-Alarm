@@ -2162,7 +2162,7 @@ Object.entries(LB_FIELDS).forEach(([k, sel]) => $(sel).onchange = () => {
 $('#copyName').onchange = e => store.set('tt.copyName', e.target.checked);
 const compKey = league => /\btt\s*cup\b/i.test(league) ? 'cup' : /\belite\b/i.test(league) ? 'elite' : /czech|liga\s*pro/i.test(league) ? 'czech' : null;
 let toastTimer = null;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200); }
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), Math.max(3200, msg.length * 55)); }   // longer messages stay up long enough to read
 function ladbrokesUrl(a){ const key = compKey(a.league || ''), links = store.get('tt.links', {}) || {}; return (key && (links[key] || LB_DEFAULTS[key])) || LB_TABLE_TENNIS; }
 function openLadbrokes(a){
   const url = ladbrokesUrl(a);
@@ -3175,6 +3175,14 @@ async function stopElsewhere(id){
       body: JSON.stringify({ user: await userKey(), id, skip: own ? own.endpoint : '' }) });
   }catch(e){}
 }
+// Where to allow notifications again, for this kind of device (they can only be unblocked from its settings)
+function unblockHelp(){
+  const ua = navigator.userAgent, installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if(/iPhone|iPad|iPod/.test(ua)) return 'On iPhone: open Settings → Notifications → TT Alarm Bot and turn on Allow Notifications.';
+  if(/Android/.test(ua)) return installed ? 'On Android: press and hold the TT Alarm Bot icon → App info → Notifications, and turn them on.'
+    : 'In Chrome: tap the icon left of the web address → Permissions (or Site settings) → Notifications → Allow.';
+  return 'In your browser: click the icon left of the web address → Notifications → Allow.';
+}
 function renderNotifState(){
   const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
   const p = 'Notification' in window ? Notification.permission : 'unsupported';
@@ -3182,13 +3190,22 @@ function renderNotifState(){
   $('#notifOn').checked = notifOn();
   if(!notifOn()){ st.innerHTML = 'Notifications: <b>off on this device</b>'; return; }
   st.innerHTML = p === 'granted' ? 'Notifications: <span class="ok">on</span>'
-    : p === 'denied' ? 'Notifications: <span class="bad">blocked</span>. Turn them on in your phone\'s settings for this app (or the site settings in your browser), then reload.'
+    : p === 'denied' ? 'Notifications: <span class="bad">blocked</span> on this device, so alarms only ring inside the app (no pop-up, nothing on a locked phone). ' + unblockHelp() + ' This updates by itself once they\'re allowed.'
     : p === 'default' ? 'Notifications: <b>off</b>' : 'Notifications aren\'t supported in this browser.';
   if(PUSH_SERVER && p === 'granted') st.innerHTML += pushState === 'on' ? ' · Locked-phone alarms: <span class="ok">on</span>'
     : pushState === 'unsupported' ? ' · Locked-phone alarms need the installed app (iPhone: Share → Add to Home Screen)'
     : pushState === 'error' ? ' · Locked-phone alarms: <span class="bad">couldn\'t connect</span>' : '';
 }
 $('#notifAllow').onclick = askNotify;
+// Allowed (or blocked) in the phone's or browser's settings: show it straight away, no reload needed, and sign up for locked-phone alarms
+let notifPerm = 'Notification' in window ? Notification.permission : '';
+function notifPermCheck(){
+  const p = 'Notification' in window ? Notification.permission : ''; if(p === notifPerm) return;
+  notifPerm = p; renderNotifState(); pushSoon();
+}
+try{ navigator.permissions.query({ name:'notifications' }).then(s => { s.onchange = notifPermCheck; }).catch(() => {}); }catch(e){}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') notifPermCheck(); });
+window.addEventListener('focus', notifPermCheck);
 $('#notifOn').onchange = e => {
   store.set('tt.notifOn', e.target.checked);
   if(e.target.checked) askNotify();   // turning them back on: ask for permission if it's never been given (this is a tap)
@@ -3202,7 +3219,9 @@ $('#testAlarm').onclick = () => {
   alarms = alarms.filter(a => !a.test);
   alarms.push({ id:'test-' + t.toString(36), name:'Test alarm', start:t + 5 * 6e4, ring:t + 5000, lead:5, side:'', line:'', ouPct:'', edge:null, league:'', img:'', fired:false, added:t, tags:[], manual:true, test:true });
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
-  toast(pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
+  const blocked = notifOn() && 'Notification' in window && Notification.permission === 'denied';
+  toast(blocked ? 'Test alarm rings in 5 seconds, but notifications are blocked on this device, so there won\'t be a pop-up. ' + unblockHelp()
+    : pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
     : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.');
 };
 renderNotifState();
