@@ -2719,8 +2719,8 @@ const COMP_NAMES = { cup:'TT CUP', elite:'TT ELITE SERIES', czech:'CZECH LIGA PR
 const compOf = x => { const l = String(x.league || '').trim().replace(/\s+/g, ' '); return COMP_NAMES[compKey(l)] || l.toUpperCase(); };
 // Games played: the two numbers of the O/U value added together ("3/2" → 5); null when it has none
 const gamesOf = x => { const m = String(x.line || '').match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/); return m ? +m[1] + +m[2] : null; };
-// Separate ranges 1–5, 5–10, 10–20 and 20+: a count on a boundary goes in the lower one (5 → 1–5, 10 → 5–10, 20 → 10–20)
-const GAME_BUCKETS = [['5', '1–5 games', g => g <= 5], ['10', '5–10 games', g => g > 5 && g <= 10], ['20', '10–20 games', g => g > 10 && g <= 20], ['20+', '20+ games', g => g > 20]];
+// Separate ranges 1–10, 10–20 and 20+: a count on a boundary goes in the lower one (10 → 1–10, 20 → 10–20)
+const GAME_BUCKETS = [['10', '1–10 games', g => g <= 10], ['20', '10–20 games', g => g > 10 && g <= 20], ['20+', '20+ games', g => g > 20]];
 // Each match counts once under its type, except a match with several bets of their own types (from + in the Cash popup):
 // then each bet counts under its own type (void bets were refunded, so they're left out).
 function typeEntries(S, staked){
