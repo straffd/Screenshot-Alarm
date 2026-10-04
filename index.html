@@ -1174,7 +1174,7 @@ document.addEventListener('scroll', e => { if(e.target && e.target.id === 'log')
 let swReg = null;
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
   navigator.serviceWorker.register(PUSH_SERVER ? 'sw.js?push=' + encodeURIComponent(PUSH_SERVER.replace(/\/+$/, '')) : 'sw.js')
-    .then(r => { swReg = r; pushSoon(); }).catch(() => {});
+    .then(r => { swReg = r; pushSoon(); refreshPerm(); }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', e => {   // a notification shown by the service worker was clicked or swiped away
     const d = e.data || {};
     if(d.type === 'remote-stop') return (d.ids || []).forEach(id => ringing.has(id) && stopAlarm(id, true));   // stopped on another device
@@ -3118,8 +3118,19 @@ document.addEventListener('click', () => { if(!audioCtx){ try{ audioCtx = new (w
 
 // Android only shows the permission prompt when it's asked straight from a tap, so this is called from
 // Send, the Allow button and Test alarm (asking later, after reading a screenshot, is ignored there).
+/* Installed apps: Notification.permission can say 'denied' (e.g. right after showing a notification) while notifications
+   are really allowed. So the service worker's view counts too: its push permission, or a notification it just showed. */
+let permOk = false;
+const effPerm = () => { const p = 'Notification' in window ? Notification.permission : 'unsupported'; return p === 'granted' || permOk ? 'granted' : p; };
+async function refreshPerm(){
+  try{
+    if(!swReg || !swReg.pushManager || !swReg.pushManager.permissionState) return;
+    const ok = (await swReg.pushManager.permissionState({ userVisibleOnly: true })) === 'granted';
+    if(ok && !permOk){ permOk = true; renderNotifState(); pushSoon(); }
+  }catch(e){}
+}
 function askNotify(){
-  if(notifOn() && 'Notification' in window && Notification.permission === 'default')
+  if(notifOn() && 'Notification' in window && effPerm() === 'default')
     try{ const done = () => { renderNotifState(); pushSoon(); }; const r = Notification.requestPermission(done); if(r && r.then) r.then(done, done); }catch(e){}
 }
 /* ---------- Locked-phone alarms (Web Push through PUSH_SERVER) ----------
@@ -3130,7 +3141,7 @@ const pushBase = () => PUSH_SERVER.replace(/\/+$/, '');
 function pushSoon(){ clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 1500); }
 store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.ringOn' || k === 'tt.notifOn' || k === 'tt.lead') pushSoon(); });
 async function pushSubscription(){
-  if(!notifOn() || !PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
+  if(!notifOn() || !PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || effPerm() !== 'granted') return null;
   let sub = await swReg.pushManager.getSubscription();
   if(!sub){
     const { key } = await (await fetch(pushBase() + '/vapid')).json();
@@ -3185,7 +3196,7 @@ function unblockHelp(){
 }
 function renderNotifState(){
   const st = $('#notifState'), b = $('#notifAllow'); if(!st) return;
-  const p = 'Notification' in window ? Notification.permission : 'unsupported';
+  const p = effPerm();
   b.hidden = p !== 'default' || !notifOn();
   $('#notifOn').checked = notifOn();
   if(!notifOn()){ st.innerHTML = 'Notifications: <b>off on this device</b>'; return; }
@@ -3198,9 +3209,10 @@ function renderNotifState(){
 }
 $('#notifAllow').onclick = askNotify;
 // Allowed (or blocked) in the phone's or browser's settings: show it straight away, no reload needed, and sign up for locked-phone alarms
-let notifPerm = 'Notification' in window ? Notification.permission : '';
+let notifPerm = effPerm();
 function notifPermCheck(){
-  const p = 'Notification' in window ? Notification.permission : ''; if(p === notifPerm) return;
+  refreshPerm();
+  const p = effPerm(); if(p === notifPerm) return;
   notifPerm = p; renderNotifState(); pushSoon();
 }
 try{ navigator.permissions.query({ name:'notifications' }).then(s => { s.onchange = notifPermCheck; }).catch(() => {}); }catch(e){}
@@ -3219,7 +3231,7 @@ $('#testAlarm').onclick = () => {
   alarms = alarms.filter(a => !a.test);
   alarms.push({ id:'test-' + t.toString(36), name:'Test alarm', start:t + 5 * 6e4, ring:t + 5000, lead:5, side:'', line:'', ouPct:'', edge:null, league:'', img:'', fired:false, added:t, tags:[], manual:true, test:true });
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
-  const blocked = notifOn() && 'Notification' in window && Notification.permission === 'denied';
+  const blocked = notifOn() && effPerm() === 'denied';
   toast(blocked ? 'Test alarm rings in 5 seconds, but notifications are blocked on this device, so there won\'t be a pop-up. ' + unblockHelp()
     : pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
     : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.');
@@ -3245,18 +3257,18 @@ function fire(a){
   $('#landing').hidden = true;   // never ring behind the home page
   if(ringOn()) startLoop();
   if(isPhone()){ clearTimeout(silenceT); silenceT = setTimeout(stopLoop, PHONE_RING_MS); }   // phones: quiet after 10 s
-  if(notifOn() && 'Notification' in window && Notification.permission==='granted'){
-    try{
+  if(notifOn() && effPerm() === 'granted'){
+    const title = `${a.name} starts at ${fmtTime(a.start)}`, body = a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`;
+    // Android (and installed apps) only allow notifications through the service worker; one shown there proves they're allowed
+    const viaSW = () => swReg && swReg.showNotification(title, { body, tag: a.id, requireInteraction: true, renotify: true, silent: false, vibrate: [700, 250, 700, 250, 700],
+      icon: 'icon-192.png', badge: 'icon-192.png', data: { id: a.id, url: ladbrokesUrl(a) } }).then(() => { if(!permOk){ permOk = true; renderNotifState(); } }).catch(() => {});
+    if(Notification.permission !== 'granted') viaSW();
+    else try{
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
       notes.set(a.id, n);
       n.onclose = () => { if(notes.get(a.id) === n){ notes.delete(a.id); if(ringing.has(a.id)) stopAlarm(a.id); } };   // closing the popup stops the alarm
       n.onclick = () => { openLadbrokes(a); n.close(); };   // clicking the popup opens the match's competition on Ladbrokes (and stops the alarm)
-    }catch(e){
-      // Android (and installed apps) only allow notifications through the service worker
-      if(swReg) swReg.showNotification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`,
-        tag: a.id, requireInteraction: true, renotify: true, silent: false, vibrate: [700, 250, 700, 250, 700], icon: 'icon-192.png', badge: 'icon-192.png',
-        data: { id: a.id, url: ladbrokesUrl(a) } }).catch(() => {});
-    }
+    }catch(e){ viaSW(); }
   }
   document.title = '🔔 ' + a.name;
   render();
