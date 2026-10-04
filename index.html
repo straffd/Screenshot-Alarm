@@ -347,6 +347,12 @@ button.tag{cursor:pointer}
 #pnlTypes .tdg b.up{color:var(--green)} #pnlTypes .tdg b.down{color:var(--red)}
 #pnlTypes .tdf{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
 #pnlTypes[hidden]{display:none}
+/* Breakdown header: the label, with the Play types | Competitions | Games played switch beside it */
+#pnlTypes .bhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 0 10px}
+#pnlTypes .bhead .fsec{margin:0}
+#pnlTypes .bhead .seg button{padding:5px 10px;font-size:12.5px}
+#pnlTypes .side.comp{color:var(--text);border-color:var(--line);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pnlTypes .side.games{color:var(--accent,var(--brand));border-color:color-mix(in srgb,var(--accent,var(--brand)) 55%,transparent)}
 @container (max-width:380px){ #pnlTypes .tdg{grid-template-columns:1fr 1fr} }
 #pnlTypes .tl{display:flex;align-items:center;gap:10px;min-width:0}
 #pnlTypes .tl small,#pnlTypes .tr small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2699,12 +2705,20 @@ function renderPnl(){
   if(pnlView === 'calendar') renderCalendar(view, days, tk); else renderGraph(view, days);
   renderTypes(S, staked, pct);
 }
-// P/L by play type (Over / Under / Sweep), all time, for whichever plays are showing (All, Personal or Bot).
-// Click a type for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
+// P/L by play type (Over / Under / Sweep), competition or games played, all time, for whichever plays are showing
+// (All, Personal or Bot). Click a row for a bigger breakdown. Hidden while a calendar day (or This month) is open, so its bets show instead.
 const PLAY_TYPES = [['OVER', 'Over'], ['UNDER', 'Under'], ['SWEEP', 'Sweep']];
 const BET_TYPES = [...PLAY_TYPES, ['OVERCOMMIT', 'Overcommit']];   // + bets can also be an Overcommit (always Personal P/L)
 const playType = p => hasSweep(p) ? 'SWEEP' : ['OVER', 'UNDER'].includes(String(p.side).toUpperCase()) ? String(p.side).toUpperCase() : '';   // the SWEEP tag wins
-const typeOpen = new Set();   // expanded types ('OVER', 'UNDER', 'SWEEP', '' for No type): any number can be open
+const typeOpen = new Set();   // expanded rows ('t:OVER', 'c:TT ELITE', 'g:10' …): any number can be open
+// What the breakdown under the calendar groups by: play types, competitions, or games played
+const BREAKS = [['types', 'Play types'], ['comps', 'Competitions'], ['games', 'Games played']];
+let pnlBreak = store.get('tt.pnlBreak', 'types'); if(!BREAKS.some(([k]) => k === pnlBreak)) pnlBreak = 'types';
+const compOf = x => String(x.league || '').trim().toUpperCase();
+// Games played: the two numbers of the O/U value added together ("3/2" → 5); null when it has none
+const gamesOf = x => { const m = String(x.line || '').match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/); return m ? +m[1] + +m[2] : null; };
+// ≤5, ≤10 and ≤20 each count every match with up to that many games (so they overlap); 20+ is more than 20
+const GAME_BUCKETS = [['5', '≤ 5 games', g => g <= 5], ['10', '≤ 10 games', g => g <= 10], ['20', '≤ 20 games', g => g <= 20], ['20+', '20+ games', g => g > 20]];
 // Each match counts once under its type, except a match with several bets of their own types (from + in the Cash popup):
 // then each bet counts under its own type (void bets were refunded, so they're left out).
 function typeEntries(S, staked){
@@ -2720,27 +2734,47 @@ function typeEntries(S, staked){
 function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
   box.hidden = !!pnlSel; if(pnlSel) return;
-  box.appendChild(el('div', 'fsec', 'Play types · all time'));
-  // Bot: no Sweep (always Personal); All and Personal: an Overcommit row too
-  const all = typeEntries(S, staked), kinds = pnlKind === 'bot' ? PLAY_TYPES.filter(([k]) => k !== 'SWEEP') : [...BET_TYPES], other = all.filter(e => !e.type);
-  if(other.length) kinds.push(['', 'No type']);
-  kinds.forEach(([k, label]) => {
-    const ps = k ? all.filter(e => e.type === k) : other;
+  const head = el('div', 'bhead'), seg = el('div', 'seg');
+  head.append(el('div', 'fsec', (BREAKS.find(([k]) => k === pnlBreak) || BREAKS[0])[1] + ' · all time'), seg);
+  seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Break down by');
+  BREAKS.forEach(([k, label]) => { const b = el('button', '', label); b.type = 'button'; b.setAttribute('aria-pressed', k === pnlBreak);
+    b.onclick = () => { pnlBreak = k; store.set('tt.pnlBreak', k); renderTypes(S, staked, pct); }; seg.appendChild(b); });
+  box.appendChild(head);
+  const all = typeEntries(S, staked);
+  // rows: [key, label, chip class, entries, does an upcoming bet belong here?]
+  let rows;
+  if(pnlBreak === 'comps'){   // each competition, most bets first
+    const by = new Map(); all.forEach(e => { const c = compOf(e.p); if(!by.has(c)) by.set(c, []); by.get(c).push(e); });
+    rows = [...by].sort((a, b) => (!a[0]) - (!b[0]) || b[1].length - a[1].length || a[0].localeCompare(b[0]))
+      .map(([c, ps]) => [c, c || 'No competition', c ? 'comp' : 'none', ps, x => compOf(x) === c]);
+    if(!rows.length) box.appendChild(el('p', 'tdf', 'No settled bets yet.'));
+  } else if(pnlBreak === 'games'){
+    rows = GAME_BUCKETS.map(([k, label, f]) => [k, label, 'games', all.filter(e => gamesOf(e.p) != null && f(gamesOf(e.p))), x => gamesOf(x) != null && f(gamesOf(x))]);
+    const unk = all.filter(e => gamesOf(e.p) == null);
+    if(unk.length) rows.push(['?', 'No games count', 'none', unk, x => gamesOf(x) == null]);
+  } else {
+    // Bot: no Sweep (always Personal); All and Personal: an Overcommit row too
+    const kinds = pnlKind === 'bot' ? PLAY_TYPES.filter(([k]) => k !== 'SWEEP') : [...BET_TYPES], other = all.filter(e => !e.type);
+    if(other.length) kinds.push(['', 'No type']);
+    rows = kinds.map(([k, label]) => [k, label, k ? k.toLowerCase() : 'none', k ? all.filter(e => e.type === k) : other, x => (k ? playType(x) === k : !playType(x))]);
+  }
+  rows.forEach(([k, label, chip, ps, belongs]) => {
     const pl = ps.reduce((t, e) => t + e.pl, 0), st = ps.reduce((t, e) => t + e.st, 0), w = ps.filter(e => e.win).length;
     const row = el('div', 'trow' + (ps.length ? '' : ' none'));
-    const left = el('div', 'tl'); left.append(el('span', 'side ' + (k ? k.toLowerCase() : 'none'), label.toUpperCase()),
+    const chipEl = el('span', 'side ' + chip, label.toUpperCase()); chipEl.title = label;
+    const left = el('div', 'tl'); left.append(chipEl,
       el('small', '', ps.length ? `${ps.length} bet${ps.length === 1 ? '' : 's'} · ${w}W ${ps.length - w}L · ${Math.round(w / ps.length * 100)}%` : 'No bets'));
     const right = el('div', 'tr'); right.append(el('b', plClass(pl), S.txt(pl)), el('small', '', ps.length ? 'ROI ' + pct(st > 0 ? pl / st * 100 : null) : ''));
     row.append(left, right); box.appendChild(row);
-    const open = typeOpen.has(k);
+    const id = pnlBreak[0] + ':' + k, open = typeOpen.has(id);
     row.classList.add('click'); row.tabIndex = 0; row.setAttribute('role', 'button'); row.setAttribute('aria-expanded', open);
-    row.onclick = () => { if(open) typeOpen.delete(k); else typeOpen.add(k); renderTypes(S, staked, pct); };
+    row.onclick = () => { if(open) typeOpen.delete(id); else typeOpen.add(id); renderTypes(S, staked, pct); };
     row.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); row.click(); } };
-    if(open) box.appendChild(typeDetail(S, k, ps, pl, st, w, pct));
+    if(open) box.appendChild(typeDetail(S, belongs, ps, pl, st, w, pct));
   });
 }
-// The expanded box for one play type
-function typeDetail(S, k, ps, pl, st, w, pct){
+// The expanded box for one row (a play type, competition or games-played group); belongs(x): is upcoming bet x in it
+function typeDetail(S, belongs, ps, pl, st, w, pct){
   const d = el('div', 'tdetail');
   // P/L in the chosen display, with the other one (units ⇄ dollars) beside it
   const head = el('div', 'tdh'); head.append(el('b', plClass(pl), S.txt(pl)));
@@ -2753,9 +2787,8 @@ function typeDetail(S, k, ps, pl, st, w, pct){
   stat('Record', `${w}–${ps.length - w}`);
   stat('Staked', fmtU(st) + 'u');
   d.appendChild(grid);
-  // bets still to come of this type (your alarms, or a friend's upcoming plays), and the average odds taken
-  const match = x => (k ? playType(x) === k : !playType(x))
-    && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
+  // bets still to come in this group (your alarms, or a friend's upcoming plays), and the average odds taken
+  const match = x => belongs(x) && (pnlKind === 'all' || (pnlKind === 'bot') === isBot(x));
   const pending = S.own ? alarms.filter(a => !a.test && match(a)).length
     : (social && social.viewPlays ? social.viewPlays.filter(p => p.status === 'upcoming' && match(p)).length : 0);
   const odds = ps.flatMap(e => e.odds);
