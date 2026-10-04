@@ -44,7 +44,10 @@ Screenshots are read by Google Gemini (free tier).
    only those plays. The **Calendar / Graph** switch sits just above the calendar or graph.
    Under it, **Play types** shows bets, W–L, win rate, P/L and ROI for Over, Under, Sweep and Overcommit (Bot shows no Sweep or Overcommit: they're always Personal) (also split by All / Personal /
    Bot); click any types for a bigger breakdown, as many open as you like (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
-   odds). Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Mark a bet as Sweep with the **SWEEP** tag (click the bet, or type `sweep` in a typed bet), or in the Cash / Chalk
+   odds). A switch beside the heading changes the breakdown to **Competitions** (each competition, most bets first) or
+   **Games played** (the two numbers of the O/U value added together, e.g. 3/2 = 5 games: **≤ 5**, **≤ 10** and **≤ 20** each count
+   every match with up to that many games, **20+** is more than 20), with the same stats and expandable details; it's remembered.
+   Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Mark a bet as Sweep with the **SWEEP** tag (click the bet, or type `sweep` in a typed bet), or in the Cash / Chalk
    popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
     **Tag while you send:** write something like "tag all these with Strong" or "tag these as live and value" with your
     screenshots and every bet from that send gets those tags (new names become new tags; bets already in your list get them too).
