@@ -944,12 +944,12 @@ html.phone .alpha-note{display:inline}
         <label class="switch" id="alarmsOnRow"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
         <label class="switch" id="ringOnRow" hidden><input type="checkbox" role="switch" id="ringOn" checked> Ring (alarm sound)</label>
         <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> <span id="notifOnLbl">Notifications on this device</span></label>
-        <label class="switch" id="vibOnRow" hidden><input type="checkbox" role="switch" id="vibOn" checked> Continuous vibration (until you stop it)</label>
+        <label class="switch" id="vibOnRow" hidden><input type="checkbox" role="switch" id="vibOn" checked> Vibration (for 10 seconds)</label>
         <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
         <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
       </div>
       <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
-        On phones, the ring, the notification and the continuous vibration each have their own switch, so you can keep just the notification, for example.
+        On phones, the ring, the notification and the vibration (10 seconds) each have their own switch, so you can keep just the notification, for example.
         <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
         so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
         These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
@@ -2065,7 +2065,7 @@ function render(){
 /* ---------- Alarms on / off ---------- */
 const alarmsOn = () => store.get('tt.alarmsOn', true) !== false;
 const notifOn = () => store.get('tt.notifOn', true) !== false;   // notifications on this device (page and locked-phone)
-// Phones get a switch each for the ring (sound) and the continuous vibration, next to Notifications, instead of one Alarms switch.
+// Phones get a switch each for the ring (sound) and the vibration (10 seconds), next to Notifications, instead of one Alarms switch.
 // They start from the old Alarms switch, so a phone that had alarms off stays quiet (but notifications follow their own switch).
 const ringOn = () => isPhone() ? store.get('tt.ringOn', alarmsOn()) !== false : alarmsOn();
 const vibOn = () => isPhone() ? store.get('tt.vibOn', alarmsOn()) !== false : alarmsOn();
@@ -3056,14 +3056,17 @@ function startLoop(){
   };
   tick(); beepTimer = setInterval(tick, 250);
 }
-// Vibration while an alarm rings: a pattern every 2.5 s until it's stopped (Android needs one tap on the app first)
-let buzzTimer = null;
+// Vibration while an alarm rings: a pattern every 2.5 s for 10 seconds, then it stops (Android needs one tap on the app first).
+// The sound and notification carry on until the alarm is stopped.
+const BUZZ_MS = 10e3;
+let buzzTimer = null, buzzEnd = null;
 function startBuzz(){
   if(buzzTimer || !navigator.vibrate) return;
   const go = () => { try{ navigator.vibrate([700, 250, 700]); }catch(e){} };
   go(); buzzTimer = setInterval(() => ringing.size ? go() : stopBuzz(), 2500);
+  buzzEnd = setTimeout(stopBuzz, BUZZ_MS);
 }
-function stopBuzz(){ clearInterval(buzzTimer); buzzTimer = null; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
+function stopBuzz(){ clearInterval(buzzTimer); clearTimeout(buzzEnd); buzzTimer = buzzEnd = null; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
 function stopLoop(){
   clearInterval(beepTimer); beepTimer = null;
   // cut off notes that were already scheduled ahead

@@ -68,8 +68,8 @@ Screenshots are read by Google Gemini (free tier).
     opacity, separate from the chat's; ↺ makes it follow the chat again. On phones it's always solid.
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
-    On **phones** there's a switch each instead: **Ring** (alarm sound), **Notification** and **Continuous vibration**
-    (until you stop it; Android only, iPhones can't vibrate from a web page). Turn off Ring and vibration to get just the notification.
+    On **phones** there's a switch each instead: **Ring** (alarm sound), **Notification** and **Vibration**
+    (buzzes for 10 seconds; Android only, iPhones can't vibrate from a web page). Turn off Ring and vibration to get just the notification.
 13. **Friends** (top bar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
@@ -128,7 +128,7 @@ itself once it's safe: nothing ringing, nothing typed or attached, no popup open
 - **Signed in with Google:** bets (with their screenshots), UI colour, top bar colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
   Only you can read them. Some things stay on each device instead: the background picture (and its blur/saturation),
-  the alarm switches (Ring alarms, or on phones Ring / Notification / Continuous vibration, Notifications on this device, Keep the screen on), whether the Bets panel is open, and
+  the alarm switches (Ring alarms, or on phones Ring / Notification / Vibration, Notifications on this device, Keep the screen on), whether the Bets panel is open, and
   any custom alarm sounds you add. Signing out removes your account data from that browser (it stays in your account);
   these device settings stay.
 - **Friends:** your @username and picture can be seen by anyone signed in who looks you up by exact username.
