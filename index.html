@@ -942,14 +942,15 @@ html.phone .alpha-note{display:inline}
     <div class="hud-row"><span class="lbl">Alarms</span>
       <div class="ctl" style="display:grid;gap:10px">
         <label class="switch" id="alarmsOnRow"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
-        <label class="switch" id="ringOnRow" hidden><input type="checkbox" role="switch" id="ringOn" checked> Ring (alarm sound)</label>
+        <label class="switch" id="ringOnRow" hidden><input type="checkbox" role="switch" id="ringOn" checked> Ring (alarm sound, for 10 seconds)</label>
         <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> <span id="notifOnLbl">Notifications on this device</span></label>
         <label class="switch" id="vibOnRow" hidden><input type="checkbox" role="switch" id="vibOn" checked> Vibration (for 10 seconds)</label>
         <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
         <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
       </div>
       <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
-        On phones, the ring, the notification and the vibration (10 seconds) each have their own switch, so you can keep just the notification, for example.
+        On phones, the ring, the notification and the vibration each have their own switch, so you can keep just the notification, for example.
+        The ring and vibration stop after 10 seconds, and opening the app stops the alarm.
         <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
         so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
         These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
@@ -3061,10 +3062,11 @@ function startLoop(){
 const BUZZ_MS = 10e3;
 let buzzTimer = null, buzzEnd = null;
 function startBuzz(){
-  if(buzzTimer || !navigator.vibrate) return;
+  if(!navigator.vibrate) return;
+  clearTimeout(buzzEnd); buzzEnd = setTimeout(stopBuzz, BUZZ_MS);   // a newer alarm gets its own full 10 seconds
+  if(buzzTimer) return;
   const go = () => { try{ navigator.vibrate([700, 250, 700]); }catch(e){} };
   go(); buzzTimer = setInterval(() => ringing.size ? go() : stopBuzz(), 2500);
-  buzzEnd = setTimeout(stopBuzz, BUZZ_MS);
 }
 function stopBuzz(){ clearInterval(buzzTimer); clearTimeout(buzzEnd); buzzTimer = buzzEnd = null; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
 function stopLoop(){
@@ -3187,13 +3189,25 @@ $('#testAlarm').onclick = () => {
 renderNotifState();
 
 const notes = new Map();   // alarm id → its desktop notification while it rings
+/* Phones: the alarm sound (like the vibration) stops after 10 seconds, and opening the app stops the alarm altogether:
+   coming back to it stops anything ringing, and an alarm that came due while the app was closed or in the background
+   (you got its notification) doesn't start ringing when you open it. The notification and Stop stay until then. */
+const PHONE_RING_MS = 10e3;
+let openedAt = Date.now(), silenceT = null;
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible' || !isPhone()) return;
+  openedAt = Date.now(); [...ringing].forEach(id => stopAlarm(id));
+});
 function fire(a){
   if(!alarmsActive()){ a.fired = true; store.set('tt.alarms', alarms); render(); return; }   // alarms switched off: just mark it as started, silently
+  if(isPhone() && a.ring < openedAt - 2000){   // came due while the app wasn't open: opening it counts as stopping it
+    a.fired = true; ringing.add(a.id); stopAlarm(a.id); return; }
   a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
   if(!$('#bets').classList.contains('open')) setSlide('bets', true);   // show the bet that's ringing
   $('#landing').hidden = true;   // never ring behind the home page
   if(ringOn()) startLoop();
-  if(vibOn()) startBuzz();   // phones: vibrate for as long as it rings
+  if(vibOn()) startBuzz();   // vibrates for 10 seconds
+  if(isPhone()){ clearTimeout(silenceT); silenceT = setTimeout(() => { stopLoop(); stopBuzz(); }, PHONE_RING_MS); }   // phones: quiet after 10 s
   if(notifOn() && 'Notification' in window && Notification.permission==='granted'){
     try{
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });

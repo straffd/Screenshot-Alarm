@@ -69,7 +69,9 @@ Screenshots are read by Google Gemini (free tier).
 12. Don't want alarms? Turn off **Ring alarms** in ⚙ Settings → Alarms. Matches are still listed and still get
     Cash / Chalk, but nothing rings, notifies or vibrates (anything ringing at that moment is silenced).
     On **phones** there's a switch each instead: **Ring** (alarm sound), **Notification** and **Vibration**
-    (buzzes for 10 seconds; Android only, iPhones can't vibrate from a web page). Turn off Ring and vibration to get just the notification.
+    (buzzes for 10 seconds; Android only, iPhones can't vibrate from a web page). On phones the ring and vibration stop after
+    10 seconds, and opening the app (or coming back to it) stops the alarm; one that came due while the app was closed doesn't start
+    ringing when you open it. Turn off Ring and vibration to get just the notification.
 13. **Friends** (top bar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
