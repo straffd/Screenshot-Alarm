@@ -7,6 +7,15 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', () => {});   // let every request go to the network as usual
 
 const VIBRATE = [700, 250, 700, 250, 700];
+// Settings the app leaves for us in IndexedDB ('tt-sw', written by index.html), e.g. whether alarms vibrate
+const pref = (k, dflt) => new Promise(res => {
+  try{
+    const r = indexedDB.open('tt-sw', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('imgs');
+    r.onsuccess = () => { try{ const q = r.result.transaction('imgs').objectStore('imgs').get(k); q.onsuccess = () => res(q.result ?? dflt); q.onerror = () => res(dflt); }catch(e){ res(dflt); } };
+    r.onerror = () => res(dflt);
+  }catch(e){ res(dflt); }
+});
 
 // Locked-phone alarms: the push service wakes the phone at alarm time (an empty push), and we ask it what's due
 self.addEventListener('push', e => {
@@ -26,8 +35,19 @@ self.addEventListener('push', e => {
         return self.registration.showNotification('Alarm stopped', { body: 'Stopped on your other device', tag: 'tt-stopped', silent: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: '', url: '' } });
     }
     if(!due.length) due = [{ id: 'tt-alarm', title: 'A bet is about to start', body: 'Open TT Alarm Bot', url: '' }];   // a push must always show something
-    await Promise.all(due.map(a => self.registration.showNotification(a.title, { body: a.body || '', tag: a.id, renotify: true, requireInteraction: true,
-      silent: false, vibrate: VIBRATE, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: a.id, url: a.url || '' } })));
+    const show = a => self.registration.showNotification(a.title, { body: a.body || '', tag: a.id, renotify: true, requireInteraction: true,
+      silent: false, vibrate: VIBRATE, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: a.id, url: a.url || '' } });
+    await Promise.all(due.map(show));
+    // A notification only buzzes once, so for 10 seconds it's shown again every 3 s (each one buzzes) until it's tapped,
+    // swiped away or stopped on another device. Off when Vibration is switched off in the app's Settings.
+    if(due[0].id !== 'tt-alarm' && await pref('vib', true) !== false)
+      for(let i = 0; i < 3; i++){
+        await new Promise(r => setTimeout(r, 3300));
+        const left = [];
+        for(const a of due) if((await self.registration.getNotifications({ tag: a.id })).length) left.push(a);
+        if(!left.length) break;
+        await Promise.all(left.map(show));
+      }
   })());
 });
 

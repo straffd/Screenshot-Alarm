@@ -192,6 +192,10 @@ html:not(.phone) .log{--fade-top:calc(34px * var(--pls, 1));--fade-len:30px}
 .keycta{position:absolute;top:72px;left:calc((100% - var(--pnl-w, 0px)) / 2);transform:translateX(-50%);z-index:5;height:40px;padding:0 18px;border:none;border-radius:20px;
   background:var(--accent,var(--brand));color:var(--on-accent,var(--on-brand));font-weight:600;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:left .25s}
 .keycta[hidden]{display:none}
+/* Phones: the browser won't ring or vibrate until the page has been tapped once (e.g. after an automatic update) */
+.tapcta{position:absolute;bottom:84px;left:16px;right:16px;margin:0 auto;width:fit-content;z-index:5;padding:10px 16px;border:none;border-radius:20px;
+  background:var(--accent,var(--brand));color:var(--on-accent,var(--on-brand));font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.35);text-align:center}
+.tapcta[hidden]{display:none}
 .chat:has(#keyCta:not([hidden])) .log{padding-top:128px !important}   /* room for it above the first message */
 @media (max-width:860px){.keycta{top:72px;left:50%} .chat:has(#keyCta:not([hidden])) .log{padding-top:124px !important}}
 .send{height:44px;padding:0 18px;border:none;border-radius:8px;background:var(--accent,var(--brand));color:var(--on-accent,var(--on-brand));font-weight:600}
@@ -805,6 +809,7 @@ html.phone .alpha-note{display:inline}
   <section class="chat">
     <div class="chatbg" aria-hidden="true"></div>
     <button class="keycta" id="keyCta" hidden>Gemini settings: add your API key</button>
+    <button class="tapcta" id="tapCta" hidden>🔔 Tap to let alarms ring &amp; vibrate</button>
     <div class="pltab" id="plTab"><div class="pltab-in">
       <span class="pl-time" id="plTimeBox"><span id="plTime"></span></span>
       <span class="sep" id="plSep" aria-hidden="true">|</span>
@@ -1203,6 +1208,7 @@ const idbStore = name => {
 };
 const chatImgs = idbStore('tt-chat');
 const bgMedia = idbStore('tt-bg');   // a GIF or video background (too big for localStorage); tt.bg then holds 'idb:<n>'
+const swPrefs = idbStore('tt-sw');   // read by the service worker (sw.js): e.g. whether a locked-phone alarm keeps vibrating
 function addMsg(who, text, opts={}){
   const m = { t: Date.now(), who, text: text || '', ...(opts.err ? { err:true } : {}), ...(opts.facts ? { facts: opts.facts } : {}),
               ...(opts.imgs && opts.imgs.length ? { n: opts.imgs.length } : {}), ...(opts.bell ? { bell: opts.bell } : {}) };
@@ -2077,6 +2083,7 @@ function alarmsPrefs(){
   $('#ringOn').checked = ringOn(); $('#ringOnRow').hidden = !ph;
   $('#vibOn').checked = vibOn(); $('#vibOnRow').hidden = !ph || !('vibrate' in navigator);   // iPhones can't vibrate from a web page
   $('#notifOnLbl').textContent = ph ? 'Notification' : 'Notifications on this device';
+  swPrefs.put('vib', ph ? vibOn() : alarmsOn());
 }
 $('#ringOn').onchange = e => { store.set('tt.ringOn', e.target.checked); if(!e.target.checked) stopLoop(); alarmsPrefs(); render(); };
 $('#vibOn').onchange = e => { store.set('tt.vibOn', e.target.checked); if(!e.target.checked) stopBuzz(); alarmsPrefs(); render(); };
@@ -3065,9 +3072,18 @@ function startBuzz(){
   if(!navigator.vibrate) return;
   clearTimeout(buzzEnd); buzzEnd = setTimeout(stopBuzz, BUZZ_MS);   // a newer alarm gets its own full 10 seconds
   if(buzzTimer) return;
-  const go = () => { try{ navigator.vibrate([700, 250, 700]); }catch(e){} };
+  const go = () => { let ok = false; try{ ok = navigator.vibrate([700, 250, 700]); }catch(e){}
+    if(ok === false) document.addEventListener('pointerdown', () => { if(buzzTimer) go(); }, { once:true, capture:true }); };   // not allowed yet (no tap since the page loaded): buzz on the first tap
   go(); buzzTimer = setInterval(() => ringing.size ? go() : stopBuzz(), 2500);
 }
+// Phones: until the page is tapped once, the browser blocks the alarm sound and vibration (after opening the app, or after
+// it updated itself). While a bet is coming up, a button asks for that one tap.
+const needsTap = () => !!navigator.userActivation && !navigator.userActivation.hasBeenActive;
+function tapCta(){
+  $('#tapCta').hidden = !(isPhone() && needsTap() && (ringOn() || vibOn()) && alarms.some(a => !a.fired && !a.test && leagueShown(a)));
+}
+$('#tapCta').onclick = () => { try{ ctx().resume && ctx().resume(); navigator.vibrate && navigator.vibrate(1); }catch(e){} tapCta(); };
+['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => setTimeout(tapCta, 0), { capture:true }));
 function stopBuzz(){ clearInterval(buzzTimer); clearTimeout(buzzEnd); buzzTimer = buzzEnd = null; try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} }
 function stopLoop(){
   clearInterval(beepTimer); beepTimer = null;
@@ -3177,14 +3193,16 @@ $('#notifOn').onchange = e => {
   renderNotifState(); pushSoon();
 };
 $('#testAlarm').onclick = () => {
-  askNotify(); try{ navigator.vibrate && navigator.vibrate(1); }catch(e){}   // the tap also unlocks sound and vibration
+  askNotify(); try{ navigator.vibrate && navigator.vibrate(isPhone() && vibOn() ? 200 : 1); }catch(e){}   // the tap also unlocks sound and vibration (phones: a short buzz now, to check it)
   try{ ctx().resume && ctx().resume(); }catch(e){}
   const t = Date.now();
   alarms = alarms.filter(a => !a.test);
   alarms.push({ id:'test-' + t.toString(36), name:'Test alarm', start:t + 5 * 6e4, ring:t + 5000, lead:5, side:'', line:'', ouPct:'', edge:null, league:'', img:'', fired:false, added:t, tags:[], manual:true, test:true });
   alarms.sort((x, y) => x.ring - y.ring); store.set('tt.alarms', alarms); render();
-  toast(pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
-    : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.');
+  const vib = !isPhone() || !vibOn() ? '' : !('vibrate' in navigator) ? ' This browser can\'t vibrate from a web page (iPhones never can).'
+    : ' You should have felt a short buzz: if not, turn on vibration (and touch feedback) in the phone\'s Sound & vibration settings, and check Do Not Disturb.';
+  toast((pushState === 'on' ? 'Test alarm rings in 5 seconds. To test a locked phone, lock it now: the notification arrives within about a minute.'
+    : 'Test alarm rings in 5 seconds. Stop it from its card or the notification.') + vib);
 };
 renderNotifState();
 
@@ -3254,6 +3272,7 @@ setInterval(() => {
   updateWake();
   cleanupOld();
   tickTracker();
+  tapCta();
   const hid = alarms.filter(a => !a.fired && a.ring <= now && !leagueShown(a));   // switched-off leagues never ring: they just count as started
   if(hid.length){ hid.forEach(a => a.fired = true); store.set('tt.alarms', alarms); render(); }
   alarms.filter(a => !a.fired && a.ring <= now).forEach(fire);
@@ -4157,7 +4176,7 @@ async function newerVersion(){
   const fresh = new DOMParser().parseFromString(await r.text(), 'text/html');
   return codeOf(fresh).trim() && codeOf(fresh) !== codeOf(document);
 }
-const safeToReload = () => !ringing.size && !sending && !pendingImgs.length && !$('#text').value.trim()
+const safeToReload = () => !ringing.size && !(isPhone() && alarms.some(a => !a.fired && leagueShown(a) && a.ring - Date.now() < 30 * 6e4)) && !sending && !pendingImgs.length && !$('#text').value.trim()
   && !document.querySelector('.modal.show') && $('#tour').hidden && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
 function reloadWhenSafe(){
   if(!safeToReload()) return setTimeout(reloadWhenSafe, 15e3);   // try again shortly

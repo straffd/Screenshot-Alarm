@@ -71,7 +71,10 @@ Screenshots are read by Google Gemini (free tier).
     On **phones** there's a switch each instead: **Ring** (alarm sound), **Notification** and **Vibration**
     (buzzes for 10 seconds; Android only, iPhones can't vibrate from a web page). On phones the ring and vibration stop after
     10 seconds, and opening the app (or coming back to it) stops the alarm; one that came due while the app was closed doesn't start
-    ringing when you open it. Turn off Ring and vibration to get just the notification.
+    ringing when you open it. Phones only let a web page ring or vibrate after it's been tapped once since it
+    loaded, so while a bet is coming up a **Tap to let alarms ring & vibrate** button shows until you tap (the app also
+    won't update itself within 30 minutes of a bet). On a locked phone the notification is shown again every 3 seconds
+    for 10 seconds so it keeps buzzing (if Vibration is on). **Test alarm** gives a short buzz straight away so you can check it. Turn off Ring and vibration to get just the notification.
 13. **Friends** (top bar → Friends, signed-in only): create a profile with your own **@username** and **picture** (your
     Google name and picture are never shown). Add friends by @username or by sharing your invite link, and accept
     requests under Requests. Click a friend's @ to drop down **PNL · History · Bets · Block · Unfriend**: PNL and
