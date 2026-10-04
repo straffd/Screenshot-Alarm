@@ -106,6 +106,7 @@ button{cursor:pointer}
   .hud .links .league{grid-template-columns:1fr;gap:4px}
 }
 .switch{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:14px}
+.switch[hidden]{display:none}
 .switch input{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:11px;background:var(--line);margin:0;cursor:pointer;transition:background .2s;flex:none}
 .switch input::after{content:"";display:block;width:16px;height:16px;margin:3px;border-radius:50%;background:#fff;transition:transform .2s}
 .switch input:checked{background:var(--green)}
@@ -940,12 +941,15 @@ html.phone .alpha-note{display:inline}
     <div class="hud-sec">Alarms</div>
     <div class="hud-row"><span class="lbl">Alarms</span>
       <div class="ctl" style="display:grid;gap:10px">
-        <label class="switch"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
-        <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> Notifications on this device</label>
+        <label class="switch" id="alarmsOnRow"><input type="checkbox" role="switch" id="alarmsOn" checked> Ring alarms (sound, notification and vibration)</label>
+        <label class="switch" id="ringOnRow" hidden><input type="checkbox" role="switch" id="ringOn" checked> Ring (alarm sound)</label>
+        <label class="switch"><input type="checkbox" role="switch" id="notifOn" checked> <span id="notifOnLbl">Notifications on this device</span></label>
+        <label class="switch" id="vibOnRow" hidden><input type="checkbox" role="switch" id="vibOn" checked> Continuous vibration (until you stop it)</label>
         <div class="notifrow"><span id="notifState"></span><button class="ghost" id="notifAllow" hidden>Allow notifications</button><button class="ghost" id="testAlarm">Test alarm</button></div>
         <label class="switch"><input type="checkbox" role="switch" id="wakeOn"> Keep the screen on while a bet is coming up</label>
       </div>
       <p class="note">Turn alarms off to use the app without them: matches are still listed and still get Cash / Chalk once they start.
+        On phones, the ring, the notification and the continuous vibration each have their own switch, so you can keep just the notification, for example.
         <b>Phones:</b> an alarm only rings while the app is open on screen. If the phone locks or you switch apps, the phone pauses the app until you come back,
         so keep the screen on (the switch above does this while a bet is coming up). Test alarm rings in 5 seconds so you can check sound, notification and vibration.
         These alarm settings are for <b>this device only</b>: your other phones and computers keep their own.</p></div>
@@ -2012,7 +2016,7 @@ function render(){
   if(social && social.view) renderFAlarms();
   const list = $('#list'); list.innerHTML = '';
   const vis = alarms.filter(leagueShown), active = vis.filter(a=>!a.fired).length;
-  $('#alarmCount').textContent = (vis.length ? `${active} upcoming` : '') + (alarmsOn() ? '' : (vis.length ? ' · ' : '') + 'alarms off');
+  $('#alarmCount').textContent = (vis.length ? `${active} upcoming` : '') + (alarmsActive() ? '' : (vis.length ? ' · ' : '') + 'alarms off');
   if(!vis.length){ list.innerHTML = alarms.length ? '<div class="empty">Your bets are all in leagues you\'ve switched off. Turn them back on in ⚙ Settings → League Links.</div>' : '<div class="empty">No bets yet. Send a match screenshot in the chat to add one.</div>'; return; }
   for(const a of vis){
     const c = document.createElement('div');
@@ -2061,7 +2065,20 @@ function render(){
 /* ---------- Alarms on / off ---------- */
 const alarmsOn = () => store.get('tt.alarmsOn', true) !== false;
 const notifOn = () => store.get('tt.notifOn', true) !== false;   // notifications on this device (page and locked-phone)
-function alarmsPrefs(){ $('#alarmsOn').checked = alarmsOn(); }
+// Phones get a switch each for the ring (sound) and the continuous vibration, next to Notifications, instead of one Alarms switch.
+// They start from the old Alarms switch, so a phone that had alarms off stays quiet (but notifications follow their own switch).
+const ringOn = () => isPhone() ? store.get('tt.ringOn', alarmsOn()) !== false : alarmsOn();
+const vibOn = () => isPhone() ? store.get('tt.vibOn', alarmsOn()) !== false : alarmsOn();
+const alarmsActive = () => isPhone() ? ringOn() || vibOn() || notifOn() : alarmsOn();   // anything at all happens when a bet starts
+function alarmsPrefs(){
+  const ph = isPhone();
+  $('#alarmsOn').checked = alarmsOn(); $('#alarmsOnRow').hidden = ph;
+  $('#ringOn').checked = ringOn(); $('#ringOnRow').hidden = !ph;
+  $('#vibOn').checked = vibOn(); $('#vibOnRow').hidden = !ph || !('vibrate' in navigator);   // iPhones can't vibrate from a web page
+  $('#notifOnLbl').textContent = ph ? 'Notification' : 'Notifications on this device';
+}
+$('#ringOn').onchange = e => { store.set('tt.ringOn', e.target.checked); if(!e.target.checked) stopLoop(); alarmsPrefs(); render(); };
+$('#vibOn').onchange = e => { store.set('tt.vibOn', e.target.checked); if(!e.target.checked) stopBuzz(); alarmsPrefs(); render(); };
 $('#alarmsOn').onchange = e => {
   store.set('tt.alarmsOn', e.target.checked); alarmsPrefs();
   if(!e.target.checked) [...ringing].forEach(stopAlarm);   // switching off silences anything ringing now
@@ -3087,7 +3104,7 @@ function askNotify(){
 let pushState = 'off', pushTimer = null;   // 'off' | 'on' | 'unsupported' | 'error'
 const pushBase = () => PUSH_SERVER.replace(/\/+$/, '');
 function pushSoon(){ clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 1500); }
-store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.notifOn' || k === 'tt.lead') pushSoon(); });
+store.watch.push(k => { if(k === 'tt.alarms' || k === 'tt.alarmsOn' || k === 'tt.ringOn' || k === 'tt.vibOn' || k === 'tt.notifOn' || k === 'tt.lead') pushSoon(); });
 async function pushSubscription(){
   if(!notifOn() || !PUSH_SERVER || !swReg || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return null;
   let sub = await swReg.pushManager.getSubscription();
@@ -3111,7 +3128,7 @@ async function syncPush(){
       pushState = 'off'; return renderNotifState();
     }
     const sub = await pushSubscription(); if(!sub){ pushState = 'off'; return renderNotifState(); }
-    const now = Date.now(), list = alarmsOn() ? alarms.filter(a => !a.fired && !a.stopped && a.ring > now - 30e3 && leagueShown(a)).map(a => ({ id: a.id, ring: a.ring,
+    const now = Date.now(), list = alarmsActive() ? alarms.filter(a => !a.fired && !a.stopped && a.ring > now - 30e3 && leagueShown(a)).map(a => ({ id: a.id, ring: a.ring,
       title: `${a.name} starts at ${fmtTime(a.start)}`, body: a.test ? 'Test alarm: locked-phone alarms work' : a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge == null ? '—' : a.edge + '%'}`,
       url: a.test ? '' : ladbrokesUrl(a) })) : [];
     const r = await fetch(pushBase() + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), alarms: list, user: await userKey() }) });
@@ -3168,12 +3185,12 @@ renderNotifState();
 
 const notes = new Map();   // alarm id → its desktop notification while it rings
 function fire(a){
-  if(!alarmsOn()){ a.fired = true; store.set('tt.alarms', alarms); render(); return; }   // alarms switched off: just mark it as started, silently
+  if(!alarmsActive()){ a.fired = true; store.set('tt.alarms', alarms); render(); return; }   // alarms switched off: just mark it as started, silently
   a.fired = true; ringing.add(a.id); store.set('tt.alarms', alarms);
   if(!$('#bets').classList.contains('open')) setSlide('bets', true);   // show the bet that's ringing
   $('#landing').hidden = true;   // never ring behind the home page
-  startLoop();
-  startBuzz();   // phones: vibrate for as long as it rings
+  if(ringOn()) startLoop();
+  if(vibOn()) startBuzz();   // phones: vibrate for as long as it rings
   if(notifOn() && 'Notification' in window && Notification.permission==='granted'){
     try{
       const n = new Notification(`${a.name} starts at ${fmtTime(a.start)}`, { body: a.manual ? (a.side || 'Typed bet') : `${a.league ? a.league + ' · ' : ''}${a.side} · edge ${a.edge==null?'—':a.edge+'%'}`, requireInteraction:true, tag:'tt-' + a.id });
@@ -3206,7 +3223,7 @@ function stopAlarm(id, remote){
 
 // Keep the screen on while a bet is coming up, so the phone doesn't pause the app before it rings
 let wakeLock = null;
-const wakeWanted = () => store.get('tt.wakeOn', isPhone()) !== false && alarmsOn() && document.visibilityState === 'visible' && alarms.some(a => !a.fired && leagueShown(a));
+const wakeWanted = () => store.get('tt.wakeOn', isPhone()) !== false && alarmsActive() && document.visibilityState === 'visible' && alarms.some(a => !a.fired && leagueShown(a));
 async function updateWake(){
   if(!('wakeLock' in navigator)) return;
   if(wakeWanted()){ if(!wakeLock){ try{ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }catch(e){ wakeLock = null; } } }
