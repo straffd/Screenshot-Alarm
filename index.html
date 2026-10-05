@@ -351,6 +351,9 @@ button.tag{cursor:pointer}
 #pnlTypes .bhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 0 10px}
 #pnlTypes .bhead .fsec{margin:0}
 #pnlTypes .bhead .seg button{padding:5px 10px;font-size:12.5px}
+/* Which competition Play types / Games played covers: All | Czech Liga | TT Elite | TT Cup */
+#pnlTypes .cseg{display:flex;width:100%;margin:-2px 0 10px}
+#pnlTypes .cseg button{flex:1;padding:5px 6px;font-size:12.5px;white-space:nowrap}
 #pnlTypes .side.comp{color:var(--text);border-color:var(--line);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #pnlTypes .side.games{color:var(--accent,var(--brand));border-color:color-mix(in srgb,var(--accent,var(--brand)) 55%,transparent)}
 @container (max-width:380px){ #pnlTypes .tdg{grid-template-columns:1fr 1fr} }
@@ -2732,6 +2735,10 @@ const typeOpen = new Set();   // expanded rows ('t:OVER', 'c:TT ELITE', 'g:10' �
 // What the breakdown under the calendar groups by: play types, competitions, or games played
 const BREAKS = [['types', 'Play types'], ['comps', 'Competitions'], ['games', 'Games played']];
 let pnlBreak = store.get('tt.pnlBreak', 'types'); if(!BREAKS.some(([k]) => k === pnlBreak)) pnlBreak = 'types';
+// Play types and Games played can be narrowed to one of the main competitions (same matching as the league switches)
+const COMP_FILTERS = [['all', 'All'], ['czech', 'Czech Liga'], ['elite', 'TT Elite'], ['cup', 'TT Cup']];
+let pnlComp = store.get('tt.pnlComp', 'all'); if(!COMP_FILTERS.some(([k]) => k === pnlComp)) pnlComp = 'all';
+const inComp = x => pnlComp === 'all' || compKey(String(x.league || '')) === pnlComp;
 // The known competitions go under one name however the screenshot spells them ("TT Elite" = "TT Elite Series"); others as read
 const COMP_NAMES = { cup:'TT CUP', elite:'TT ELITE SERIES', czech:'CZECH LIGA PRO' };
 const compOf = x => { const l = String(x.league || '').trim().replace(/\s+/g, ' '); return COMP_NAMES[compKey(l)] || l.toUpperCase(); };
@@ -2755,12 +2762,19 @@ function renderTypes(S, staked, pct){
   const box = $('#pnlTypes'); box.innerHTML = '';
   box.hidden = !!pnlSel; if(pnlSel) return;
   const head = el('div', 'bhead'), seg = el('div', 'seg');
-  head.append(el('div', 'fsec', (BREAKS.find(([k]) => k === pnlBreak) || BREAKS[0])[1] + ' · all time'), seg);
+  const byComp = pnlBreak !== 'comps', compName = byComp && pnlComp !== 'all' ? ' · ' + COMP_FILTERS.find(([k]) => k === pnlComp)[1] : '';
+  head.append(el('div', 'fsec', (BREAKS.find(([k]) => k === pnlBreak) || BREAKS[0])[1] + compName + ' · all time'), seg);
   seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Break down by');
   BREAKS.forEach(([k, label]) => { const b = el('button', '', label); b.type = 'button'; b.setAttribute('aria-pressed', k === pnlBreak);
     b.onclick = () => { pnlBreak = k; store.set('tt.pnlBreak', k); renderTypes(S, staked, pct); }; seg.appendChild(b); });
   box.appendChild(head);
-  const all = typeEntries(S, staked);
+  if(byComp){
+    const cseg = el('div', 'seg cseg'); cseg.setAttribute('role', 'group'); cseg.setAttribute('aria-label', 'Competition');
+    COMP_FILTERS.forEach(([k, label]) => { const b = el('button', '', label); b.type = 'button'; b.setAttribute('aria-pressed', k === pnlComp);
+      b.onclick = () => { pnlComp = k; store.set('tt.pnlComp', k); renderTypes(S, staked, pct); }; cseg.appendChild(b); });
+    box.appendChild(cseg);
+  }
+  const all = typeEntries(S, staked).filter(e => !byComp || inComp(e.p));
   // rows: [key, label, chip class, entries, does an upcoming bet belong here?]
   let rows;
   if(pnlBreak === 'comps'){   // each competition, most bets first
@@ -2778,7 +2792,8 @@ function renderTypes(S, staked, pct){
     if(other.length) kinds.push(['', 'No type']);
     rows = kinds.map(([k, label]) => [k, label, k ? k.toLowerCase() : 'none', k ? all.filter(e => e.type === k) : other, x => (k ? playType(x) === k : !playType(x))]);
   }
-  rows.forEach(([k, label, chip, ps, belongs]) => {
+  rows.forEach(([k, label, chip, ps, inRow]) => {
+    const belongs = byComp ? x => inComp(x) && inRow(x) : inRow;   // pending bets: only the chosen competition's
     const pl = ps.reduce((t, e) => t + e.pl, 0), st = ps.reduce((t, e) => t + e.st, 0), w = ps.filter(e => e.win).length;
     const row = el('div', 'trow' + (ps.length ? '' : ' none'));
     const chipEl = el('span', 'side ' + chip, label.toUpperCase()); chipEl.title = label;
