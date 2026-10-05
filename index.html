@@ -3358,9 +3358,60 @@ const FIREBASE_CONFIG = {
   appId: '1:565229627738:web:8db706f25f16ed61dbeb63'
 };
 const FIREBASE_VERSION = '12.19.0';
-const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.history', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.botUnitsOn', 'tt.botUnits', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen', 'tt.uvHistory'];   // users/{uid} fields; alarms and background are separate docs
+const PREF_KEYS = ['tt.lead', 'tt.sound', 'tt.theme', 'tt.settings', 'tt.links', 'tt.copyName', 'tt.tags', 'tt.cleanupHours', 'tt.lastUnits', 'tt.plPrefs', 'tt.avgOdds', 'tt.avgOddsOn', 'tt.defOdds', 'tt.botUnitsOn', 'tt.botUnits', 'tt.bells', 'tt.leaguesOff', 'tt.topColor', 'tt.topAlpha', 'tt.tourDone', 'tt.reqSeen', 'tt.uvHistory'];   // users/{uid} fields; alarms and background are separate docs
 const MAX_DOC = 1000000;   // Firestore documents top out at 1 MiB
-const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0 };
+const sync = { fb:null, user:null, applying:false, pending:new Set(), timer:null, lastAlarms:new Map(), unsubs:[], busy:0,
+               histReady:false, remotePlays:new Map(), legacy:null, failTold:false };
+/* Bet history: one document per bet, users/{uid}/plays/{id} = { v: the bet as JSON, u: when saved }, so there's no size
+   limit and saving uploads only the bets that changed. A deleted bet leaves { del:true, u } so it can't come back from
+   another device. tt.histBase (this device) remembers a fingerprint of each bet as last synced: comparing against it says
+   whether a bet changed here, on the server, or both (then this device's copy wins). Older versions kept the whole
+   history in one field of users/{uid} ("history"): it's merged in once and then cleared. */
+const hashStr = t => { let h = 0x811c9dc5; for(let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); };
+const histBase = () => store.get('tt.histBase', {}) || {};
+// Merge the server's bets (remote: id → { v } or { del:true }) into this device's list; returns true if the list changed
+function mergeHistory(remote){
+  const base = histBase(), local = new Map(plays.map(p => [p.id, JSON.stringify(p)]));
+  const out = new Map(); let added = false, changed = false;
+  new Set([...local.keys(), ...remote.keys()]).forEach(id => {
+    const L = local.get(id), R = remote.get(id), B = base[id], hL = L && hashStr(L);
+    let keep = L;
+    if(R && R.del) keep = L && B !== undefined && hL !== B ? L : null;   // deleted elsewhere, unless edited here since
+    else if(R){
+      const hR = hashStr(R.v);
+      if(!L) keep = B !== undefined ? null : R.v;                         // deleted here since the last sync, or new from elsewhere
+      else if(hL !== hR && hL === B) keep = R.v;                          // only the server's copy changed
+    }
+    if(keep !== L){ changed = true; if(!L) added = true; }
+    if(keep) out.set(id, keep);
+  });
+  if(!changed) return false;
+  let list = [...out.values()].map(j => JSON.parse(j));
+  if(added) list.sort((a, b) => (b.settled || b.start || 0) - (a.settled || a.start || 0));
+  plays = list; setRaw('tt.history', JSON.stringify(plays));
+  return true;
+}
+// After merging: what the server holds becomes the base (bets only in the old field aren't on the server yet, so they upload)
+function setHistBase(){
+  const b = {}; sync.remotePlays.forEach((r, id) => { if(!r.del && !r.legacy) b[id] = hashStr(r.v); });
+  store.set('tt.histBase', b);
+}
+// The server's view: the plays documents, plus bets only found in the old single "history" field
+function remoteView(){
+  const m = new Map(sync.remotePlays);
+  if(sync.legacy) sync.legacy.forEach(p => { if(p && p.id && !m.has(p.id)) m.set(p.id, { v: JSON.stringify(p), legacy:true }); });
+  return m;
+}
+function applyRemoteHistory(){
+  const m = remoteView(); sync.remotePlays = m;
+  const changed = mergeHistory(m); setHistBase();
+  // this device's copy won somewhere (edited here, or only here): upload it
+  const base = histBase(), ids = new Set(plays.map(p => p.id));
+  if(sync.histReady && (plays.some(p => base[p.id] !== hashStr(JSON.stringify(p))) || Object.keys(base).some(id => !ids.has(id)))){
+    sync.pending.add('tt.history'); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500);
+  }
+  return changed;
+}
 
 async function loadFirebase(){
   if(sync.fb) return sync.fb;
@@ -3404,7 +3455,7 @@ function syncState(state, why){
 
 // Local change → push to Firestore (debounced)
 store.onSet = k => {
-  if(!sync.user || sync.applying || !(PREF_KEYS.includes(k) || k === 'tt.alarms')) return;   // background and alarm switches stay on this device
+  if(!sync.user || sync.applying || !(PREF_KEYS.includes(k) || k === 'tt.alarms' || k === 'tt.history')) return;   // background and alarm switches stay on this device
   sync.pending.add(k); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500); syncState('busy');
 };
 async function flush(){
@@ -3428,9 +3479,24 @@ async function flush(){
       sync.lastAlarms = now;
       for(let i = 0; i < ops.length; i += 20){ const b = F.writeBatch(db); ops.slice(i, i+20).forEach(op => op(b)); await b.commit(); }
     }
+    if(keys.includes('tt.history')){
+      if(!sync.histReady) sync.pending.add('tt.history');   // still loading the account: sent once it's merged
+      else{
+        const base = histBase(), cur = new Map(plays.map(p => [p.id, JSON.stringify(p)])), ops = [], next = {}, now = Date.now();
+        cur.forEach((j, id) => { const h = hashStr(j); next[id] = h; if(base[id] !== h) ops.push(b => b.set(F.doc(uref, 'plays', id), { v:j, u:now })); });
+        Object.keys(base).forEach(id => { if(!cur.has(id)) ops.push(b => b.set(F.doc(uref, 'plays', id), { del:true, u:now })); });
+        for(let i = 0; i < ops.length; i += 400){ const b = F.writeBatch(db); ops.slice(i, i + 400).forEach(op => op(b)); await b.commit(); }
+        store.set('tt.histBase', next);
+      }
+    }
     if(!--sync.busy && !sync.pending.size) syncState('ok');
+    sync.failTold = false;
     if(keys.includes('tt.alarms') || keys.includes('tt.history')) publishSoon();
-  }catch(e){ sync.busy--; syncState('err', e.message); }
+  }catch(e){
+    sync.busy--; syncState('err', e.message);
+    keys.forEach(k => sync.pending.add(k)); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 30e3);   // try again shortly; nothing is lost meanwhile
+    if(!sync.failTold){ sync.failTold = true; addMsg('bot', 'Couldn\'t save to your account (' + (e.message || 'no connection') + '). Your bets are safe on this device and will be saved when it works again.', { err:true, temp:true }); }
+  }
 }
 
 // Signed in → pull the account's data, merge, then keep listening for changes from other devices
@@ -3439,13 +3505,16 @@ async function startSync(user){
   sync.user = user; renderAccount(); syncState('busy');
   const { F } = sync.fb, uref = userRef();
   try{
-    const [usnap, asnap] = await Promise.all([F.getDoc(uref), F.getDocs(F.collection(uref, 'alarms'))]);
+    const [usnap, asnap, psnap] = await Promise.all([F.getDoc(uref), F.getDocs(F.collection(uref, 'alarms')), F.getDocs(F.collection(uref, 'plays'))]);
     const sameAccount = store.get('tt.syncUid', null) === user.uid;   // this browser already mirrors this account
+    if(!sameAccount) store.set('tt.histBase', {});   // another account's (or no) sync history: everything here is new to this account
+    sync.remotePlays = new Map(psnap.docs.map(d => [d.id, d.data()]));
     const remote = new Map(asnap.docs.map(d => [d.id, d.data().v]));
     const push = new Set();
     if(usnap.exists()){
       const u = usnap.data();
       PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u) setRaw(k, u[f]); else if(localStorage.getItem(k) != null) push.add(k); });
+      sync.legacy = typeof u.history === 'string' ? (() => { try{ return JSON.parse(u.history) || []; }catch(e){ return []; } })() : null;   // old single-field history
     } else {
       PREF_KEYS.forEach(k => push.add(k));            // brand-new account: upload this device's setup
     }
@@ -3456,8 +3525,10 @@ async function startSync(user){
     setRaw('tt.alarms', '[' + [...merged.values()].join(',') + ']');
     sync.lastAlarms = remote; push.add('tt.alarms');
     store.set('tt.syncUid', user.uid);
+    plays = store.get('tt.history', []) || []; applyRemoteHistory(); sync.histReady = true; push.add('tt.history');
     refreshFromStore();
     push.forEach(k => sync.pending.add(k)); await flush();
+    if(sync.legacy){ await F.setDoc(uref, { history: null, histMoved: Date.now() }, { merge:true }); sync.legacy = null; }   // all in plays/ now
     listen();
     startSocial(user.uid);
   }catch(e){ syncState('err', e.message); addMsg('bot', 'Couldn\'t load your account data: ' + e.message, { err:true }); }
@@ -3470,7 +3541,20 @@ function listen(){
     if(skip(snap) || !snap.exists()) return;
     const u = snap.data(); let changed = false;
     PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u && !sync.pending.has(k) && localStorage.getItem(k) !== u[f]){ setRaw(k, u[f]); changed = true; } });
+    // an old version of the app (not updated yet) still saved its whole history here: merge in any bets it added
+    if(typeof u.history === 'string' && sync.histReady && !sync.pending.has('tt.history')){
+      try{ sync.legacy = JSON.parse(u.history) || []; }catch(e){ sync.legacy = []; }
+      if(applyRemoteHistory()) changed = true;
+      sync.pending.add('tt.history'); clearTimeout(sync.timer); sync.timer = setTimeout(async () => { await flush(); if(sync.legacy){ await F.setDoc(uref, { history: null }, { merge:true }).catch(() => {}); sync.legacy = null; } }, 500);
+    }
     if(changed) refreshFromStore();
+  }));
+  // bets saved or deleted on your other devices. Every update is merged, even while this device is saving: the merge keeps
+  // this device's unsaved edits, and skipping an update could miss another device's bet (Firestore doesn't resend it)
+  sync.unsubs.push(F.onSnapshot(F.collection(uref, 'plays'), snap => {
+    if(!sync.histReady) return;
+    sync.remotePlays = new Map(snap.docs.map(d => [d.id, d.data()]));
+    if(applyRemoteHistory()) refreshFromStore();
   }));
   sync.unsubs.push(F.onSnapshot(F.collection(uref, 'alarms'), snap => {
     if(skip(snap) || sync.pending.has('tt.alarms')) return;
@@ -3586,7 +3670,7 @@ async function signOut(){
   try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
   // Remove this account's data from the browser so the next person starts clean
   await chatImgs.clear();   // the chat's screenshots too
-  ['tt.alarms', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
+  ['tt.alarms', 'tt.history', 'tt.histBase', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
   location.reload();
 }
 
