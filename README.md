@@ -132,7 +132,12 @@ itself once it's safe: nothing ringing, nothing typed or attached, no popup open
 - **Chat:** the chat log is kept on this device for 3 days (older messages are removed). Screenshots you send are kept with it, downsized, in the browser's own storage (IndexedDB), and go with their messages. The 🗑 at the right of the text bar clears it: press it twice (or double-click).
 - **Signed in with Google:** bets (with their screenshots), UI colour, top bar colour, sound, lead time, old-bet removal time, League Links (links and which leagues are on), tags, match history, P/L tracker options and Gemini settings
   (including your API key) are saved to your account in Firebase and stay in sync across your devices.
-  Only you can read them. Some things stay on each device instead: the background picture (and its blur/saturation),
+  Only you can read them. Your bet history is saved **one record per bet** (`users/{uid}/plays/{id}`), so there's no size
+  limit and recording a result uploads only that bet; a deleted bet leaves a small marker so it can't come back from another
+  device. Each device remembers what it last synced, so opening the app **merges** your devices' bets instead of replacing
+  them (an edit made offline isn't lost), and a save that fails is retried and tells you in the chat. Accounts from before
+  this keep working: the old single-record history is moved across automatically the first time.
+  Some things stay on each device instead: the background picture (and its blur/saturation),
   the alarm switches (Ring alarms, or on phones Ring / Notification, Notifications on this device, Keep the screen on), whether the Bets panel is open, and
   any custom alarm sounds you add. Signing out removes your account data from that browser (it stays in your account);
   these device settings stay.
