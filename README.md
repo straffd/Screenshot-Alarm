@@ -46,7 +46,8 @@ Screenshots are read by Google Gemini (free tier).
    Bot); click any types for a bigger breakdown, as many open as you like (P/L in units and $, ROI, win rate, record, units staked, pending bets, average
    odds). A switch beside the heading changes the breakdown to **Competitions** (each competition, most bets first; TT Cup, TT Elite Series and Czech Liga Pro are grouped however the screenshot spells them, e.g. TT Elite = TT Elite Series) or
    **Games played** (the two numbers of the O/U value added together, e.g. 3/2 = 5 games, in ranges **1–10**, **10–20**
-   and **20+**, more than 20; a count on a boundary goes in the lower range, e.g. 10 in 1–10), with the same stats and expandable details; it's remembered. Under it, Play types and Games played have an
+   and **20+**, more than 20; a count on a boundary goes in the lower range, e.g. 10 in 1–10), with the same stats and expandable details; it's remembered. **Time played** groups bets by when the match started: **6am – 12pm**, **12pm – 5pm**, **5pm – 12am** and **12am – 6am**.
+   Under it, Play types, Games played and Time played have an
    **All | Czech Liga | TT Elite | TT Cup** switch to see them for just one of those competitions (also remembered).
    Opening a calendar day (or This month) hides Play types so that day's bets show in its place. Mark a bet as Sweep with the **SWEEP** tag (click the bet, or type `sweep` in a typed bet), or in the Cash / Chalk
    popup (**Play type**), which also fixes the type of a history entry. Click a day, or the **This month** box, to list those bets.
