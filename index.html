@@ -2477,6 +2477,7 @@ function saveBets(){
 }
 $('#settleDelete').onclick = () => {
   if(!settling.play) return;
+  store.set('tt.histDel', [...new Set([...(store.get('tt.histDel', []) || []), settling.play.id])]);   // deleted on purpose: synced as deleted
   plays = plays.filter(p => p !== settling.play); closeModal($('#settleModal')); savePlays();
 };
 function renderHistory(){
@@ -3371,7 +3372,7 @@ const hashStr = t => { let h = 0x811c9dc5; for(let i = 0; i < t.length; i++){ h 
 const histBase = () => store.get('tt.histBase', {}) || {};
 // Merge the server's bets (remote: id → { v } or { del:true }) into this device's list; returns true if the list changed
 function mergeHistory(remote){
-  const base = histBase(), local = new Map(plays.map(p => [p.id, JSON.stringify(p)]));
+  const base = histBase(), local = new Map(plays.map(p => [p.id, JSON.stringify(p)])), delHere = new Set(store.get('tt.histDel', []) || []);
   const out = new Map(); let added = false, changed = false;
   new Set([...local.keys(), ...remote.keys()]).forEach(id => {
     const L = local.get(id), R = remote.get(id), B = base[id], hL = L && hashStr(L);
@@ -3379,7 +3380,7 @@ function mergeHistory(remote){
     if(R && R.del) keep = L && B !== undefined && hL !== B ? L : null;   // deleted elsewhere, unless edited here since
     else if(R){
       const hR = hashStr(R.v);
-      if(!L) keep = B !== undefined ? null : R.v;                         // deleted here since the last sync, or new from elsewhere
+      if(!L) keep = delHere.has(id) ? null : R.v;                         // deleted here on purpose, or new / missing here: take the server's
       else if(hL !== hR && hL === B) keep = R.v;                          // only the server's copy changed
     }
     if(keep !== L){ changed = true; if(!L) added = true; }
@@ -3407,7 +3408,7 @@ function applyRemoteHistory(){
   const changed = mergeHistory(m); setHistBase();
   // this device's copy won somewhere (edited here, or only here): upload it
   const base = histBase(), ids = new Set(plays.map(p => p.id));
-  if(sync.histReady && (plays.some(p => base[p.id] !== hashStr(JSON.stringify(p))) || Object.keys(base).some(id => !ids.has(id)))){
+  if(sync.histReady && (plays.some(p => base[p.id] !== hashStr(JSON.stringify(p))) || (store.get('tt.histDel', []) || []).length)){
     sync.pending.add('tt.history'); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500);
   }
   return changed;
@@ -3484,9 +3485,13 @@ async function flush(){
       else{
         const base = histBase(), cur = new Map(plays.map(p => [p.id, JSON.stringify(p)])), ops = [], next = {}, now = Date.now();
         cur.forEach((j, id) => { const h = hashStr(j); next[id] = h; if(base[id] !== h) ops.push(b => b.set(F.doc(uref, 'plays', id), { v:j, u:now })); });
-        Object.keys(base).forEach(id => { if(!cur.has(id)) ops.push(b => b.set(F.doc(uref, 'plays', id), { del:true, u:now })); });
+        // Only bets deleted on purpose (the Delete button) become delete markers. A bet that's merely missing here (storage
+        // wiped by an old version of the app, another tab, etc.) is never deleted on the server: it comes back from it instead.
+        const dels = (store.get('tt.histDel', []) || []).filter(id => !cur.has(id));
+        dels.forEach(id => ops.push(b => b.set(F.doc(uref, 'plays', id), { del:true, u:now })));
+        Object.keys(base).forEach(id => { if(!cur.has(id) && !dels.includes(id)) next[id] = base[id]; });   // missing but not deleted: still on the server
         for(let i = 0; i < ops.length; i += 400){ const b = F.writeBatch(db); ops.slice(i, i + 400).forEach(op => op(b)); await b.commit(); }
-        store.set('tt.histBase', next);
+        store.set('tt.histBase', next); store.set('tt.histDel', []);
       }
     }
     if(!--sync.busy && !sync.pending.size) syncState('ok');
@@ -3515,6 +3520,7 @@ async function startSync(user){
       const u = usnap.data();
       PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u) setRaw(k, u[f]); else if(localStorage.getItem(k) != null) push.add(k); });
       sync.legacy = typeof u.history === 'string' ? (() => { try{ return JSON.parse(u.history) || []; }catch(e){ return []; } })() : null;   // old single-field history
+      sync.legacyRaw = u.history;
     } else {
       PREF_KEYS.forEach(k => push.add(k));            // brand-new account: upload this device's setup
     }
@@ -3528,7 +3534,9 @@ async function startSync(user){
     plays = store.get('tt.history', []) || []; applyRemoteHistory(); sync.histReady = true; push.add('tt.history');
     refreshFromStore();
     push.forEach(k => sync.pending.add(k)); await flush();
-    if(sync.legacy){ await F.setDoc(uref, { history: null, histMoved: Date.now() }, { merge:true }); sync.legacy = null; }   // all in plays/ now
+    // The old single-field history is left as it was (a frozen backup). Clearing it made devices still on an older version
+    // of the app copy the empty field into their storage and lose their bets; they now keep theirs until they update.
+    if(sync.legacy && !(usnap.exists() && usnap.data().histMoved)) await F.setDoc(uref, { histMoved: Date.now() }, { merge:true }).catch(() => {});
     listen();
     startSocial(user.uid);
   }catch(e){ syncState('err', e.message); addMsg('bot', 'Couldn\'t load your account data: ' + e.message, { err:true }); }
@@ -3542,10 +3550,11 @@ function listen(){
     const u = snap.data(); let changed = false;
     PREF_KEYS.forEach(k => { const f = k.slice(3); if(f in u && !sync.pending.has(k) && localStorage.getItem(k) !== u[f]){ setRaw(k, u[f]); changed = true; } });
     // an old version of the app (not updated yet) still saved its whole history here: merge in any bets it added
-    if(typeof u.history === 'string' && sync.histReady && !sync.pending.has('tt.history')){
+    if(typeof u.history === 'string' && u.history !== sync.legacyRaw && sync.histReady && !sync.pending.has('tt.history')){
+      sync.legacyRaw = u.history;
       try{ sync.legacy = JSON.parse(u.history) || []; }catch(e){ sync.legacy = []; }
       if(applyRemoteHistory()) changed = true;
-      sync.pending.add('tt.history'); clearTimeout(sync.timer); sync.timer = setTimeout(async () => { await flush(); if(sync.legacy){ await F.setDoc(uref, { history: null }, { merge:true }).catch(() => {}); sync.legacy = null; } }, 500);
+      sync.pending.add('tt.history'); clearTimeout(sync.timer); sync.timer = setTimeout(flush, 500);
     }
     if(changed) refreshFromStore();
   }));
@@ -3670,7 +3679,7 @@ async function signOut(){
   try{ await sync.fb.A.signOut(sync.fb.auth); }catch(e){}
   // Remove this account's data from the browser so the next person starts clean
   await chatImgs.clear();   // the chat's screenshots too
-  ['tt.alarms', 'tt.history', 'tt.histBase', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
+  ['tt.alarms', 'tt.history', 'tt.histBase', 'tt.histDel', 'tt.syncUid', 'tt.mode', 'tt.chat', ...PREF_KEYS].forEach(k => setRaw(k, null));   // device settings (background, alarm switches) stay
   location.reload();
 }
 

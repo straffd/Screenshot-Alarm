@@ -136,7 +136,8 @@ itself once it's safe: nothing ringing, nothing typed or attached, no popup open
   limit and recording a result uploads only that bet; a deleted bet leaves a small marker so it can't come back from another
   device. Each device remembers what it last synced, so opening the app **merges** your devices' bets instead of replacing
   them (an edit made offline isn't lost), and a save that fails is retried and tells you in the chat. Accounts from before
-  this keep working: the old single-record history is moved across automatically the first time.
+  this keep working: the old single-record history is copied across automatically the first time and left in place as a
+  backup. Only the Delete button deletes a bet everywhere: a bet that's just missing on one device is restored from your account.
   Some things stay on each device instead: the background picture (and its blur/saturation),
   the alarm switches (Ring alarms, or on phones Ring / Notification, Notifications on this device, Keep the screen on), whether the Bets panel is open, and
   any custom alarm sounds you add. Signing out removes your account data from that browser (it stays in your account);
