@@ -2000,13 +2000,22 @@ function fixOuLine(line, pct, h2h){
 // "36/20" → "64%" (overs ÷ meetings), for rows that show no O/U percentage
 const ouPctOf = line => { const m = String(line || '').match(/^(\d+)\/(\d+)$/); return m && +m[1] + +m[2] > 0 ? Math.round(+m[1] / (+m[1] + +m[2]) * 100) + '%' : ''; };
 /* Typed bets: "Will vs Zed 3:20pm", "3:20 pm Will v Zed", "Will vs Zed at 15:20 under" (one per line).
-   They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them. */
+   They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them.
+   Pasted alert posts work too: "Juzek S. vs Hetnar K. | UNDER | 1u" with "3:55 AM EDT (64 Minutes)" on the next line
+   (the lines are joined; "1u" is the stake; a timezone after the time is converted like a screenshot's). */
+const TIME_RE = /(?:^|[\s@,(])(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?(?=$|[\s,)])/i;
+const PAIR_RE = /\s(?:vs\.?|v\.?|versus|-|—|–)\s/i;
 function parseTypedBets(text){
-  const out = [];
-  for(const raw of String(text).split(/\n+/)){
-    let line = raw.trim(); if(!line) continue;
+  const out = [], hasTime = l => { const m = l.match(TIME_RE); return !!(m && (m[2] != null || m[3])); };
+  const lines = String(text).split(/\n+/).map(l => l.trim()).filter(Boolean);
+  for(let i = 0; i < lines.length - 1; i++)   // names on one line, the time on the next: one bet
+    if(PAIR_RE.test(' ' + lines[i] + ' ') && !hasTime(lines[i]) && hasTime(lines[i + 1]) && !PAIR_RE.test(' ' + lines[i + 1] + ' ')){ lines[i] += ' ' + lines[i + 1]; lines.splice(i + 1, 1); }
+  for(const raw of lines){
+    let line = raw.replace(/\|/g, ' ').replace(/\(\s*\d+\s*min(?:ute)?s?\s*\)/ig, ' ').replace(/\s[—–]\s/g, ' vs ').trim(); if(!line) continue;
+    let wager = null;   // "1u", "2 units": the stake
+    line = line.replace(/(^|[\s,(])(\d+(?:\.\d+)?)\s*u(?:nits?)?(?=$|[\s,)])/i, (w, pre, n) => { wager = +n; return pre + ' '; });
     // a time needs a colon or am/pm, so numbers in names aren't mistaken for one
-    const tm = line.match(/(?:^|[\s@,(])(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?(?=$|[\s,)])/i);
+    const tm = line.match(TIME_RE);
     const okTime = tm && (tm[2] != null || tm[3]);
     if(!okTime) continue;
     let h = +tm[1], min = tm[2] != null ? +tm[2] : 0; const ap = tm[3] ? tm[3].replace(/\./g, '').toLowerCase() : '';
@@ -2016,7 +2025,10 @@ function parseTypedBets(text){
       const t = new Date(); t.setHours(h, min, 0, 0);
       if(t.getTime() < Date.now() - 30 * 6e4) h += 12;
     }
-    line = (line.slice(0, tm.index) + ' ' + line.slice(tm.index + tm[0].length)).replace(/\s(?:at|@|on)\s*$/i, ' ');
+    let rest = line.slice(tm.index + tm[0].length), tz = null;
+    const zm = rest.match(/^\s*(UTC\s*[+-]\s*\d{1,2}(?::?\d{2})?|GMT\s*[+-]\s*\d{1,2}(?::?\d{2})?|[A-Za-z]{2,5})(?=$|[\s,)])/);
+    if(zm && tzOffset(zm[1], Date.now()) != null){ tz = zm[1].replace(/\s+/g, '').toUpperCase(); rest = rest.slice(zm[0].length); }   // "3:55 AM EDT"
+    line = (line.slice(0, tm.index) + ' ' + rest).replace(/\s(?:at|@|on)\s*$/i, ' ');
     let side = '';
     line = line.replace(/\b(over|under)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
     // tag names written in the line ("bot", "#strong", "live bet") become tags; longest names first
@@ -2025,22 +2037,23 @@ function parseTypedBets(text){
       const re = new RegExp(`(^|[\\s,(])#?${esc(t.name)}(?=$|[\\s,)])`, 'i');
       if(re.test(line)){ tagIds.push(t.id); line = line.replace(re, '$1 '); }
     });
-    const parts = line.split(/\s+(?:vs\.?|v\.?|versus|-)\s+/i);
+    const parts = line.split(/\s+(?:vs\.?|v\.?|versus|-|—|–)\s+/i);
     if(parts.length !== 2) continue;
     const nm = x => x.replace(/^[\s,@:;-]+|[\s,@:;.-]+$/g, '').replace(/\s+/g, ' ');
     const p1 = nm(parts[0]), p2 = nm(parts[1]);
     if(!p1 || !p2 || p1.length > 40 || p2.length > 40) continue;
-    out.push({ p1, p2, time: `${h}:${String(min).padStart(2, '0')}`, side, tags: tagIds });
+    out.push({ p1, p2, time: `${h}:${String(min).padStart(2, '0')}`, side, tags: tagIds, ...(wager ? { wager } : {}), ...(tz ? { tz } : {}) });
   }
   return out;
 }
 function addTypedBets(list){
   const made = [], skipped = [];
   for(const t of list){
-    const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time });
+    const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time, tz: t.tz });
     if(alarms.some(x => sameMatch(x.name, x.start, name, start))){ skipped.push(name); continue; }
     const a = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, start, ring: start - lead * 60000, lead,
-                side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true };
+                side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true,
+                ...(t.wager ? { wager: t.wager } : {}), ...(t.tz ? { tzFrom: `${t.time} ${t.tz}` } : {}) };
     if(a.tags.includes('bot')) ensureBotTag();
     alarms.push(a); made.push(a);
   }
@@ -2049,7 +2062,7 @@ function addTypedBets(list){
   if(made.length === 1){
     const a = made[0];
     addMsg('bot', a.fired ? `Added ${a.name} as done (it started at ${fmtTime(a.start)}). Mark it Cash or Chalk.` : `Bet added. The alarm rings at ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
-      facts: [['Match', a.name], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ...(a.side ? [['Over/under', a.side]] : []), ...(a.tags.length ? [['Tags', a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ')]] : []), ['Note', 'Typed bet: friends can see it but can\'t copy it']] });
+      facts: [['Match', a.name], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}${a.tzFrom ? ` (from ${a.tzFrom})` : ''}`], ...(a.side ? [['Over/under', a.side]] : []), ...(a.wager ? [['Stake', a.wager + 'u']] : []), ...(a.tags.length ? [['Tags', a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ')]] : []), ['Note', 'Typed bet: friends can see it but can\'t copy it']] });
   } else if(made.length){
     addMsg('bot', `Added ${made.length} bets. Typed bets can't be copied by friends.`, { facts: made.map(a => [fmtTime(a.start), `${a.name}${a.side ? ' · ' + a.side : ''}${a.tags.length ? ' · ' + a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ') : ''}${a.fired ? ' · done' : ''}`]) });
   }
