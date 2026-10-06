@@ -1,4 +1,4 @@
-// Service worker for the installed app. It lets the browser treat TT Alarm Bot as an installable app
+// Service worker for the installed app. It lets the browser treat TTracker as an installable app
 // (opening full screen from the home screen, no address bar). It doesn't cache anything: every page load
 // comes from the network, so updates to the site show up straight away.
 const PUSH = new URL(self.location).searchParams.get('push') || '';   // push service address (set in index.html)
@@ -25,7 +25,7 @@ self.addEventListener('push', e => {
       if(!due.length)   // a push must always show something: a quiet note in place of the alarm
         return self.registration.showNotification('Alarm stopped', { body: 'Stopped on your other device', tag: 'tt-stopped', silent: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: '', url: '' } });
     }
-    if(!due.length) due = [{ id: 'tt-alarm', title: 'A bet is about to start', body: 'Open TT Alarm Bot', url: '' }];   // a push must always show something
+    if(!due.length) due = [{ id: 'tt-alarm', title: 'A bet is about to start', body: 'Open TTracker', url: '' }];   // a push must always show something
     await Promise.all(due.map(a => self.registration.showNotification(a.title, { body: a.body || '', tag: a.id, renotify: true, requireInteraction: true,
       silent: false, vibrate: VIBRATE, icon: 'icon-192.png', badge: 'icon-192.png', data: { id: a.id, url: a.url || '' } })));
   })());
