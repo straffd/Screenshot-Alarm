@@ -1126,7 +1126,7 @@ const store = {
   watch: []      // other listeners (e.g. locked-phone alarms)
 };
 // Everyone uses Gemini 3.5 Flash-Lite (free tier); 3.8 Flash is only tried when 3.5 Flash-Lite is busy or out of requests.
-const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash',
+const GEMINI = { model:'gemini-3.5-flash-lite', backup:'gemini-3.8-flash-lite',
   keyHint:'Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.' };
 // settings = { model, backup, key }
 // Put your Worker address here to make every device use it automatically, e.g. 'https://tt-alarm.yourname.workers.dev'
@@ -1569,22 +1569,28 @@ async function callLLM(promptText, imgDataUrl, wantJson, onStatus){
   if(!ready()) throw new Error(settings.mode === 'server' ? 'No server address yet. Open Gemini settings and paste your Worker address.' : 'No Gemini API key yet. Open Gemini settings and paste your free key.');
   const img = imgDataUrl ? { mime: imgDataUrl.match(/data:(.*?);/)[1], b64: imgDataUrl.split(',')[1] } : null;
 
-  // One request to one model. Returns { ok, status, text, msg }.
-  async function once(model){
+  // One request to one model. Returns { ok, status, text, msg }. Gives up after 25 s (status -1: treated like "busy"),
+  // or straight away when `stop` is aborted (the other model answered first).
+  async function once(model, stop){
     const parts = [{ text: promptText }];
     if(img) parts.push({ inline_data:{ mime_type: img.mime, data: img.b64 } });
     const body = { contents:[{ parts }], generationConfig: wantJson ? { responseMimeType:'application/json' } : {} };
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort('timeout'), LLM_TIMEOUT);
+    const onStop = () => ctl.abort('stop'); stop.addEventListener('abort', onStop);
     let r, j;
     try{
       r = cfg.mode === 'server'
         ? await fetch(serverBase() + '/generate', {   // your Worker adds the key
-            method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Password': cfg.pass || '' }, body: JSON.stringify({ model, request: body })
+            method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Password': cfg.pass || '' }, body: JSON.stringify({ model, request: body }), signal: ctl.signal
           })
         : await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-            method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': cfg.key }, body: JSON.stringify(body)
+            method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': cfg.key }, body: JSON.stringify(body), signal: ctl.signal
           });
       j = await r.json().catch(() => ({}));
-    }catch(e){ return { ok:false, status:0, msg: e && e.message || 'network error' }; }
+    }catch(e){
+      if(ctl.signal.aborted && ctl.signal.reason === 'timeout') return { ok:false, status:-1, msg:`no answer after ${LLM_TIMEOUT / 1000} s` };
+      return { ok:false, status: stop.aborted ? -2 : 0, msg: e && e.message || 'network error' };
+    }finally{ clearTimeout(timer); stop.removeEventListener('abort', onStop); }
     if(r.ok) return { ok:true, text: (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('') };
     return { ok:false, status:r.status, msg: (j.error && j.error.message) || ('Gemini returned ' + r.status) };
   }
@@ -1592,23 +1598,42 @@ async function callLLM(promptText, imgDataUrl, wantJson, onStatus){
   const models = [cfg.model, cfg.backup].filter((m,i,a) => m && a.indexOf(m)===i);
   const wait = ms => new Promise(r => setTimeout(r, ms));
   let last, netFails = 0, tries = 0;
-  for(const model of models){
-    for(let attempt = 0; attempt < 3; attempt++){
-      if(attempt){ onStatus && onStatus(`${model} is busy. Trying again (${attempt + 1} of 3)…`); await wait(attempt * 3000); }
-      else if(model !== models[0]) onStatus && onStatus(`Switching to backup model ${model}…`);
+  // Up to 3 tries on one model; resolves to the text, or null if this model can't answer. Bad key / bad request: throws.
+  async function tryModel(model, stop){
+    for(let attempt = 0; attempt < 3 && !stop.aborted; attempt++){
+      if(attempt){ onStatus && onStatus(`${model} is busy. Trying again (${attempt + 1} of 3)…`); await wait(attempt * 1500); if(stop.aborted) return null; }
       tries++;
-      const res = await once(model);
+      const res = await once(model, stop);
       if(res.ok) return res.text;
+      if(res.status === -2) return null;                                                   // the other model answered
       last = { model, ...res };
       if(res.status === 0){ netFails++; continue; }
       if([400,401,403,413].includes(res.status)) throw new Error(`${model}: ${res.msg}`);        // bad key, no credit, bad request
-      if([500,502,503,504,529].includes(res.status)) continue;                            // overloaded: retry this model
-      break;                                                                               // 404 or 429: try the backup
+      if([-1,500,502,503,504,529].includes(res.status)) continue;                         // slow or overloaded: retry this model
+      return null;                                                                         // 404 or 429: try the backup
     }
+    return null;
   }
+  // The main model first. If it hasn't answered after a few seconds, ask the backup too and take whichever answers first.
+  const stops = models.map(() => new AbortController()), t0 = performance.now();
+  const main = tryModel(models[0], stops[0].signal);
+  let text = models[1] ? await Promise.race([main, wait(LLM_HEDGE).then(() => 'slow')]) : await main;
+  if(text === 'slow'){
+    onStatus && onStatus(`Gemini is slow right now. Also asking ${models[1]}…`);
+    const backup = tryModel(models[1], stops[1].signal);
+    text = await new Promise((res, rej) => { let left = 2, err = null;
+      [main, backup].forEach(p => p.then(v => { if(v != null) res(v); else if(--left === 0) err ? rej(err) : res(null); },
+                                         e => { err = err || e; if(--left === 0) rej(err); })); });
+  } else if(text == null && models[1]){
+    onStatus && onStatus(`Switching to backup model ${models[1]}…`);
+    text = await tryModel(models[1], stops[1].signal);
+  }
+  stops.forEach(c => c.abort());   // stop whichever is still waiting
+  if(text != null){ callLLM.lastMs = Math.round(performance.now() - t0); return text; }
   if(netFails === tries) throw new Error(`Your browser couldn't connect to ${P.name} at all, so no answer came back. This is usually an ad blocker or privacy extension, a VPN, or a work or school network. Open Gemini settings and click Test connection to check.\n\nBrowser said: ${last.msg}`);
   throw new Error(`${P.name} is busy or out of requests right now. Wait a minute and send again, or change the models in Gemini settings.\n\nLast error from ${last.model}: ${last.msg}`);
 }
+const LLM_TIMEOUT = 25e3, LLM_HEDGE = 8e3;   // give up on one request after 25 s; ask the backup model too after 8 s
 
 function parseJson(text){
   const clean = text.replace(/```json|```/g,'').trim();
