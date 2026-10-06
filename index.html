@@ -1537,7 +1537,7 @@ $('#bgFile').onchange = async e => {
 $('#bgClear').onclick = () => { applyBg(null); store.del('tt.bg'); bgMedia.del('bg'); };
 
 /* ---------- LLM ---------- */
-const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row or SEVERAL stacked rows.
+const EXTRACT_PROMPT = `You read screenshots of table tennis betting rows. A screenshot may show ONE match row, SEVERAL stacked rows, or a single match CARD (see below).
 Return ONLY a JSON object, no markdown, in this shape:
 {"matches":[
  {
@@ -1546,6 +1546,9 @@ Return ONLY a JSON object, no markdown, in this shape:
   "time": "match start time in 24h HH:MM",
   "ou_line": "the O/U value as overs/unders, two whole numbers with a slash, copied digit for digit, e.g. 4/12 (from \"4/12 · 25%\") or 36/20 (from \"36O·20U\")",
   "h2h": "the number next to H2H, e.g. 56, or null if the row has none",
+  "wager": "the WAGER text if there is one, e.g. UNDER 1u, else null",
+  "record": "the RECORD text if there is one, e.g. 15/20 (75%), else null",
+  "tz": "the timezone written next to a time anywhere in the image, e.g. EDT from \"3:55 AM EDT\", or null if none is shown",
   "ou_pct": "the percentage next to O/U, e.g. 82%",
   "ou_color": "the text colour of the O/U value: green, red or grey",
   "ou_side": "OVER or UNDER",
@@ -1562,7 +1565,10 @@ Rules for ou_side: if the O/U value is written in GREEN it is OVER; if it is RED
 Keep each row's values together: never take a value from a neighbouring row.
 Do not confuse other percentages (H2H, SWEEP, SPLIT, 5-SET, O18.5, OT) with the edge. The edge is the lone percentage below the small horizontal bar.
 The date shown under "pts" is NOT the match date; ignore it.
-If the image shows no table tennis match rows, return {"error":"short reason"}.`;
+A match CARD (one match, no table) looks like: a header "TT ELITE SERIES · 3:55 AM" (competition · start time), the two players with VS between them,
+then WAGER (e.g. "UNDER 1u") and RECORD (e.g. "15/20 (75%)"). For a card: league and time come from the header, wager and record as shown,
+ou_side is the side named in the WAGER (UNDER or OVER, whatever its colour), and edge, ou_line, ou_pct, ou_color and h2h are null when not shown.
+If the image shows no table tennis match rows or card, return {"error":"short reason"}.`;
 
 async function callLLM(promptText, imgDataUrl, wantJson, onStatus){
   const cfg = settings, P = { name:'Gemini' };
@@ -1656,8 +1662,34 @@ function parseDate(d){
   m = String(d).match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/); if(m) return [+m[3],+m[2]-1,+m[1]];
   return null;
 }
+/* A timezone written next to the time ("3:55 AM EDT"): the time is converted to this device's (e.g. AEST/AEDT).
+   Fixed abbreviations are exact offsets; ET/CT/MT/PT and the like follow that region's daylight saving. */
+const TZ_FIXED = { UTC:0, GMT:0, Z:0, WET:0, WEST:60, BST:60, CET:60, CEST:120, EET:120, EEST:180, MSK:180, HKT:480, SGT:480, AWST:480,
+  JST:540, KST:540, ACST:570, ACDT:630, AEST:600, AEDT:660, NZST:720, NZDT:780, EST:-300, EDT:-240, CST:-360, CDT:-300, MST:-420,
+  MDT:-360, PST:-480, PDT:-420, AKST:-540, AKDT:-480, HST:-600 };
+const TZ_ZONE = { ET:'America/New_York', CT:'America/Chicago', MT:'America/Denver', PT:'America/Los_Angeles', UK:'Europe/London',
+  AET:'Australia/Sydney', ACT:'Australia/Adelaide', AWT:'Australia/Perth' };
+// minutes ahead of UTC for that timezone at time t, or null if it isn't one we know
+function tzOffset(tz, t){
+  const k = String(tz || '').trim().toUpperCase().replace(/\./g, '');
+  if(!k) return null;
+  if(k in TZ_FIXED) return TZ_FIXED[k];
+  const m = k.match(/^(?:UTC|GMT)?\s*([+-])\s*(\d{1,2})(?::?(\d{2}))?$/); if(m) return (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +(m[3] || 0));
+  const zone = TZ_ZONE[k]; if(!zone) return null;
+  try{ const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle:'h23', year:'numeric', month:'numeric', day:'numeric', hour:'numeric', minute:'numeric' })
+         .formatToParts(new Date(t)).map(x => [x.type, x.value]));
+       return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour % 24, +p.minute) - t) / 6e4); }catch(e){ return null; }
+}
 function matchStart(info){
   const hm = to24(info.time); if(!hm) return null;
+  const off = tzOffset(info.tz, Date.now());
+  if(off != null && off !== -new Date().getTimezoneOffset()){   // another timezone: that day's clock time there, as a moment
+    const z = new Date(Date.now() + off * 6e4);
+    let t = Date.UTC(z.getUTCFullYear(), z.getUTCMonth(), z.getUTCDate(), hm[0], hm[1]) - off * 6e4;
+    if(t < Date.now() - 12*3600e3) t += 864e5;
+    const o2 = tzOffset(info.tz, t); if(o2 != null && o2 !== off) t -= (o2 - off) * 6e4;   // daylight saving changed in between
+    return t;
+  }
   const when = new Date(); when.setHours(hm[0], hm[1], 0, 0);
   // Earlier today (up to 12 h ago): the match has already happened, so it's added as done.
   // Longer ago than that: the time must mean tomorrow's match.
@@ -1914,7 +1946,15 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
     const what = [...added.map(id => nm(id) + ' added'), ...gone.map(id => nm(id) + ' removed')].join(', ');
     return { ok:false, retag:true, name, why: what ? `tags updated from this photo (${what})` : 'tags already match this photo' };
   }
-  const side = ouSide(info);
+  // Match card: the WAGER says the side ("UNDER 1u", written in green, so its colour means nothing) and the stake;
+  // RECORD "15/20 (75%)" is that side's hits out of the meetings, so for UNDER it's 5 overs / 15 unders (as an O/U line)
+  const wg = String(info.wager || '').match(/\b(OVER|UNDER)\b\s*([\d.]+)?\s*u?/i), rec = String(info.record || '').match(/(\d+)\s*\/\s*(\d+)/);
+  const side = wg ? wg[1].toUpperCase() : ouSide(info);
+  if(wg && rec && !info.ou_line && +rec[2] >= +rec[1]){
+    const hit = +rec[1], miss = +rec[2] - +rec[1];
+    info.ou_line = side === 'UNDER' ? `${miss}/${hit}` : `${hit}/${miss}`; info.ou_pct = null; info.h2h = info.h2h || rec[2];
+  }
+  const wager = wg && +wg[2] > 0 ? +wg[2] : null;
   const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
   const shot = (cropIt && await cropRow(img, info.box_2d)) || img;
   const bot = await botRow(img, cropIt ? info.box_2d : null);   // yellow row = bot pick
@@ -1923,7 +1963,8 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     name, start, ring: start - lead*60000, lead,
     side, line: fixOuLine(info.ou_line, info.ou_pct, info.h2h), ouPct: info.ou_pct || ouPctOf(fixOuLine(info.ou_line, info.ou_pct, info.h2h)),
-    ...(parseInt(info.h2h, 10) > 0 ? { h2h: parseInt(info.h2h, 10) } : {}),
+    ...(parseInt(info.h2h, 10) > 0 ? { h2h: parseInt(info.h2h, 10) } : {}), ...(wager ? { wager } : {}),
+    ...(tzOffset(info.tz, start) != null && tzOffset(info.tz, start) !== -new Date(start).getTimezoneOffset() ? { tzFrom: `${info.time} ${String(info.tz).trim().toUpperCase()}` } : {}),
     edge: isNaN(edgeNum) ? null : edgeNum,
     league: compName(info.league),
     img: await shrink(shot), fired: start <= Date.now(),   // already started: added as done, ready for Cash / Chalk
@@ -1959,13 +2000,22 @@ function fixOuLine(line, pct, h2h){
 // "36/20" → "64%" (overs ÷ meetings), for rows that show no O/U percentage
 const ouPctOf = line => { const m = String(line || '').match(/^(\d+)\/(\d+)$/); return m && +m[1] + +m[2] > 0 ? Math.round(+m[1] / (+m[1] + +m[2]) * 100) + '%' : ''; };
 /* Typed bets: "Will vs Zed 3:20pm", "3:20 pm Will v Zed", "Will vs Zed at 15:20 under" (one per line).
-   They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them. */
+   They make a minimal bet (names and time, plus OVER/UNDER if written) with no screenshot. Friends can see them but not copy them.
+   Pasted alert posts work too: "Juzek S. vs Hetnar K. | UNDER | 1u" with "3:55 AM EDT (64 Minutes)" on the next line
+   (the lines are joined; "1u" is the stake; a timezone after the time is converted like a screenshot's). */
+const TIME_RE = /(?:^|[\s@,(])(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?(?=$|[\s,)])/i;
+const PAIR_RE = /\s(?:vs\.?|v\.?|versus|-|—|–)\s/i;
 function parseTypedBets(text){
-  const out = [];
-  for(const raw of String(text).split(/\n+/)){
-    let line = raw.trim(); if(!line) continue;
+  const out = [], hasTime = l => { const m = l.match(TIME_RE); return !!(m && (m[2] != null || m[3])); };
+  const lines = String(text).split(/\n+/).map(l => l.trim()).filter(Boolean);
+  for(let i = 0; i < lines.length - 1; i++)   // names on one line, the time on the next: one bet
+    if(PAIR_RE.test(' ' + lines[i] + ' ') && !hasTime(lines[i]) && hasTime(lines[i + 1]) && !PAIR_RE.test(' ' + lines[i + 1] + ' ')){ lines[i] += ' ' + lines[i + 1]; lines.splice(i + 1, 1); }
+  for(const raw of lines){
+    let line = raw.replace(/\|/g, ' ').replace(/\(\s*\d+\s*min(?:ute)?s?\s*\)/ig, ' ').replace(/\s[—–]\s/g, ' vs ').trim(); if(!line) continue;
+    let wager = null;   // "1u", "2 units": the stake
+    line = line.replace(/(^|[\s,(])(\d+(?:\.\d+)?)\s*u(?:nits?)?(?=$|[\s,)])/i, (w, pre, n) => { wager = +n; return pre + ' '; });
     // a time needs a colon or am/pm, so numbers in names aren't mistaken for one
-    const tm = line.match(/(?:^|[\s@,(])(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?(?=$|[\s,)])/i);
+    const tm = line.match(TIME_RE);
     const okTime = tm && (tm[2] != null || tm[3]);
     if(!okTime) continue;
     let h = +tm[1], min = tm[2] != null ? +tm[2] : 0; const ap = tm[3] ? tm[3].replace(/\./g, '').toLowerCase() : '';
@@ -1975,7 +2025,10 @@ function parseTypedBets(text){
       const t = new Date(); t.setHours(h, min, 0, 0);
       if(t.getTime() < Date.now() - 30 * 6e4) h += 12;
     }
-    line = (line.slice(0, tm.index) + ' ' + line.slice(tm.index + tm[0].length)).replace(/\s(?:at|@|on)\s*$/i, ' ');
+    let rest = line.slice(tm.index + tm[0].length), tz = null;
+    const zm = rest.match(/^\s*(UTC\s*[+-]\s*\d{1,2}(?::?\d{2})?|GMT\s*[+-]\s*\d{1,2}(?::?\d{2})?|[A-Za-z]{2,5})(?=$|[\s,)])/);
+    if(zm && tzOffset(zm[1], Date.now()) != null){ tz = zm[1].replace(/\s+/g, '').toUpperCase(); rest = rest.slice(zm[0].length); }   // "3:55 AM EDT"
+    line = (line.slice(0, tm.index) + ' ' + rest).replace(/\s(?:at|@|on)\s*$/i, ' ');
     let side = '';
     line = line.replace(/\b(over|under)\b/i, (w) => { side = w.toUpperCase(); return ' '; });
     // tag names written in the line ("bot", "#strong", "live bet") become tags; longest names first
@@ -1984,22 +2037,23 @@ function parseTypedBets(text){
       const re = new RegExp(`(^|[\\s,(])#?${esc(t.name)}(?=$|[\\s,)])`, 'i');
       if(re.test(line)){ tagIds.push(t.id); line = line.replace(re, '$1 '); }
     });
-    const parts = line.split(/\s+(?:vs\.?|v\.?|versus|-)\s+/i);
+    const parts = line.split(/\s+(?:vs\.?|v\.?|versus|-|—|–)\s+/i);
     if(parts.length !== 2) continue;
     const nm = x => x.replace(/^[\s,@:;-]+|[\s,@:;.-]+$/g, '').replace(/\s+/g, ' ');
     const p1 = nm(parts[0]), p2 = nm(parts[1]);
     if(!p1 || !p2 || p1.length > 40 || p2.length > 40) continue;
-    out.push({ p1, p2, time: `${h}:${String(min).padStart(2, '0')}`, side, tags: tagIds });
+    out.push({ p1, p2, time: `${h}:${String(min).padStart(2, '0')}`, side, tags: tagIds, ...(wager ? { wager } : {}), ...(tz ? { tz } : {}) });
   }
   return out;
 }
 function addTypedBets(list){
   const made = [], skipped = [];
   for(const t of list){
-    const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time });
+    const name = `${t.p1} vs ${t.p2}`, start = matchStart({ time: t.time, tz: t.tz });
     if(alarms.some(x => sameMatch(x.name, x.start, name, start))){ skipped.push(name); continue; }
     const a = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, start, ring: start - lead * 60000, lead,
-                side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true };
+                side: t.side, line:'', ouPct:'', edge:null, league:'', img:'', fired: start <= Date.now(), added: Date.now(), tags: t.tags || [], manual:true,
+                ...(t.wager ? { wager: t.wager } : {}), ...(t.tz ? { tzFrom: `${t.time} ${t.tz}` } : {}) };
     if(a.tags.includes('bot')) ensureBotTag();
     alarms.push(a); made.push(a);
   }
@@ -2008,7 +2062,7 @@ function addTypedBets(list){
   if(made.length === 1){
     const a = made[0];
     addMsg('bot', a.fired ? `Added ${a.name} as done (it started at ${fmtTime(a.start)}). Mark it Cash or Chalk.` : `Bet added. The alarm rings at ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
-      facts: [['Match', a.name], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ...(a.side ? [['Over/under', a.side]] : []), ...(a.tags.length ? [['Tags', a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ')]] : []), ['Note', 'Typed bet: friends can see it but can\'t copy it']] });
+      facts: [['Match', a.name], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}${a.tzFrom ? ` (from ${a.tzFrom})` : ''}`], ...(a.side ? [['Over/under', a.side]] : []), ...(a.wager ? [['Stake', a.wager + 'u']] : []), ...(a.tags.length ? [['Tags', a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ')]] : []), ['Note', 'Typed bet: friends can see it but can\'t copy it']] });
   } else if(made.length){
     addMsg('bot', `Added ${made.length} bets. Typed bets can't be copied by friends.`, { facts: made.map(a => [fmtTime(a.start), `${a.name}${a.side ? ' · ' + a.side : ''}${a.tags.length ? ' · ' + a.tags.map(id => (tags.find(t => t.id === id) || {}).name || id).join(', ') : ''}${a.fired ? ' · done' : ''}`]) });
   }
@@ -2040,7 +2094,7 @@ async function createAlarms(entries, problems = []){
     const a = made[0], past = a.ring <= Date.now();
     addMsg('bot', a.fired ? `This match already started at ${fmtTime(a.start)}, so I added it as done. Mark it Cash or Chalk in the list.`
       : past ? 'Alarm set. The alert time has already passed, so it will ring right away.' : `Alarm set for ${fmtTime(a.ring)} (${fmtDay(a.ring)}), ${a.lead} min before the start.`, {
-      facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%'], ...(isBot(a) ? [['Tag', 'Bot (yellow row)']] : []), ...(extraNames.length ? [['Tagged', extraNames.join(', ')]] : [])]
+      facts: [['Match', a.name], ['Competition', a.league || 'not shown'], ['Starts', `${fmtDay(a.start)}, ${fmtTime(a.start)}${a.tzFrom ? ` (from ${a.tzFrom})` : ''}`], ['Over/under', fmtSide(a) + (a.ouPct ? ' (' + a.ouPct + ')' : '')], ['Edge', a.edge==null ? 'not found' : a.edge + '%'], ...(isBot(a) ? [['Tag', 'Bot (yellow row)']] : []), ...(extraNames.length ? [['Tagged', extraNames.join(', ')]] : [])]
     });
   } else {
     const facts = made.map(a => [fmtTime(a.start), `${a.name}${a.league ? ' (' + a.league + ')' : ''} · ${fmtSide(a)} · edge ${a.edge==null ? '—' : a.edge + '%'}${isBot(a) ? ' · Bot' : ''}${a.fired ? ' · done, mark Cash or Chalk' : ''}`]);
@@ -2386,7 +2440,7 @@ const lastUnits = () => store.get('tt.lastUnits', 1);
 // Bot units (Settings → Betting): bot-tagged bets can start with their own unit size
 const botUnitsOn = () => store.get('tt.botUnitsOn', false) === true && +store.get('tt.botUnits', 0) > 0;
 const usesBotUnits = a => !!a && botUnitsOn() && isBot(a);
-const unitsFor = a => usesBotUnits(a) ? +store.get('tt.botUnits', 1) : lastUnits();
+const unitsFor = a => a && +a.wager > 0 ? +a.wager : usesBotUnits(a) ? +store.get('tt.botUnits', 1) : lastUnits();   // a card's WAGER (e.g. 1u) first
 function botUnitsPrefs(){ $('#botUnitsOn').checked = store.get('tt.botUnitsOn', false) === true; const u = +store.get('tt.botUnits', 0); $('#botUnits').value = u > 0 ? u : ''; $('#botUnits').disabled = !$('#botUnitsOn').checked; }
 $('#botUnitsOn').onchange = e => { store.set('tt.botUnitsOn', e.target.checked); botUnitsPrefs(); if(e.target.checked && !(+store.get('tt.botUnits', 0) > 0)) $('#botUnits').focus(); };
 $('#botUnits').onchange = e => { const u = +e.target.value; store.set('tt.botUnits', u > 0 ? +u.toFixed(2) : 0); botUnitsPrefs(); };

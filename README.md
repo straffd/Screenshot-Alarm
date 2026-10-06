@@ -60,6 +60,10 @@ Screenshots are read by Google Gemini (free tier).
     (up to 5). Anything you changed yourself since (e.g. Cash / Chalk) is left alone.
     **Bot units** (Settings → Betting): switch it on and set a unit size, and bets tagged Bot start with those units
     (Cash / Chalk buttons and the Cash popup) instead of your last-used units, without changing your last-used units.
+   **Match cards** (one match: "TT ELITE SERIES · 3:55 AM", the players, WAGER "UNDER 1u", RECORD "15/20 (75%)") are read too:
+   the side comes from the wager, the record becomes the O/U (UNDER 15/20 → 5/15), the wager's units are the default stake when you
+   Cash or Chalk, and the bet is added without an edge. **Timezones:** a time shown with a timezone (e.g. "3:55 AM EDT") is converted
+   to your device's time (AEST/AEDT in Sydney); the reply says what it was converted from. Times with no timezone are your local time.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
     Sending a screenshot of a bet you already have only ever adds tags: Bot if the new photo's row is yellow, SWEEP if you
