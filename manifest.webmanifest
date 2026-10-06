@@ -1,6 +1,6 @@
 {
-  "name": "TT Alarm Bot",
-  "short_name": "TT Alarm",
+  "name": "TTracker",
+  "short_name": "TTracker",
   "description": "Send a screenshot of a table tennis match and get an alarm before it starts.",
   "id": "./",
   "start_url": "./",

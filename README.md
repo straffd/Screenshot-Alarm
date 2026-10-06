@@ -1,4 +1,4 @@
-# TT Alarm Bot
+# TTracker
 
 Send a screenshot of a table tennis match and get an alarm a set number of minutes before it starts.
 Screenshots are read by Google Gemini (free tier).

@@ -8,9 +8,9 @@
 <meta name="theme-color" content="#16181b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="TT Alarm">
+<meta name="apple-mobile-web-app-title" content="TTracker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>TT Alarm Bot</title>
+<title>TTracker</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -740,7 +740,7 @@ html.phone .alpha-note{display:inline}
 <div class="landing" id="landing" hidden>
   <div class="landing-card">
     <img class="landing-logo" src="apple-touch-icon.png" alt="">
-    <h1>TT Alarm Bot</h1>
+    <h1>TTracker</h1>
     <p class="tagline">Screenshot a table tennis match. Get an alarm before it starts.</p>
     <ul>
       <li>Reads the players, start time, over/under and edge straight from your screenshots.</li>
@@ -751,7 +751,7 @@ html.phone .alpha-note{display:inline}
       <span id="landingAvatar"></span>
       <div class="name" id="landingName"></div>
       <div class="email" id="landingEmail"></div>
-      <button class="openapp" id="openApp">Open TT Alarm Bot</button>
+      <button class="openapp" id="openApp">Open TTracker</button>
       <button class="guest" id="landingLogout">Log out</button>
     </div>
     <div class="guest-only">
@@ -771,7 +771,7 @@ html.phone .alpha-note{display:inline}
   <button class="ghost iconbtn" id="drawerBtn" aria-controls="drawer" aria-expanded="false" aria-label="Menu" title="Menu">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
-  <button class="brand" id="homeBtn" title="Back to the home page"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
+  <button class="brand" id="homeBtn" title="Back to the home page"><span class="ball" aria-hidden="true"></span>TTracker</button>
   <button class="ghost iconbtn" id="menuBtn" aria-haspopup="dialog" aria-label="Settings" title="Settings">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="lbl">Settings</span>
   </button>
@@ -799,7 +799,7 @@ html.phone .alpha-note{display:inline}
 <!-- Phones: Gmail-style menu drawer (replaces the logo, ⚙ and toolbar) -->
 <div class="scrim" id="scrim" hidden></div>
 <nav class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
-  <button class="dr-brand" data-go="home"><span class="ball" aria-hidden="true"></span>TT Alarm Bot</button>
+  <button class="dr-brand" data-go="home"><span class="ball" aria-hidden="true"></span>TTracker</button>
   <div class="dr-sep"></div>
   <button class="dr-item" data-go="chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Chat</span><em></em></button>
   <div class="dr-sep"></div>
@@ -3244,8 +3244,8 @@ async function stopElsewhere(id){
 // Where to allow notifications again, for this kind of device (they can only be unblocked from its settings)
 function unblockHelp(){
   const ua = navigator.userAgent, installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if(/iPhone|iPad|iPod/.test(ua)) return 'On iPhone: open Settings → Notifications → TT Alarm Bot and turn on Allow Notifications.';
-  if(/Android/.test(ua)) return installed ? 'On Android: press and hold the TT Alarm Bot icon → App info → Notifications, and turn them on.'
+  if(/iPhone|iPad|iPod/.test(ua)) return 'On iPhone: open Settings → Notifications → TTracker and turn on Allow Notifications.';
+  if(/Android/.test(ua)) return installed ? 'On Android: press and hold the TTracker icon → App info → Notifications, and turn them on.'
     : 'In Chrome: tap the icon left of the web address → Permissions (or Site settings) → Notifications → Allow.';
   return 'In your browser: click the icon left of the web address → Notifications → Allow.';
 }
@@ -3338,7 +3338,7 @@ function stopAlarm(id, remote){
   if(alarms.some(a => a.id === id && a.test)){ alarms = alarms.filter(a => a.id !== id); store.set('tt.alarms', alarms); }   // the test alarm goes away once stopped
   const n = notes.get(id); notes.delete(id); if(n) try{ n.close(); }catch(e){}   // stopping here also closes the popup
   if(swReg && swReg.getNotifications) swReg.getNotifications({ tag: id }).then(l => l.forEach(x => x.close())).catch(() => {});
-  if(!ringing.size){ stopLoop(); document.title = 'TT Alarm Bot'; }
+  if(!ringing.size){ stopLoop(); document.title = 'TTracker'; }
   render();
 }
 
@@ -4241,7 +4241,7 @@ const tour = { i: 0, steps: [] };
 function tourSteps(){
   const phone = isPhone();
   const setup = [
-    { title: 'Welcome to TT Alarm Bot', body: () => `<p>Send a screenshot of a table tennis match and I'll read the players, start time, over/under and edge, then ring an alarm before it starts.</p>
+    { title: 'Welcome to TTracker', body: () => `<p>Send a screenshot of a table tennis match and I'll read the players, start time, over/under and edge, then ring an alarm before it starts.</p>
         <p>You can then record each result (Cash or Chalk) and track your profit and loss, and compare with friends.</p>
         <p class="muted">This takes about a minute: two quick setup steps, then a short tour.</p>`, next: 'Start' },
     { title: 'Set up Gemini', body: () => `<p>Screenshots are read by Google's Gemini. It's free: get a key at
