@@ -1543,7 +1543,8 @@ Return ONLY a JSON object, no markdown, in this shape:
  {
   "player1": "top player of the row exactly as shown, e.g. Minda M.",
   "player2": "bottom player of the row exactly as shown",
-  "time": "match start time in 24h HH:MM",
+  "time": "the match start time exactly as shown, keeping AM or PM, e.g. 4:35 PM (or 16:35 if the screen itself shows 24-hour times). Never drop the PM: 4:35 PM is not 4:35",
+  "ampm": "AM or PM as shown next to the time, or null if the time is written in 24-hour form",
   "ou_line": "the O/U value as overs/unders, two whole numbers with a slash, copied digit for digit, e.g. 4/12 (from \"4/12 · 25%\") or 36/20 (from \"36O·20U\")",
   "h2h": "the number next to H2H, e.g. 56, or null if the row has none",
   "wager": "the WAGER text if there is one, e.g. UNDER 1u, else null",
@@ -1648,12 +1649,13 @@ function parseJson(text){
 }
 
 /* ---------- Time helpers ---------- */
-function to24(t){
+// "4:35 PM", "4:35pm", "4.35 p.m.", "16:35"; ampm is the AM/PM Gemini read separately, used when the time itself has none
+function to24(t, ampm){
   if(!t) return null;
-  const m = String(t).trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+  const m = String(t).trim().match(/^(\d{1,2})[:.](\d{2})\s*(?:([AaPp])\.?\s*[Mm]?\.?)?$/);
   if(!m) return null;
-  let h = +m[1]; const min = +m[2];
-  if(m[3]){ const pm = /p/i.test(m[3]); if(pm && h<12) h+=12; if(!pm && h===12) h=0; }
+  let h = +m[1]; const min = +m[2], ap = m[3] || (/^\s*([ap])\.?\s*m?\.?\s*$/i.exec(String(ampm || '')) || [])[1];
+  if(ap && h >= 1 && h <= 12){ const pm = /p/i.test(ap); if(pm && h<12) h+=12; if(!pm && h===12) h=0; }
   return [h,min];
 }
 function parseDate(d){
@@ -1681,7 +1683,7 @@ function tzOffset(tz, t){
        return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour % 24, +p.minute) - t) / 6e4); }catch(e){ return null; }
 }
 function matchStart(info){
-  const hm = to24(info.time); if(!hm) return null;
+  const hm = to24(info.time, info.ampm); if(!hm) return null;
   const off = tzOffset(info.tz, Date.now());
   if(off != null && off !== -new Date().getTimezoneOffset()){   // another timezone: that day's clock time there, as a moment
     const z = new Date(Date.now() + off * 6e4);

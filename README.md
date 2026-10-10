@@ -62,7 +62,7 @@ Screenshots are read by Google Gemini (free tier).
     (Cash / Chalk buttons and the Cash popup) instead of your last-used units, without changing your last-used units.
    **Match cards** (the green Discord screenshots) are always tagged **Bot**, like a yellow row. (One match: "TT ELITE SERIES · 3:55 AM", the players, WAGER "UNDER 1u", RECORD "15/20 (75%)") are read too:
    the side comes from the wager, the record becomes the O/U (UNDER 15/20 → 5/15), the wager's units are the default stake when you
-   Cash or Chalk, and the bet is added without an edge. **Timezones:** a time shown with a timezone (e.g. "3:55 AM EDT") is converted
+   Cash or Chalk, and the bet is added without an edge. **AM/PM:** Gemini reads the time as shown (4:35 PM) and the AM/PM separately, so a dropped "PM" no longer turns an evening match into 4:35 AM. **Timezones:** a time shown with a timezone (e.g. "3:55 AM EDT") is converted
    to your device's time (AEST/AEDT in Sydney); the reply says what it was converted from. Times with no timezone are your local time.
 10. **Bot picks:** a screenshot whose match row has the yellow-tinted background (a bot pick) is tagged **Bot**
     automatically. If one is tagged wrong, open the bet and click the Bot tag to add or remove it.
