@@ -1867,13 +1867,14 @@ function botRow(dataUrl, box){
       const c = document.createElement('canvas'); c.width = w; c.height = Math.min(h, 400);
       const g = c.getContext('2d', { willReadFrequently:true });
       g.drawImage(im, x0 * im.width, y0 * im.height, (x1 - x0) * im.width, (y1 - y0) * im.height, 0, 0, c.width, c.height);
-      const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0, warm = 0;
+      const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0, warm = 0, green = 0;
       for(let i = 0; i < d.length; i += 4){
         const r = d[i], gr = d[i + 1], b = d[i + 2];
         if(Math.max(r, gr, b) >= 90) continue;   // text, pills and bars: only the background counts
-        dark++; if(r - b >= 4 && gr - b >= 4) warm++;
+        dark++; if(r - b >= 4 && gr - b >= 4) warm++; if(gr - r >= 6 && gr - b >= 3) green++;
       }
-      res(dark > 50 && warm / dark > 0.4);
+      // a yellow-tinted row, or the green Discord match card (its background is dark green: ~76% of it, against ~1% on a normal screenshot)
+      res(dark > 50 && (warm / dark > 0.4 || green / dark > 0.5));
     };
     im.onerror = () => res(false);
     im.src = dataUrl;
@@ -1936,7 +1937,7 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
     return { ok:false, retag:true, name, why: added.length ? `kept its tags, added ${added.join(', ')}` : 'kept its tags as they were' };
   }
   if(have){   // already placed: a new photo can add tags (Bot from a yellow row; SWEEP only if you wrote it) but never removes any
-    const bot = await botRow(img, cropIt ? info.box_2d : null); if(bot) ensureBotTag();
+    const bot = (await botRow(img, cropIt ? info.box_2d : null)) || !!info.wager; if(bot) ensureBotTag();   // a match card (it has a WAGER) is a bot post too
     const before = new Set(have.tags || []), t = [...(have.tags || [])];
     if(bot && !t.includes('bot')) t.unshift('bot'); if(sweep && !t.includes('sweep')) t.push('sweep');
     extra.forEach(id => { if(!t.includes(id)) t.push(id); });   // tags you asked for in the message
@@ -1957,7 +1958,7 @@ async function createAlarm(info, img, cropIt, sweep, extra = [], keepTags = fals
   const wager = wg && +wg[2] > 0 ? +wg[2] : null;
   const edgeNum = parseFloat(String(info.edge||'').replace(/[^\d.]/g,''));
   const shot = (cropIt && await cropRow(img, info.box_2d)) || img;
-  const bot = await botRow(img, cropIt ? info.box_2d : null);   // yellow row = bot pick
+  const bot = (await botRow(img, cropIt ? info.box_2d : null)) || !!info.wager;   // yellow row or green Discord card (it has a WAGER) = bot pick
   if(bot) ensureBotTag();
   const a = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
